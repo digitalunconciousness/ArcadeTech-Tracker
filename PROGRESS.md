@@ -14,13 +14,15 @@ push/PR → owner deploys (⏸).
 - [x] `scripts/privacy_check.sh` + `.githooks/pre-push`, tested against a scratch repo
       seeded with each violation
 - [x] CLAUDE.md, PROGRESS.md
-- [ ] ⏸ `.githooks/patterns.local` values from the owner (written locally only)
-- [ ] ⏸ GitHub: `digitalunconciousness/shop-hub` answers "Repository not found" over SSH
+- [x] `.githooks/patterns.local`: owner/partner names, the barcade, plus GATBOX's 9 values
+      (17 patterns; local only, mode 600)
+- [x] GitHub: SSH already works; the repo is `ArcadeTech-Tracker` (remote repointed), empty
+- [ ] ⏸ `ArcadeTech-Tracker` was created **PUBLIC**: owner makes it private before any push
 - [ ] ⏸ prod Postgres major version (`psql -c 'select version()'` on the DB host)
 - [ ] ⏸ Debian 13 LXC template's Python version
 - [ ] ⏸ Dev Postgres choice approved, then set up (install only with OK)
 - [ ] ⏸ uv venv at `~/.venvs/shop-hub` approved, then created
-- [ ] ⏸ "Decisions for you" (PLAN.md) answered
+- [x] "Decisions for you" (PLAN.md) answered (table below)
 - [ ] First commit pushed to `main` (owner's go)
 
 ## Phase 0: Foundation (branch `phase/0-foundation`)
@@ -75,7 +77,7 @@ push/PR → owner deploys (⏸).
 
 ## Phase 4: Billing (branch `phase/4-billing`)
 
-- [ ] Design note → ⏸ OK
+- [ ] Design note → ⏸ OK (must settle: invoicing taxable parts with no permit; see Notes)
 - [ ] Tax jurisdictions; invoice issue (snapshot, number, frozen PDF + sha256, warranty dates)
 - [ ] Payments, allocations, deposits, credit memos, voids, reversals, statements, receipts
 - [ ] Immutability triggers
@@ -120,6 +122,14 @@ push/PR → owner deploys (⏸).
 | 2026-10-07 | The barcade is referred to as "the barcade" in the repo; its name lives only in `patterns.local` | Workplace data stays out of git; PLAN.md's "Uptown" (wrong anyway) replaced |
 | 2026-10-07 | Privacy check checks every commit in the range (`git log -p`), not only the net diff | A secret added then removed is still in history |
 | 2026-10-07 | Synthetic emails allowed only on reserved domains (example.com/.org/.net, .test, .invalid) plus the two noreply addresses | Hard rule allows only the noreply email; reserved names can't belong to anyone |
+| 2026-10-07 | GitHub repo is `ArcadeTech-Tracker`; local dir, unit, paths, DB stay `shop-hub` / `shop` | Owner created it under that name |
+| 2026-10-07 | Dashboard: cash basis by default, accrual toggle | Owner (confirm with CPA) |
+| 2026-10-07 | Labor: actual time rounded up to 0.25 h, 0.5 h minimum per job; flat rate where a template prices the job | Owner |
+| 2026-10-07 | Warranty defaults: **365 days** on parts we supply and on labor; **90 days on labor** when the customer supplied the part (the customer's part itself: none). Per service/part, editable | Owner |
+| 2026-10-07 | Profit split **50/50** (equal) | Owner |
+| 2026-10-07 | Cloudflare Access (email one-time code) in front of everything except `/api/v1/*` and `/d/*` | Owner. Runbook covers it in Phase 0 |
+| 2026-10-07 | Contract v2, when needed, is owned by GATBOX | Owner |
+| 2026-10-07 | **No Oklahoma sales tax permit yet**; tax switched off until the business picks up | Owner. Phase 4 must decide how parts lines behave with tax off |
 
 ## Notes
 
@@ -132,3 +142,11 @@ push/PR → owner deploys (⏸).
   already installed (service inactive); podman and docker not installed; shellcheck not
   installed.
 - Tracker RUNBOOK says the prod Postgres server is **17**. To be confirmed on the host.
+- GitHub web-UI merges in both reference repos are authored with the owner's personal email
+  and a local offset (already public). Fix: GitHub Settings → Emails → keep private + block
+  pushes that expose it. Check the first shop merge's timestamp; if not UTC, merge locally
+  with `git c` and push.
+- Tax with no permit (Phase 4 design question): the plan's rule "refuse to issue a taxable
+  line with tax off" would block every invoice with parts, since parts default to taxable.
+  Options to decide then: block; or issue with tax 0 and flag the lines. Ask the CPA whether
+  selling parts at all needs the permit first.
