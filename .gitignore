@@ -1,0 +1,33 @@
+# Environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets and site config: never in git
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runtime data: customer files, backups, the instance dir
+instance/
+files/
+backups/
+logs/
+
+# Databases and dumps: real data never enters the repo
+*.sql
+*.dump
+*.db
+*.sqlite
+*.sqlite3
+
+# Local-only values (hook patterns, notes). Anything with .local in its name,
+# including backups made while editing one (*.local.bak, *.local~).
+*.local*
+!.githooks/patterns.local.example

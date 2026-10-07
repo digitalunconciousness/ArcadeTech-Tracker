@@ -1,0 +1,20 @@
+# Copy to patterns.local (git-ignored) and replace with your own values.
+# One extended regex per line; # comments and blank lines are skipped.
+# The check never prints a match from this file, only where it is.
+# Your login name and home directory are already checked without being listed here.
+
+# Owner and partner identity
+# [Ff]irst[ ._-]?[Ll]ast
+# you@gmail\.com
+
+# Business and workplace (real customers never appear anywhere in the repo)
+# Real Business Name
+# Employer Name
+
+# Network and hosts
+# yourdomain\.com
+# shop\.yourdomain\.com
+# 192\.168\.1\.
+
+# Timezone give-aways in content
+# America/Your_City
