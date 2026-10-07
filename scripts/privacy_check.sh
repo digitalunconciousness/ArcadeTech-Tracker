@@ -17,7 +17,10 @@ set -uo pipefail
 
 ROOT=$(git rev-parse --show-toplevel) || exit 2
 cd "$ROOT" || exit 2
+# Local checkout: .githooks/patterns.local. Cloud session: docs/cloud-setup.sh writes it
+# under ~/.config, outside the clone. An explicit SHOP_HOOK_PATTERNS beats both.
 PATTERNS="${SHOP_HOOK_PATTERNS:-$ROOT/.githooks/patterns.local}"
+[ -z "${SHOP_HOOK_PATTERNS:-}" ] && [ ! -r "$PATTERNS" ] && PATTERNS="$HOME/.config/shop-hub/patterns.local"
 
 if [ "$#" -gt 0 ]; then
   RANGE=("$@")

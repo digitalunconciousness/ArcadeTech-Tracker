@@ -18,12 +18,16 @@ push/PR → owner deploys (⏸).
       (17 patterns; local only, mode 600)
 - [x] GitHub: SSH already works; the repo is `ArcadeTech-Tracker` (remote repointed), empty
 - [x] `ArcadeTech-Tracker` stays **public** (owner, 2026-10-07); LICENSE: all rights reserved
-- [ ] ⏸ prod Postgres major version (`psql -c 'select version()'` on the DB host)
-- [ ] ⏸ Debian 13 LXC template's Python version
-- [ ] ⏸ Dev Postgres choice approved, then set up (install only with OK)
-- [ ] ⏸ uv venv at `~/.venvs/shop-hub` approved, then created
+- [x] Prod Postgres: **17.9** (Debian 13 package, `17.9-0+deb13u1`). Debian 13's own
+      `postgresql-client` is 17, so the shop LXC needs no PGDG repo for pg_dump
+- [ ] ⏸ Debian 13 LXC template's Python version (expect 3.13; the runbook checks it in Phase 0)
+- [x] Dev Postgres: rootless podman (owner installed 6.1.2), `postgres:17`, on 127.0.0.1:5433;
+      `scripts/devdb.sh` (Phase 0) also drives docker for cloud sessions
+- [x] uv venv at `~/.venvs/shop-hub` (Python 3.13.15), empty until Phase 0 pins
 - [x] "Decisions for you" (PLAN.md) answered (table below)
-- [ ] First commit pushed to `main` (owner's go)
+- [x] First commits pushed to `main` (owner's go)
+- [x] Cloud handoff: `docs/cloud-setup.sh` + CLAUDE.md "Cloud sessions"
+- [ ] ⏸ Owner: GitHub email privacy (deferred by owner)
 
 ## Phase 0: Foundation (branch `phase/0-foundation`)
 
@@ -130,6 +134,9 @@ push/PR → owner deploys (⏸).
 | 2026-10-07 | Profit split **50/50** (equal) | Owner |
 | 2026-10-07 | Cloudflare Access (email one-time code) in front of everything except `/api/v1/*` and `/d/*` | Owner. Runbook covers it in Phase 0 |
 | 2026-10-07 | Contract v2, when needed, is owned by GATBOX | Owner |
+| 2026-10-07 | Synthetic test emails on reserved domains (example.com, .test) allowed | Owner |
+| 2026-10-07 | Dev Postgres: podman `postgres:17`; Python env: uv venv at `~/.venvs/shop-hub` | Owner; matches prod 17.9 |
+| 2026-10-07 | Phase 0 onward may run in claude.ai/code cloud sessions | Owner. Setup in `docs/cloud-setup.sh` |
 | 2026-10-07 | **No Oklahoma sales tax permit yet**; tax switched off until the business picks up | Owner. Phase 4 must decide how parts lines behave with tax off |
 
 ## Notes
@@ -142,7 +149,7 @@ push/PR → owner deploys (⏸).
 - Workstation: Python 3.13.15 (uv-managed) available; uv 0.12.19; pacman `postgresql` 18.6
   already installed (service inactive); podman and docker not installed; shellcheck not
   installed.
-- Tracker RUNBOOK says the prod Postgres server is **17**. To be confirmed on the host.
+- Prod Postgres confirmed **17.9** on Debian 13 (it lives in its own container on the Proxmox host).
 - GitHub web-UI merges in both reference repos are authored with the owner's personal email
   and a local offset (already public). Fix: GitHub Settings → Emails → keep private + block
   pushes that expose it. Check the first shop merge's timestamp; if not UTC, merge locally

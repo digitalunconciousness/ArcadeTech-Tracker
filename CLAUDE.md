@@ -154,3 +154,26 @@ database), creates `shop_test_<random>`, runs the real migrations into it (so tr
 tested), and drops it at the end. It refuses to run if `DATABASE_URL` names anything that
 is not a `shop_test_` database. CI does the same against a `postgres` service container of
 the prod major version.
+
+## Cloud sessions (claude.ai/code)
+
+A cloud session gets a fresh Ubuntu 24.04 VM with only this repo cloned. The environment's
+setup script is `docs/cloud-setup.sh` (pasted into the environment settings, with the
+`SHOP_PATTERNS` variable). Differences from the owner's machine:
+
+- Reference repos are at `/opt/refs/arcade-tracker` and `/opt/refs/gatbox` (read-only
+  clones, not attached to the session). Same rules as `~/arcade-tracker` / `~/gatbox`.
+- First thing each session, set what a fresh clone lacks:
+  ```
+  git config core.hooksPath .githooks
+  git config user.name digitalunconciousness
+  git config user.email 240414701+digitalunconciousness@users.noreply.github.com
+  git config alias.c '!TZ=UTC git commit'
+  ```
+- `scripts/privacy_check.sh` reads `~/.config/shop-hub/patterns.local` (written by the
+  setup script). If it reports the file MISSING, stop and tell the owner; never push without it.
+- Python 3.13 is `python3.13` (deadsnakes); make the venv with
+  `python3.13 -m venv ~/.venvs/shop-hub`. Postgres 17 runs in docker via `scripts/devdb.sh`;
+  the VM's preinstalled PostgreSQL 16 is not used.
+- Nothing local carries over: no `.env`, no dev database, no files. Data in the cloud VM is
+  synthetic only.
