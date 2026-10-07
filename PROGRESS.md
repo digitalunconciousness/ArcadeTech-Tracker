@@ -17,7 +17,7 @@ push/PR → owner deploys (⏸).
 - [x] `.githooks/patterns.local`: owner/partner names, the barcade, plus GATBOX's 9 values
       (17 patterns; local only, mode 600)
 - [x] GitHub: SSH already works; the repo is `ArcadeTech-Tracker` (remote repointed), empty
-- [ ] ⏸ `ArcadeTech-Tracker` was created **PUBLIC**: owner makes it private before any push
+- [x] `ArcadeTech-Tracker` stays **public** (owner, 2026-10-07); LICENSE: all rights reserved
 - [ ] ⏸ prod Postgres major version (`psql -c 'select version()'` on the DB host)
 - [ ] ⏸ Debian 13 LXC template's Python version
 - [ ] ⏸ Dev Postgres choice approved, then set up (install only with OK)
@@ -122,6 +122,7 @@ push/PR → owner deploys (⏸).
 | 2026-10-07 | The barcade is referred to as "the barcade" in the repo; its name lives only in `patterns.local` | Workplace data stays out of git; PLAN.md's "Uptown" (wrong anyway) replaced |
 | 2026-10-07 | Privacy check checks every commit in the range (`git log -p`), not only the net diff | A secret added then removed is still in history |
 | 2026-10-07 | Synthetic emails allowed only on reserved domains (example.com/.org/.net, .test, .invalid) plus the two noreply addresses | Hard rule allows only the noreply email; reserved names can't belong to anyone |
+| 2026-10-07 | Repo stays **public**; LICENSE is all rights reserved, holder `digitalunconciousness` | Owner. Public means the privacy check is the only barrier, so it runs on every push |
 | 2026-10-07 | GitHub repo is `ArcadeTech-Tracker`; local dir, unit, paths, DB stay `shop-hub` / `shop` | Owner created it under that name |
 | 2026-10-07 | Dashboard: cash basis by default, accrual toggle | Owner (confirm with CPA) |
 | 2026-10-07 | Labor: actual time rounded up to 0.25 h, 0.5 h minimum per job; flat rate where a template prices the job | Owner |

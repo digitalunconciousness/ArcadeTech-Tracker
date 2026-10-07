@@ -5,9 +5,7 @@
 #
 #     git config core.hooksPath .githooks
 #
-# The repo is private, but private is a setting, not a guarantee: a collaborator, a fork or
-# one wrong click on "public" and everything in history is out. So the rules are the same
-# as for a public repo.
+# The repo is public: anything pushed is published, and history keeps it after a delete.
 set -u
 
 readonly ZERO=0000000000000000000000000000000000000000

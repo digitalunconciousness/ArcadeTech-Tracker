@@ -6,7 +6,7 @@ private Flask + PostgreSQL app in its own LXC. GATBOX (the bench Pi) pushes trac
 contract v1, exactly as it does to the barcade's arcade-tracker.
 
 "ArcadeTech Tracker" is the business/display name (a setting, printed on documents). The
-GitHub repo is `digitalunconciousness/ArcadeTech-Tracker` (private). The local checkout,
+GitHub repo is `digitalunconciousness/ArcadeTech-Tracker` (**public**, the owner's choice 2026-10-07; all rights reserved, see LICENSE). The local checkout,
 service, paths and database stay `shop-hub` / `shop`, so nothing collides with the barcade's
 `arcade-tracker` repo, unit or `/opt` path.
 
