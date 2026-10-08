@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Customers{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Customers</h1>
+    {% if can_edit %}<a class="btn primary" href="{{ url_for('customers.new') }}">Add customer</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for c, n_assets in rows %}
+    <li{% if not c.active %} class="inactive"{% endif %}>
+      <a href="{{ url_for('customers.show', customer_id=c.id) }}"><strong>{{ c.display_name }}</strong></a>
+      {% if c.is_shop %}<span class="badge">the shop</span>{% endif %}
+      {% if not c.active %}<span class="badge danger">inactive</span>{% endif %}
+      <div class="dim">{{ c.phone or '' }}{% if n_assets %} · {{ n_assets }} asset{{ 's' if n_assets != 1 }}{% endif %}</div>
+    </li>
+    {% else %}
+    <li class="dim">No customers yet.</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('customers.index', all=None if show_all else 1) }}">{{ 'Hide inactive' if show_all else 'Show inactive too' }}</a></p>
+</section>
+{% endblock %}

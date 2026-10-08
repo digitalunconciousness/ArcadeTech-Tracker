@@ -6,6 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}{% endblock %} · {{ shop.business_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -13,11 +14,17 @@
     {% if current_user.is_authenticated %}
     <nav class="nav">
       <a href="{{ url_for('dashboard.index') }}" {% if request.endpoint == 'dashboard.index' %}class="active"{% endif %}>Dashboard</a>
+      <a href="{{ url_for('customers.index') }}" {% if request.blueprint == 'customers' %}class="active"{% endif %}>Customers</a>
+      <a href="{{ url_for('assets.index') }}" {% if request.blueprint == 'assets' and request.endpoint != 'assets.labels' %}class="active"{% endif %}>Assets</a>
+      <a href="{{ url_for('assets.labels') }}" {% if request.endpoint == 'assets.labels' %}class="active"{% endif %}>Labels</a>
       {% if current_user.role == 'owner' %}
       <a href="{{ url_for('settings.index') }}" {% if request.blueprint == 'settings' %}class="active"{% endif %}>Settings</a>
       {% endif %}
       <a href="{{ url_for('auth.account') }}" {% if request.endpoint == 'auth.account' %}class="active"{% endif %}>{{ current_user.username }}</a>
     </nav>
+    <form class="search" action="{{ url_for('search.index') }}" method="get" role="search">
+      <input type="search" name="q" placeholder="Search: name, phone, tag, serial" value="{{ request.args.get('q', '') if request.endpoint == 'search.index' else '' }}" aria-label="Search">
+    </form>
     {% endif %}
   </header>
   <main class="page">

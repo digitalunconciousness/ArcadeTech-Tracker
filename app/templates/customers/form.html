@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ customer.name if customer else 'New customer' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>{{ customer.name if customer else 'New customer' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.kind) }}
+    {{ field(form.name, autofocus=not customer) }}
+    {{ field(form.dba) }}
+    {{ field(form.phone, autocomplete="tel", inputmode="tel") }}
+    {{ field(form.billing_email, autocomplete="email", inputmode="email") }}
+    <h2>Billing address</h2>
+    {{ field(form.address_line1, autocomplete="address-line1") }}
+    {{ field(form.address_line2, autocomplete="address-line2") }}
+    <div class="row">
+      {{ field(form.city, autocomplete="address-level2") }}
+      {{ field(form.region, autocomplete="address-level1") }}
+      {{ field(form.postal_code, autocomplete="postal-code") }}
+    </div>
+    <h2>Terms and tax</h2>
+    {{ field(form.payment_terms) }}
+    {{ check(form.tax_exempt) }}
+    <div class="row two">
+      {{ field(form.exempt_cert_no) }}
+      {{ field(form.exempt_cert_expires) }}
+    </div>
+    {{ check(form.sends_1099) }}
+    {{ field(form.referral_source) }}
+    {{ field(form.notes) }}
+    {% if customer %}{{ check(form.active) }}{% endif %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('customers.show', customer_id=customer.id) if customer else url_for('customers.index') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

@@ -167,6 +167,9 @@ def _clean(request, tdb):
             sql.SQL(", ").join(sql.Identifier(t) for t in tables)))
         c.execute("DELETE FROM shop_setting")
         c.execute("INSERT INTO shop_setting (id) VALUES (true)")
+        # migration 0004's row: the shop as its own customer
+        c.execute("INSERT INTO customer (kind, name, is_shop) "
+                  "SELECT 'business', business_name, true FROM shop_setting")
 
 
 @pytest.fixture
@@ -210,3 +213,29 @@ def login(client, user, password=TEST_PASSWORD, steps_ahead=0):
     if user.get("secret") and resp.status_code == 302 and "/login/totp" in resp.location:
         resp = client.post("/login/totp", data={"code": totp_code(user["secret"], steps_ahead)})
     return resp
+
+
+@pytest.fixture
+def signed_in(app, make_user):
+    """signed_in("tech") -> a test client logged in as a fresh user with that role."""
+    counter = {"n": 0}
+
+    def make(role="owner"):
+        counter["n"] += 1
+        user = make_user(f"{role}{counter['n']}", role, totp=(role == "owner"))
+        client = app.test_client()
+        resp = login(client, user)
+        assert resp.status_code == 302 and resp.location == "/", resp.location
+        client.user = user
+        return client
+
+    return make
+
+
+def db_query(app, sql, **params):
+    from sqlalchemy import text
+
+    from app.extensions import db
+
+    with app.app_context():
+        return db.session.execute(text(sql), params).all()

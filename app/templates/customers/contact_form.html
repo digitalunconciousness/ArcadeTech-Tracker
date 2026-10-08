@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ contact.name if contact else 'New contact' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></p>
+  <h1>{{ contact.name if contact else 'New contact' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.name, autofocus=not contact) }}
+    {{ field(form.role) }}
+    {{ field(form.phone, autocomplete="tel", inputmode="tel") }}
+    {{ field(form.email, autocomplete="email", inputmode="email") }}
+    {{ check(form.is_billing) }}
+    {{ check(form.is_site) }}
+    {{ field(form.notes) }}
+    {% if contact %}{{ check(form.active) }}{% endif %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('customers.show', customer_id=customer.id) }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

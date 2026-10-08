@@ -176,3 +176,23 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .qr svg { display: block; width: 16rem; max-width: 100%; height: auto; }
 .steps { padding-left: 1.2rem; }
 .inline { margin-top: 1rem; }
+
+/* Phase 1: lists, tags, labels, search */
+.head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.head h1, .head h2 { margin-bottom: 0.4em; }
+.tag { color: var(--cyan); letter-spacing: 0.03em; word-break: break-all; }
+h1.tag { font-family: var(--mono); font-size: 1.3rem; text-shadow: 0 0 8px rgba(125, 250, 255, 0.4); }
+.lead { font-size: 1.15rem; }
+.notes { white-space: pre-wrap; margin: 0.3rem 0 0; }
+.row.two { grid-template-columns: 1fr; }
+@media (min-width: 36rem) { .row.two { grid-template-columns: 1fr 1fr; } }
+textarea { min-height: 5rem; }
+.search { flex: 1 1 100%; }
+@media (min-width: 48rem) { .search { flex: 0 1 18rem; } }
+.search input { padding: 0.45rem 0.6rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.inline-form { display: inline; margin: 0; }
+.btn.copied { border-color: var(--lime); color: var(--lime); }
+.label-preview { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+.label-preview .qr svg { width: 10rem; }
+.labels li { padding: 0.8rem 0; }

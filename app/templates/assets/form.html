@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ asset.tag if asset else 'New asset' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></p>
+  <h1>{% if asset %}<span class="mono tag">{{ asset.tag }}</span>{% else %}New asset{% endif %}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.name, autofocus=not asset) }}
+    {% if not asset %}<p class="dim">The tag is made from this name once and never changes.</p>{% endif %}
+    <div class="row two">{{ field(form.kind) }}{% if form.status %}{{ field(form.status) }}{% endif %}</div>
+    {{ field(form.site_id) }}
+    {{ field(form.parent_asset_id) }}
+    <div class="row two">{{ field(form.manufacturer) }}{{ field(form.model) }}</div>
+    <div class="row two">{{ field(form.year, inputmode="numeric") }}{{ field(form.serial) }}</div>
+    {{ field(form.model_key) }}
+    {{ field(form.shop_location) }}
+    {{ field(form.notes) }}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('assets.show', asset_id=asset.id) if asset else url_for('customers.show', customer_id=customer.id) }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Move {{ asset.tag }}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Move <span class="mono tag">{{ asset.tag }}</span></h1>
+  <p class="dim">New owner and/or site. Anything inside it goes too. The history and the tag stay with it.</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.customer_id) }}
+    {{ field(form.site_id) }}
+    {{ field(form.note) }}
+    <button class="btn primary" type="submit">Move</button>
+    <a class="btn" href="{{ url_for('assets.show', asset_id=asset.id) }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

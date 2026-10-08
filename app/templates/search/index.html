@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Search</h1>
+  <form method="get" action="{{ url_for('search.index') }}" class="row two">
+    <label class="field"><span>Name, phone, email, tag, serial, model, site</span>
+      <input type="search" name="q" value="{{ q }}" autofocus></label>
+  </form>
+  {% if q and q|length < 2 %}<p class="dim">Type at least two characters.</p>
+  {% elif q and not found %}<p class="dim">Nothing matches “{{ q }}”.</p>{% endif %}
+  {% if results.customers %}
+  <h2>Customers</h2>
+  <ul class="list">{% for c in results.customers %}<li><a href="{{ url_for('customers.show', customer_id=c.id) }}">{{ c.display_name }}</a> <span class="dim">{{ c.phone or '' }}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if results.contacts %}
+  <h2>Contacts</h2>
+  <ul class="list">{% for p, c in results.contacts %}<li>{{ p.name }} <span class="dim">{{ p.phone or '' }} {{ p.email or '' }}</span> · <a href="{{ url_for('customers.show', customer_id=c.id) }}">{{ c.display_name }}</a></li>{% endfor %}</ul>
+  {% endif %}
+  {% if results.assets %}
+  <h2>Assets</h2>
+  <ul class="list">{% for a, c in results.assets %}<li><a href="{{ url_for('assets.show', asset_id=a.id) }}"><span class="mono tag">{{ a.tag }}</span></a> {{ a.name }} <span class="dim">{{ c.display_name }}{% if a.serial %} · s/n {{ a.serial }}{% endif %}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if results.sites %}
+  <h2>Sites</h2>
+  <ul class="list">{% for s, c in results.sites %}<li>{{ s.name }} · <a href="{{ url_for('customers.show', customer_id=c.id) }}">{{ c.display_name }}</a></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endblock %}
