@@ -1,6 +1,9 @@
-# Merge into /etc/cloudflared/config.yml on the shop LXC (cloudflared runs here, so the
-# app sees it as 127.0.0.1 and trusts its CF-Connecting-IP header; see app/extensions.py).
-# shop.example.com is a placeholder for the shop's own hostname.
+# /etc/cloudflared/config.yml on the shop LXC (deploy/RUNBOOK.md step 7). cloudflared runs
+# here, so the app sees it as 127.0.0.1 and trusts its CF-Connecting-IP header (see
+# app/extensions.py). <TUNNEL_ID> comes from `cloudflared tunnel create shop-hub`;
+# shop.example.com stands in for the shop's own hostname.
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
 ingress:
   - hostname: shop.example.com
     service: http://127.0.0.1:8080

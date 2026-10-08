@@ -105,6 +105,8 @@ apt update && apt full-upgrade -y
 apt install -y git curl ca-certificates python3 python3-venv postgresql-client \
   libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core
 python3 --version        # must print 3.13.x; stop and tell Claude if not
+# optional: silence perl's locale warning from pg_dump when LANG comes in from the host
+# apt install -y locales && sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
 pg_dump --version        # 17.x (Debian 13's client matches the 17.9 server)
 ```
 
@@ -173,31 +175,67 @@ need https, so signing in waits for step 7, or set `SHOP_COOKIE_SECURE=0` tempor
 ## 7. Cloudflare tunnel and Access ⏸
 
 cloudflared runs **in this LXC**, so the app sees it as 127.0.0.1 and takes the client
-address from `CF-Connecting-IP` (rate limits are per real client). Install it from
-Cloudflare's apt repository (pkg.cloudflare.com, per their current instructions), then:
+address from `CF-Connecting-IP`; rate limits are then per real client. Run it anywhere
+else and every visitor shares one limit.
+
+Install from Cloudflare's apt repository (it's not in Debian's). If the key URL 404s, use
+the Debian block shown at https://pkg.cloudflare.com:
+
+```
+mkdir -p --mode=0755 /usr/share/keyrings
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg
+echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' \
+  > /etc/apt/sources.list.d/cloudflared.list
+apt update && apt install -y cloudflared
+```
+
+Create the tunnel (`login` prints a URL to open in a browser; pick the zone):
 
 ```
 cloudflared tunnel login
-cloudflared tunnel create shop-hub
+cloudflared tunnel create shop-hub          # prints the tunnel ID and its credentials .json
 cloudflared tunnel route dns shop-hub <SHOP_HOSTNAME>
 ```
 
-Config: start from `deploy/cloudflared-ingress.yml.example` (hostname →
-`http://127.0.0.1:8080`), then `cloudflared service install` and
-`systemctl enable --now cloudflared`.
+The DNS record is live from here on, so set up **Access before starting the service**.
+Zero Trust → Access → Applications → Add → Self-hosted, three times:
 
-**Cloudflare Access** (decided 2026-10-07): Zero Trust → Access → Applications.
+1. `<SHOP_HOSTNAME>`: policy **Allow**, Emails = the two owners (later the accountant),
+   login method one-time PIN.
+2. `<SHOP_HOSTNAME>`, path `api/v1/*`: policy **Bypass**, Everyone (GATBOX devices carry
+   their own tokens).
+3. `<SHOP_HOSTNAME>`, path `d/*`: policy **Bypass**, Everyone (customer links carry their
+   own 32-byte token).
 
-1. Self-hosted app `<SHOP_HOSTNAME>`, policy **Allow**: emails = the two owners
-   (and later the accountant), login method one-time PIN.
-2. Self-hosted app `<SHOP_HOSTNAME>/api/v1/*`, policy **Bypass**: Everyone (GATBOX
-   devices authenticate with their own tokens).
-3. Self-hosted app `<SHOP_HOSTNAME>/d/*`, policy **Bypass**: Everyone (customer
-   document links carry their own 32-byte token).
+The more specific path wins, so 2 and 3 carve holes in 1.
 
-The more specific path wins, so 2 and 3 carve holes in 1. Check: a private window on
-`https://<SHOP_HOSTNAME>/` gets the Access PIN page; `https://<SHOP_HOSTNAME>/d/x`
-reaches the app (a 404 from the app, not Cloudflare's page).
+Config and service. `<TUNNEL_ID>` is from `tunnel create`. The running tunnel needs only
+its `.json`; `cert.pem` can manage every tunnel on the zone, so keep it root-only or move
+it off the box:
+
+```
+chmod 600 /root/.cloudflared/*
+install -d -m 755 /etc/cloudflared
+install -m 600 /root/.cloudflared/<TUNNEL_ID>.json /etc/cloudflared/
+cat > /etc/cloudflared/config.yml <<'YAML'
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+ingress:
+  - hostname: <SHOP_HOSTNAME>
+    service: http://127.0.0.1:8080
+  - service: http_status:404
+YAML
+cloudflared tunnel --config /etc/cloudflared/config.yml ingress validate
+cloudflared tunnel --config /etc/cloudflared/config.yml ingress rule https://<SHOP_HOSTNAME>
+cloudflared service install
+systemctl enable --now cloudflared
+```
+
+Check from a private window: `https://<SHOP_HOSTNAME>/` shows the Access PIN page first,
+then the app's sign-in; `https://<SHOP_HOSTNAME>/d/x` reaches the app (its 404 page, not
+Cloudflare's). What the errors mean: Cloudflare **1033** = no connector running
+(`systemctl status cloudflared`); **502/503** = the connector runs but nothing answers on
+127.0.0.1:8080 (`systemctl status shop-hub`, `curl -s http://127.0.0.1:8080/healthz`).
 
 ## 8. Backups and the restore drill ⏸
 
@@ -210,7 +248,9 @@ systemctl start shop-hub-backup.service && journalctl -u shop-hub-backup -n 5
 systemctl start shop-hub-restore-drill.service && journalctl -u shop-hub-restore-drill -n 20
 ```
 
-The drill must end `restore drill: PASS`. Backups land in
+The drill must end `restore drill: PASS`. Timers use the LXC's time zone (UTC on a
+stock template, so 03:15 is evening in the US); `timedatectl set-timezone <Area/City>`
+moves them. The app always displays in `SHOP_TZ` regardless. Backups land in
 `/var/lib/shop-hub/backups/{daily,monthly,yearly}/<UTC stamp>/` (14 / 12 / 7 kept).
 
 **Off-site copy (⏸, decide the target):** a cluster isn't a backup against a house
