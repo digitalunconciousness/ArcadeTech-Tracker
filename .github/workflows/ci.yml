@@ -1,9 +1,14 @@
 name: ci
 
+# Manual-only (owner, 2026-10-08): GitHub Actions refuses to start jobs on this account
+# (no runner assigned, no logs), so automatic runs only left a red X on every PR. Merging
+# doesn't wait on CI; the local pytest + privacy check before each push is the gate.
+# To turn it back on, restore:
+#   push:
+#     branches: [main]
+#   pull_request:
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -64,7 +69,6 @@ jobs:
         run: pytest
 
       - name: privacy check (generic checks; owner patterns are local-only)
-        if: github.event_name == 'pull_request'
         env:
           SHOP_PRIVACY_CI: "1"
-        run: scripts/privacy_check.sh "origin/${{ github.base_ref }}..HEAD"
+        run: scripts/privacy_check.sh "origin/main..HEAD"
