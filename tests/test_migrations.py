@@ -31,8 +31,10 @@ def test_upgrade_downgrade_upgrade_from_empty(app, tdb, monkeypatch):
         with app.app_context():
             upgrade()
             tables, functions = objects()
-            assert {"app_user", "audit_log", "doc_counter", "shop_setting"} <= set(tables)
-            assert functions == ["audit_log_append_only", "audit_row", "set_updated_at"]
+            assert {"app_user", "audit_log", "doc_counter", "shop_setting", "customer", "asset"} \
+                <= set(tables)
+            assert functions == ["asset_no_cycle", "asset_tag_immutable", "audit_log_append_only",
+                                 "audit_row", "set_updated_at"]
             with engine.connect() as c:
                 assert c.execute(text("SELECT count(*) FROM shop_setting")).scalar() == 1
 
@@ -85,8 +87,8 @@ def test_read_only_alembic_commands_work_from_a_fresh_cli(app):
 
     root = Path(__file__).resolve().parent.parent
     flask = str(Path(sys.executable).with_name("flask"))
-    for cmd, expect in (("heads", "0002_seed_settings (head)"),
-                        ("current", "0002_seed_settings (head)"),
+    for cmd, expect in (("heads", "0004_seed_shop_customer (head)"),
+                        ("current", "0004_seed_shop_customer (head)"),
                         ("history", "0001_foundation -> 0002_seed_settings")):
         run = subprocess.run([flask, "--app", "wsgi", "db", cmd], cwd=root, env=dict(os.environ),
                              capture_output=True, text=True, timeout=60)

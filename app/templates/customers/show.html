@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>{{ customer.display_name }}</h1>
+    {% if can_edit %}<a class="btn" href="{{ url_for('customers.edit', customer_id=customer.id) }}">Edit</a>{% endif %}
+  </div>
+  <p>
+    <span class="badge">{{ customer.kind }}</span>
+    {% if customer.is_shop %}<span class="badge">the shop</span>{% endif %}
+    {% if not customer.active %}<span class="badge danger">inactive</span>{% endif %}
+    {% if customer.tax_exempt %}<span class="badge warn">tax exempt</span>{% endif %}
+    {% if customer.sends_1099 %}<span class="badge">sends 1099</span>{% endif %}
+  </p>
+  <dl class="facts">
+    {% if customer.phone %}<dt>Phone</dt><dd><a href="tel:{{ customer.phone_digits }}">{{ customer.phone }}</a></dd>{% endif %}
+    {% if customer.billing_email %}<dt>Billing</dt><dd><a href="mailto:{{ customer.billing_email }}">{{ customer.billing_email }}</a></dd>{% endif %}
+    {% if customer.address_lines %}<dt>Address</dt><dd>{% for line in customer.address_lines %}{{ line }}<br>{% endfor %}</dd>{% endif %}
+    <dt>Terms</dt><dd>{{ customer.payment_terms.replace('_', ' ') }}</dd>
+    {% if customer.tax_exempt %}<dt>Exemption</dt><dd>{{ customer.exempt_cert_no or '—' }}{% if customer.exempt_cert_expires %}, expires {{ customer.exempt_cert_expires }}{% endif %}</dd>{% endif %}
+    {% if customer.referral_source %}<dt>Found us</dt><dd>{{ customer.referral_source }}</dd>{% endif %}
+  </dl>
+  {% if customer.notes %}<p class="notes">{{ customer.notes }}</p>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="head">
+    <h2>Assets</h2>
+    {% if can_edit %}<a class="btn" href="{{ url_for('assets.new', customer=customer.id) }}">Add asset</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for a in assets %}
+    <li>
+      <a href="{{ url_for('assets.show', asset_id=a.id) }}"><span class="mono tag">{{ a.tag }}</span></a>
+      {{ a.name }} <span class="badge">{{ a.status.replace('_', ' ') }}</span>
+    </li>
+    {% else %}
+    <li class="dim">None yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="panel">
+  <div class="head">
+    <h2>Contacts</h2>
+    {% if can_edit %}<a class="btn" href="{{ url_for('customers.contact_new', customer_id=customer.id) }}">Add contact</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for c in contacts %}
+    <li{% if not c.active %} class="inactive"{% endif %}>
+      <strong>{{ c.name }}</strong>{% if c.role %} <span class="dim">{{ c.role }}</span>{% endif %}
+      {% if c.is_billing %}<span class="badge">billing</span>{% endif %}
+      {% if c.is_site %}<span class="badge">on site</span>{% endif %}
+      <div>
+        {% if c.phone %}<a href="tel:{{ c.phone_digits }}">{{ c.phone }}</a>{% endif %}
+        {% if c.email %} · <a href="mailto:{{ c.email }}">{{ c.email }}</a>{% endif %}
+        {% if can_edit %} · <a href="{{ url_for('customers.contact_edit', contact_id=c.id) }}">edit</a>{% endif %}
+      </div>
+    </li>
+    {% else %}
+    <li class="dim">None yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="panel">
+  <div class="head">
+    <h2>Sites</h2>
+    {% if can_edit %}<a class="btn" href="{{ url_for('customers.site_new', customer_id=customer.id) }}">Add site</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for s in sites %}
+    <li{% if not s.active %} class="inactive"{% endif %}>
+      <strong>{{ s.name }}</strong>
+      {% if can_edit %} · <a href="{{ url_for('customers.site_edit', site_id=s.id) }}">edit</a>{% endif %}
+      {% if s.address_lines %}<div class="dim">{{ s.address_lines | join(', ') }}</div>{% endif %}
+      {% if s.site_contact_id and contacts_by_id.get(s.site_contact_id) %}<div>Contact: {{ contacts_by_id[s.site_contact_id].name }}</div>{% endif %}
+      {% if s.access_notes %}<div class="notes">{{ s.access_notes }}</div>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">None yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="panel" id="log">
+  <h2>Communication log</h2>
+  {% if can_edit %}
+  <form method="post" action="{{ url_for('customers.add_log', customer_id=customer.id) }}" novalidate>
+    {{ log_form.csrf_token }}
+    <div class="row two">{{ field(log_form.kind) }}</div>
+    {{ field(log_form.summary) }}
+    <button class="btn" type="submit">Log it</button>
+  </form>
+  {% endif %}
+  <ul class="list">
+    {% for entry in log %}
+    <li>
+      <span class="dim">{{ entry.at | localdt }}</span> <span class="badge">{{ entry.kind.replace('_', ' ') }}</span>
+      <div class="notes">{{ entry.summary }}</div>
+    </li>
+    {% else %}
+    <li class="dim">Nothing logged yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

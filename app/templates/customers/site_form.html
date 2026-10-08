@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ site.name if site else 'New site' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></p>
+  <h1>{{ site.name if site else 'New site' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.name, autofocus=not site) }}
+    {{ field(form.address_line1, autocomplete="address-line1") }}
+    {{ field(form.address_line2, autocomplete="address-line2") }}
+    <div class="row">
+      {{ field(form.city, autocomplete="address-level2") }}
+      {{ field(form.region, autocomplete="address-level1") }}
+      {{ field(form.postal_code, autocomplete="postal-code") }}
+    </div>
+    {{ field(form.site_contact_id) }}
+    {{ field(form.access_notes) }}
+    {% if site %}{{ check(form.active) }}{% endif %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('customers.show', customer_id=customer.id) }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

@@ -58,10 +58,10 @@ push/PR → owner deploys (⏸).
 
 ## Phase 1: Customers & assets (branch `phase/1-customers-assets`)
 
-- [ ] Design note → ⏸ OK
-- [ ] Customers, contacts, sites, comm log
-- [ ] Assets (machines and boards, parent/child, `s-` tags never reused), asset events
-- [ ] Labels (`/g/<tag>` QR, label list), global search
+- [x] Design note → OK (owner, 2026-10-08)
+- [x] Customers, contacts, sites, comm log (append-only); the shop seeded as its own customer
+- [x] Assets (machines and boards, parent/child, `s-` tags never reused), asset events
+- [x] Labels (`/g/<tag>` QR, copy-to-label-app list, mark printed), global search
 - [ ] Diff, tests, privacy output → ⏸ OK → PR
 - [ ] ⏸ Exit: a printed asset label opens the asset on a phone
 
@@ -152,6 +152,10 @@ push/PR → owner deploys (⏸).
 | 2026-10-08 | `audit_log` exempt from created_at/updated_at/created_by (`at`, `user_id` instead) | Append-only; never updated |
 | 2026-10-08 | Green CI is not a merge requirement; `ci.yml` is manual-only (`workflow_dispatch`) | Owner. Actions won't start jobs on this account (runner never assigned); the local pytest + privacy check before each push is the gate |
 | 2026-10-08 | Tunnel is locally managed (`cloudflared tunnel create`, `/etc/cloudflared/config.yml`), cloudflared in the shop LXC | Owner's setup; loopback peer keeps per-client rate limits. RUNBOOK step 7 matches |
+| 2026-10-08 | Asset tags `s-NNNN-name-slug`: number from `asset_tag_seq` (gaps fine, never reused), name part frozen at creation, ≤ 24 chars, tag ≤ 40; a trigger refuses tag changes | Owner. Printed labels stay valid forever. Contract v1's slug limits not yet checked (refs unavailable): verify in Phase 7 |
+| 2026-10-08 | Labels: a copy-to-clipboard list (URL for the QR, tag for the text), unprinted first, "mark printed" | Owner types labels into the Katasymbol phone app; no bulk printing available |
+| 2026-10-08 | Customers, contacts, sites, assets audited; comm log and asset events append-only (INSERT/SELECT); nothing deletable | Owner |
+| 2026-10-08 | Techs create and edit customers and assets (`EDIT_ROLES`); viewers read only | Owner. Intake is tech work |
 
 ## Notes
 
@@ -206,3 +210,10 @@ push/PR → owner deploys (⏸).
   rollback text say `downgrade base`. Each now has a test.
 - The shop LXC lacks the en_US.UTF-8 locale that `pct enter` passes in, so perl (pg_dump's
   wrapper) warns; harmless. RUNBOOK step 3 has the optional `locale-gen`.
+
+### Session 2, Phase 1 (2026-10-08, same cloud session at the owner's request)
+
+- New customers, contacts and sites were first saved inactive (the new forms have no Active
+  box, and an absent checkbox submits False); caught by the tests, fixed, asserted.
+- Tests: 125 passed. Phone-viewport walk-through (Playwright): add customer → site → asset,
+  label page copy button, search by formatted phone; no CSP or console errors.

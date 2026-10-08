@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Assets{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Assets</h1>
+    {% if can_edit %}<a class="btn primary" href="{{ url_for('assets.new') }}">Add asset</a>{% endif %}
+  </div>
+  <nav class="tabs">
+    <a href="{{ url_for('assets.index') }}" {% if not status and not request.args.get('all') %}class="active"{% endif %}>Active</a>
+    <a href="{{ url_for('assets.index', status='in_shop') }}" {% if status == 'in_shop' %}class="active"{% endif %}>In the shop</a>
+    <a href="{{ url_for('assets.index', status='awaiting_pickup') }}" {% if status == 'awaiting_pickup' %}class="active"{% endif %}>Awaiting pickup</a>
+    <a href="{{ url_for('assets.index', all=1) }}" {% if request.args.get('all') %}class="active"{% endif %}>All</a>
+  </nav>
+  <ul class="list">
+    {% for a, c in rows %}
+    <li>
+      <a href="{{ url_for('assets.show', asset_id=a.id) }}"><span class="mono tag">{{ a.tag }}</span></a>
+      {{ a.name }} <span class="badge">{{ a.status.replace('_', ' ') }}</span>
+      <div class="dim">{{ c.display_name }}{% if a.status == 'in_shop' and a.shop_location %} · shelf {{ a.shop_location }}{% endif %}</div>
+    </li>
+    {% else %}
+    <li class="dim">Nothing here.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

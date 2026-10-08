@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ asset.tag }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1 class="mono tag">{{ asset.tag }}</h1>
+    {% if can_edit %}<a class="btn" href="{{ url_for('assets.edit', asset_id=asset.id) }}">Edit</a>{% endif %}
+  </div>
+  <p class="lead">{{ asset.name }} <span class="badge {{ 'warn' if asset.status in ('in_shop', 'awaiting_pickup') }}">{{ asset.status.replace('_', ' ') }}</span></p>
+  <dl class="facts">
+    <dt>Owner</dt><dd><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></dd>
+    {% if site %}<dt>Site</dt><dd>{{ site.name }}</dd>{% endif %}
+    {% if parent %}<dt>Inside</dt><dd><a href="{{ url_for('assets.show', asset_id=parent.id) }}"><span class="mono">{{ parent.tag }}</span></a> {{ parent.name }}</dd>{% endif %}
+    <dt>Kind</dt><dd>{{ asset.kind }}</dd>
+    {% if asset.manufacturer or asset.model %}<dt>Make</dt><dd>{{ asset.manufacturer or '' }} {{ asset.model or '' }}{% if asset.year %} ({{ asset.year }}){% endif %}</dd>{% endif %}
+    {% if asset.serial %}<dt>Serial</dt><dd class="mono">{{ asset.serial }}</dd>{% endif %}
+    {% if asset.model_key %}<dt>Manuals key</dt><dd class="mono">{{ asset.model_key }}</dd>{% endif %}
+    {% if asset.in_shop_since %}<dt>In shop since</dt><dd>{{ asset.in_shop_since | localdt('%Y-%m-%d') }}</dd>{% endif %}
+    {% if asset.shop_location %}<dt>Shelf</dt><dd>{{ asset.shop_location }}</dd>{% endif %}
+  </dl>
+  {% if asset.notes %}<p class="notes">{{ asset.notes }}</p>{% endif %}
+  {% if children %}
+  <h2>Inside it</h2>
+  <ul class="list">
+    {% for ch in children %}<li><a href="{{ url_for('assets.show', asset_id=ch.id) }}"><span class="mono tag">{{ ch.tag }}</span></a> {{ ch.name }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+{% if can_edit %}
+<section class="panel">
+  <h2>Status</h2>
+  <form method="post" action="{{ url_for('assets.status', asset_id=asset.id) }}" novalidate>
+    {{ status_form.csrf_token }}
+    <div class="row two">{{ field(status_form.status) }}{{ field(status_form.note) }}</div>
+    <button class="btn" type="submit">Update</button>
+    <a class="btn" href="{{ url_for('assets.transfer', asset_id=asset.id) }}">Change owner or site</a>
+  </form>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Label</h2>
+  <div class="label-preview">
+    <div class="qr">{{ qr|safe }}</div>
+    <div>
+      <p class="mono tag">{{ asset.tag }}</p>
+      <p><button class="btn" type="button" data-copy="{{ url }}">Copy URL (for the QR)</button></p>
+      <p><button class="btn" type="button" data-copy="{{ asset.tag }}">Copy tag (for the text)</button></p>
+      <p class="dim">{% if asset.label_printed_at %}Printed {{ asset.label_printed_at | localdt('%Y-%m-%d') }}{% else %}Not printed yet{% endif %}</p>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="history">
+  <h2>History</h2>
+  {% if can_edit %}
+  <form method="post" action="{{ url_for('assets.note', asset_id=asset.id) }}" novalidate>
+    {{ note_form.csrf_token }}
+    {{ field(note_form.note) }}
+    <button class="btn" type="submit">Add note</button>
+  </form>
+  {% endif %}
+  <ul class="list">
+    {% for e in events %}
+    <li>
+      <span class="dim">{{ e.at | localdt }}</span> <span class="badge">{{ e.kind.replace('_', ' ') }}</span>
+      {% if e.from_value and e.to_value %}{{ e.from_value.replace('_', ' ') }} → {{ e.to_value.replace('_', ' ') }}
+      {% elif e.to_value %}{{ e.to_value.replace('_', ' ') }}
+      {% elif e.from_value %}from {{ e.from_value.replace('_', ' ') }}{% endif %}
+      {% if e.note %}<div class="notes">{{ e.note }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

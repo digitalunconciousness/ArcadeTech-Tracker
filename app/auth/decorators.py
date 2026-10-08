@@ -6,6 +6,8 @@ from flask_login import current_user
 from app.extensions import login_manager
 
 ALL_ROLES = ("owner", "tech", "viewer")
+# Who may create and change customers, assets and work records. Viewers only read.
+EDIT_ROLES = ("owner", "tech")
 
 
 def requires_role(*roles):

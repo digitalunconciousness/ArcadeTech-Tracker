@@ -67,3 +67,10 @@ def grant_app(table, privileges):
 
 def revoke_app(table):
     op.execute(f"REVOKE ALL ON {_ident(table)} FROM {APP_ROLE}")
+
+
+def grant_app_sequence(name, nextval=True):
+    """A standalone sequence (not a table's identity): SELECT for pg_dump, USAGE when the
+    app calls nextval()."""
+    privileges = "USAGE, SELECT" if nextval else "SELECT"
+    op.execute(f"GRANT {privileges} ON SEQUENCE {_ident(name)} TO {APP_ROLE}")

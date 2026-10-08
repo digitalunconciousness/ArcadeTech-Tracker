@@ -39,12 +39,15 @@ def create_app(overrides=None):
     login_manager.login_message = None
 
     from app import models  # noqa: F401
+    from app.assets.routes import bp as assets_bp
     from app.auth.routes import bp as auth_bp
+    from app.customers.routes import bp as customers_bp
     from app.dashboard.routes import bp as dashboard_bp
     from app.health.routes import bp as health_bp
+    from app.search.routes import bp as search_bp
     from app.settings.routes import bp as settings_bp
 
-    for bp in (auth_bp, dashboard_bp, health_bp, settings_bp):
+    for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)
@@ -57,6 +60,12 @@ def _register_hooks(app):
     from app.timeutil import localdt
 
     app.add_template_filter(localdt, "localdt")
+
+    @app.context_processor
+    def inject_roles():
+        from app.auth.decorators import EDIT_ROLES
+
+        return {"can_edit": current_user.is_authenticated and current_user.role in EDIT_ROLES}
 
     @app.context_processor
     def inject_shop():

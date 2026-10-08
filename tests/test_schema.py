@@ -15,9 +15,15 @@ EXPECTED_GRANTS = {
     "audit_log": {"SELECT"},
     "doc_counter": {"SELECT", "INSERT", "UPDATE"},
     "shop_setting": {"SELECT", "UPDATE"},
+    "customer": {"SELECT", "INSERT", "UPDATE"},
+    "contact": {"SELECT", "INSERT", "UPDATE"},
+    "site": {"SELECT", "INSERT", "UPDATE"},
+    "asset": {"SELECT", "INSERT", "UPDATE"},
+    "comm_log": {"SELECT", "INSERT"},
+    "asset_event": {"SELECT", "INSERT"},
 }
 
-AUDITED = {"app_user", "shop_setting"}
+AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset"}
 
 
 def q(app, sql, **params):
@@ -92,13 +98,15 @@ def test_app_role_sequence_privileges(app):
                has_sequence_privilege('shop_app', c.oid, 'UPDATE')
         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE c.relkind = 'S' AND n.nspname = 'public'""")
-    assert {r[0]: r[1:] for r in rows} == {
-        "app_user_id_seq": (True, True, False),
-        "audit_log_id_seq": (True, False, False),
-    }
+    insertable = ("app_user", "customer", "contact", "site", "comm_log", "asset", "asset_event")
+    expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
+    expected["audit_log_id_seq"] = (True, False, False)
+    expected["asset_tag_seq"] = (True, True, False)
+    assert {r[0]: r[1:] for r in rows} == expected
 
 
-@pytest.mark.parametrize("fn", ["audit_row", "set_updated_at", "audit_log_append_only"])
+@pytest.mark.parametrize("fn", ["audit_row", "set_updated_at", "audit_log_append_only",
+                                "asset_tag_immutable", "asset_no_cycle"])
 def test_trigger_functions_not_public(app, fn):
     rows = q(app, "SELECT has_function_privilege('shop_app', :f, 'EXECUTE')", f=f"{fn}()")
     assert rows == [(False,)]
