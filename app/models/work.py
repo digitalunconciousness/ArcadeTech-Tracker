@@ -220,6 +220,7 @@ class Reservation(StandardColumns, db.Model):
     __table_args__ = (
         CheckConstraint(_in("status", RESERVATION_STATUSES), name="status"),
         CheckConstraint("qty > 0", name="qty_positive"),
+        CheckConstraint("unit_price IS NULL OR unit_price >= 0", name="price_nonnegative"),
     )
 
     id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
@@ -231,6 +232,8 @@ class Reservation(StandardColumns, db.Model):
     status: Mapped[str] = mapped_column(String(10), nullable=False,
                                         server_default=text("'reserved'"))
     note: Mapped[str | None] = mapped_column(String(200))
+    # The price quoted on the estimate it came from; issuing uses it.
+    unit_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
 
 
 class ManualReading(StandardColumns, db.Model):

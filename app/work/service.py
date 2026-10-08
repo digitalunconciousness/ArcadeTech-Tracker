@@ -360,7 +360,8 @@ def issue_reservation(res, part, *, unit_price=None, wo_number=""):
     res.status = "issued"
     db.session.flush()
     return issue_part(db.session.get(WoJob, res.wo_job_id), part, res.qty,
-                      unit_price=unit_price, wo_number=wo_number)
+                      unit_price=unit_price if unit_price is not None else res.unit_price,
+                      wo_number=wo_number)
 
 
 def release_reservation(res):

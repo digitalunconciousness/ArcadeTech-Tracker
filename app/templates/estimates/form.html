@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ est.number if est else 'New estimate' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></p>
+  <h1>{% if est %}<span class="mono tag">{{ est.number }}</span>{% else %}New estimate{% endif %}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.summary, autofocus=not est) }}
+    {% if not est %}
+    <h2>First job</h2>
+    {{ field(form.asset_id) }}
+    {{ field(form.complaint) }}
+    <p class="dim">Not in the list? <a href="{{ url_for('assets.new', customer=customer.id) }}">Add the machine or board</a> first.</p>
+    <h2>Details</h2>
+    {% endif %}
+    {{ field(form.site_id) }}
+    <div class="row">{{ field(form.valid_until) }}{{ field(form.not_to_exceed, inputmode="decimal") }}{{ field(form.deposit_required, inputmode="decimal") }}</div>
+    {{ field(form.notes) }}
+    <button class="btn primary" type="submit">{{ 'Save' if est else 'Start estimate' }}</button>
+    <a class="btn" href="{{ url_for('estimates.show', est_id=est.id) if est else url_for('estimates.index') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

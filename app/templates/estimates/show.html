@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check, checks %}
+{% block title %}{{ label }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1 class="mono tag">{{ label }}</h1>
+    {% if editable %}<a class="btn" href="{{ url_for('estimates.edit', est_id=est.id) }}">Edit</a>{% endif %}
+  </div>
+  <p class="lead">{{ est.summary }}
+    <span class="badge {{ 'ok' if est.status in ('approved', 'converted') else 'danger' if est.status == 'declined' else 'warn' if est.status == 'sent' else '' }}">{{ est_statuses[est.status] | lower }}</span>
+    {% if expired and est.status in ('draft', 'sent') %}<span class="badge danger">expired</span>{% endif %}</p>
+  <dl class="facts">
+    <dt>Customer</dt><dd><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></dd>
+    {% if site %}<dt>Site</dt><dd>{{ site.name }}</dd>{% endif %}
+    {% if est.valid_until %}<dt>Good until</dt><dd>{{ est.valid_until }}</dd>{% endif %}
+    <dt>Total</dt><dd><strong>{{ totals.total | money }}</strong>{% if totals.hours %} <span class="dim">· {{ totals.hours | qty }} h labor</span>{% endif %}</dd>
+    {% if est.not_to_exceed is not none %}<dt>Not to exceed</dt><dd>{{ est.not_to_exceed | money }}</dd>{% endif %}
+    {% if est.deposit_required %}<dt>Deposit</dt><dd>{{ est.deposit_required | money }}</dd>{% endif %}
+    {% if costs %}<dt>Cost</dt><dd>{{ totals.cost | money }}{% if totals.margin is not none %} <span class="dim">· parts and sublets margin {{ totals.margin | pct }}</span>{% endif %}</dd>{% endif %}
+    {% if est.work_order_id %}<dt>Work order</dt><dd><a href="{{ url_for('work.show', wo_id=est.work_order_id) }}">open it</a></dd>{% endif %}
+    {% if revisions | length > 1 %}<dt>Revisions</dt><dd>{% for r in revisions %}<a href="{{ url_for('estimates.show', est_id=r.id) }}"{% if r.id == est.id %} class="glow"{% endif %}>r{{ r.revision }}</a> <span class="dim">{{ r.status }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</dd>{% endif %}
+  </dl>
+  {% if est.notes %}<p class="notes">{{ est.notes }}</p>{% endif %}
+  <p class="actions">
+    <a class="btn small" href="{{ url_for('estimates.pdf', est_id=est.id) }}">PDF</a>
+    {% if can_edit and est.status != 'draft' and est.revision == latest and est.status != 'superseded' %}
+    <form class="inline-form" method="post" action="{{ url_for('estimates.revise', est_id=est.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">Make a revision</button></form>
+    {% endif %}
+  </p>
+</section>
+
+<section class="panel" id="lines">
+  <h2>Jobs and lines</h2>
+  {% for job, asset in jobs %}
+  <h3>{% if asset %}<span class="mono tag">{{ asset.tag }}</span> {{ asset.name }}{% else %}Consultation{% endif %}</h3>
+  <p class="notes">{{ job.complaint }}</p>
+  <table class="grid">
+    <thead><tr><th>Item</th><th class="num">Qty × each</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {% for x in lines[job.id] %}
+    <tr>
+      <td>{{ x.description }}
+        <div class="dim small">{{ x.kind }}{% if x.labor_mode %} · {{ 'estimated; billed as worked' if x.labor_mode == 'actual' else 'flat' }}{% endif %}{% if x.taxable %} · taxable{% endif %}{% if costs and x.unit_cost is not none %} · cost {{ x.unit_cost | unit_cost }}{% endif %}</div>
+        {% if editable %}<div class="actions">
+          <a class="btn small" href="{{ url_for('estimates.line_edit', line_id=x.id) }}">Edit</a>
+          <form class="inline-form" method="post" action="{{ url_for('estimates.line_delete', line_id=x.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Remove this line?">Remove</button></form>
+        </div>{% endif %}
+      </td>
+      <td class="num">{{ x.qty | qty }} × {{ x.unit_price | money }}</td>
+      <td class="num">{{ line_amount(x) | money }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="dim">No lines yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if editable and jobs | length > 1 %}
+  <form class="inline-form" method="post" action="{{ url_for('estimates.delete_job', job_id=job.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Remove this job and its lines?">Remove this job</button></form>
+  {% endif %}
+  {% endfor %}
+
+  {% if forms %}
+  <details class="form">
+    <summary>Add labor or a service</summary>
+    <form method="post" action="{{ url_for('estimates.add_line', est_id=est.id, kind='service') }}" novalidate>
+      {{ forms.service.csrf_token }}
+      {% if jobs | length > 1 %}{{ field(forms.service.estimate_job_id) }}{% else %}{{ forms.service.estimate_job_id(hidden=True) }}{% endif %}
+      {{ field(forms.service.service_id) }}
+      <div class="row two">{{ field(forms.service.labor_mode) }}{{ field(forms.service.qty, inputmode="decimal") }}</div>
+      <div class="row two">{{ field(forms.service.unit_price, inputmode="decimal") }}{{ field(forms.service.description) }}</div>
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>Add a part</summary>
+    <form method="post" action="{{ url_for('estimates.add_line', est_id=est.id, kind='part') }}" novalidate>
+      {{ forms.part.csrf_token }}
+      {% if jobs | length > 1 %}{{ field(forms.part.estimate_job_id) }}{% else %}{{ forms.part.estimate_job_id(hidden=True) }}{% endif %}
+      {{ field(forms.part.part_id) }}
+      <div class="row two">{{ field(forms.part.qty, inputmode="decimal") }}{{ field(forms.part.unit_price, inputmode="decimal") }}</div>
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>Add a fee, sublet or discount</summary>
+    <form method="post" action="{{ url_for('estimates.add_line', est_id=est.id, kind='other') }}" novalidate>
+      {{ forms.other.csrf_token }}
+      {% if jobs | length > 1 %}{{ field(forms.other.estimate_job_id) }}{% else %}{{ forms.other.estimate_job_id(hidden=True) }}{% endif %}
+      <div class="row two">{{ field(forms.other.kind) }}{{ field(forms.other.description) }}</div>
+      <div class="row">{{ field(forms.other.qty, inputmode="decimal") }}{{ field(forms.other.unit_price, inputmode="decimal") }}{% if forms.other.unit_cost %}{{ field(forms.other.unit_cost, inputmode="decimal") }}{% endif %}</div>
+      {{ check(forms.other.taxable) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  {% if forms.template.template_id.choices %}
+  <details class="form">
+    <summary>Fill from a job template</summary>
+    <form method="post" action="{{ url_for('estimates.add_line', est_id=est.id, kind='template') }}" novalidate>
+      {{ forms.template.csrf_token }}
+      {% if jobs | length > 1 %}{{ field(forms.template.estimate_job_id) }}{% else %}{{ forms.template.estimate_job_id(hidden=True) }}{% endif %}
+      {{ field(forms.template.template_id) }}
+      <button class="btn" type="submit">Add its lines</button>
+    </form>
+  </details>
+  {% endif %}
+  <details class="form">
+    <summary>Add a job (another machine or board)</summary>
+    <form method="post" action="{{ url_for('estimates.add_job', est_id=est.id) }}" novalidate>
+      {{ add_job.csrf_token }}
+      {{ field(add_job.asset_id) }}
+      {{ field(add_job.complaint) }}
+      <button class="btn" type="submit">Add job</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="panel" id="approval">
+  <h2>Approval</h2>
+  {% if est.approved_at %}
+  <p><span class="badge ok">approved</span> {{ est.approved_name }} · {{ est.approved_at | localdt }} · {{ methods[est.approval_method] | lower }}</p>
+  {% if est.approval_note %}<p class="dim">{{ est.approval_note }}</p>{% endif %}
+  {% if est.approval_ip %}<p class="dim small">From {{ est.approval_ip }} · {{ est.approval_ua or '' }}</p>{% endif %}
+  {% if signature_src %}<p><img class="sig" src="{{ signature_src }}" alt="Signature of {{ est.approved_name }}"></p>{% endif %}
+  {% if convert %}
+  <h3>Convert to a work order</h3>
+  <form method="post" action="{{ url_for('estimates.convert', est_id=est.id) }}" novalidate>
+    {{ convert.csrf_token }}
+    {{ field(convert.kind) }}
+    {{ checks(convert.techs) }}
+    <p class="dim">Jobs, labor, fees and sublets carry over; quoted parts are set aside for the job at the quoted price.</p>
+    <button class="btn primary" type="submit">Open the work order</button>
+  </form>
+  {% endif %}
+  {% elif est.status == 'declined' %}
+  <p><span class="badge danger">declined</span> {{ est.declined_at | localdt }}{% if est.decline_reason %} · {{ est.decline_reason }}{% endif %}</p>
+  {% elif est.status == 'superseded' %}
+  <p class="dim">Replaced by a newer revision; its links no longer open.</p>
+  {% elif can_edit and not expired %}
+  <p class="actions">
+    <a class="btn primary" href="{{ url_for('estimates.sign', est_id=est.id) }}">Customer signs on this phone</a>
+  </p>
+  <details class="form">
+    <summary>They approved by phone or text</summary>
+    <form method="post" action="{{ url_for('estimates.verbal', est_id=est.id) }}" novalidate>
+      {{ verbal.csrf_token }}
+      <input type="hidden" name="seen" value="{{ now_hash }}">
+      <div class="row two">{{ field(verbal.name) }}{{ field(verbal.note) }}</div>
+      <button class="btn" type="submit">Record approval</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>They declined</summary>
+    <form method="post" action="{{ url_for('estimates.decline', est_id=est.id) }}" novalidate>
+      {{ decline.csrf_token }}
+      {{ field(decline.reason) }}
+      <button class="btn danger" type="submit">Mark declined</button>
+    </form>
+  </details>
+  {% elif expired %}
+  <p class="dim">Past its good-until date: edit the date, or make a revision.</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="links">
+  <h2>Customer link</h2>
+  {% if can_edit and est.status in ('draft', 'sent', 'approved', 'converted') and est.revision == latest %}
+  {% if shop.estimate_terms %}
+  <form method="post" action="{{ url_for('estimates.send', est_id=est.id) }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn primary" type="submit">{{ 'Send link' if not est.approved_at else 'New link to the signed copy' }}</button>
+  </form>
+  {% else %}
+  <p class="dim">Write your estimate terms in <a href="{{ url_for('settings.index') }}">Settings → Business</a> before sending: they print on every estimate a customer approves.</p>
+  {% endif %}
+  {% endif %}
+  <ul class="list">
+    {% for link in links %}
+    <li{% if link.revoked_at %} class="inactive"{% endif %}>
+      <span class="dim">made {{ link.created_at | localdt }}</span> · expires {{ link.expires_at | localdt('%Y-%m-%d') }}
+      · {{ link.view_count }} view{{ 's' if link.view_count != 1 }}{% if link.last_viewed_at %}, last {{ link.last_viewed_at | localdt }}{% endif %}
+      {% if link.revoked_at %}<span class="badge">withdrawn</span>{% elif can_edit %}
+      <form class="inline-form" method="post" action="{{ url_for('estimates.revoke', link_id=link.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Withdraw this link? It stops opening.">Withdraw</button></form>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="dim">No links yet.</li>
+    {% endfor %}
+  </ul>
+  <p class="dim small">The link itself is shown only when it's made; the app keeps only a fingerprint of it.</p>
+</section>
+{% endblock %}

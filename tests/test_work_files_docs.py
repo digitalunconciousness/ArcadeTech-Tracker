@@ -171,9 +171,11 @@ def full_job(owner, app):
 
 def test_documents_render(app, signed_in, monkeypatch):
     owner, tech = signed_in("owner"), signed_in("tech")
-    owner.post("/settings/", data={"business_name": "ArcadeTech Tracker", "doc_accent_color":
-                                   "#b0126f", "claim_terms": "Units left 90 days are abandoned.",
-                                   "warranty_terms": "Warranty void if opened by others."})
+    resp = owner.post("/settings/", data={
+        "business_name": "ArcadeTech Tracker", "doc_accent_color": "#b0126f",
+        "estimate_link_days": "30", "claim_terms": "Units left 90 days are abandoned.",
+        "warranty_terms": "Warranty void if opened by others."})
+    assert resp.status_code == 302
     wo_id = full_job(owner, app)
     for path in (f"/work/{wo_id}/claim-ticket.pdf", f"/work/{wo_id}/service-report.pdf"):
         resp = tech.get(path)

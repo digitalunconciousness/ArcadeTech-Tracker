@@ -15,6 +15,7 @@
     <nav class="nav">
       <a href="{{ url_for('dashboard.index') }}" {% if request.endpoint == 'dashboard.index' %}class="active"{% endif %}>Dashboard</a>
       <a href="{{ url_for('work.index') }}" {% if request.blueprint == 'work' %}class="active"{% endif %}>Work</a>
+      <a href="{{ url_for('estimates.index') }}" {% if request.blueprint == 'estimates' %}class="active"{% endif %}>Estimates</a>
       <a href="{{ url_for('customers.index') }}" {% if request.blueprint == 'customers' %}class="active"{% endif %}>Customers</a>
       <a href="{{ url_for('assets.index') }}" {% if request.blueprint == 'assets' %}class="active"{% endif %}>Assets</a>
       <a href="{{ url_for('parts.index') }}" {% if request.blueprint == 'parts' %}class="active"{% endif %}>Parts</a>

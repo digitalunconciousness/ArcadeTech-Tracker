@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_forms.html" import field %}
+{% from "_forms.html" import field, checks %}
 {% block title %}{{ wo.number }}{% endblock %}
 {% block content %}
 <section class="panel">
@@ -62,6 +62,44 @@
   </details>
   {% endif %}
 </section>
+
+<section class="panel" id="appointments">
+  <h2>Appointments</h2>
+  <ul class="list">
+    {% for a in appointments %}
+    <li>
+      <strong>{{ a.starts_at | localdt('%a %Y-%m-%d %H:%M') }}</strong>–{{ a.ends_at | localdt('%H:%M') }}
+      {% if who.get(a.id) %}<span class="dim">· {{ who[a.id] | join(', ') }}</span>{% endif %}
+      {% if a.note %}<div class="notes">{{ a.note }}</div>{% endif %}
+      {% if can_edit %}<form class="inline-form" method="post" action="{{ url_for('work.appointment_delete', appt_id=a.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Remove this appointment?">Remove</button></form>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">None scheduled.</li>
+    {% endfor %}
+  </ul>
+  {% if appointment_form %}
+  <details class="form">
+    <summary>Schedule a visit</summary>
+    <form method="post" action="{{ url_for('work.appointment_add', wo_id=wo.id) }}" novalidate>
+      {{ appointment_form.csrf_token }}
+      <div class="row two">{{ field(appointment_form.starts_at) }}{{ field(appointment_form.minutes, inputmode="numeric") }}</div>
+      {{ field(appointment_form.site_id) }}
+      {{ checks(appointment_form.users) }}
+      {{ field(appointment_form.note) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <p class="dim">It shows in each person's calendar feed (Account → Calendar).</p>
+  </details>
+  {% endif %}
+</section>
+
+{% if estimates %}
+<section class="panel">
+  <h2>Estimates</h2>
+  <ul class="list">{% for est in estimates %}<li><a href="{{ url_for('estimates.show', est_id=est.id) }}"><span class="mono">{{ est.number }}{% if est.revision > 1 %} r{{ est.revision }}{% endif %}</span></a> <span class="badge">{{ est.status }}</span>{% if est.not_to_exceed is not none %} <span class="dim">NTE {{ est.not_to_exceed | money }}</span>{% endif %}</li>{% endfor %}</ul>
+  {% if can_edit and wo.status == 'waiting_approval' %}<p class="dim">Over the limit? Open the latest estimate and make a revision: once the customer approves it, the new limit applies here and the work order goes back to in progress.</p>{% endif %}
+</section>
+{% endif %}
 
 {% if can_edit %}
 <section class="panel">

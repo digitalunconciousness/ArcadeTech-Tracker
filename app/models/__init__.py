@@ -2,6 +2,17 @@ from app.models.asset import ASSET_KINDS, ASSET_STATUSES, Asset, AssetEvent
 from app.models.audit import AuditLog
 from app.models.customer import COMM_KINDS, PAYMENT_TERMS, CommLog, Contact, Customer, Site
 from app.models.doc_counter import DOC_KINDS, DocCounter
+from app.models.estimate import (
+    APPROVAL_METHODS,
+    ESTIMATE_STATUSES,
+    Appointment,
+    AppointmentUser,
+    CalendarFeed,
+    DocLink,
+    Estimate,
+    EstimateJob,
+    EstimateLine,
+)
 from app.models.parts import MOVE_REASONS, Part, StockLot, StockMove, Vendor
 from app.models.pricebook import (
     SERVICE_KINDS,
@@ -42,4 +53,7 @@ __all__ = [
     "RECEIVED_VIA", "WO_KINDS", "WO_STATUSES",
     "Attachment", "ManualReading", "Reservation", "TimeEntry", "WoJob", "WoLine", "WorkOrder",
     "WorkOrderTech",
+    "APPROVAL_METHODS", "ESTIMATE_STATUSES",
+    "Appointment", "AppointmentUser", "CalendarFeed", "DocLink", "Estimate", "EstimateJob",
+    "EstimateLine",
 ]

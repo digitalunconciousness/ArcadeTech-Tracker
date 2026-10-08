@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}Edit line{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <p class="dim"><a href="{{ url_for('estimates.show', est_id=est.id) }}"><span class="mono">{{ label }}</span></a></p>
+  <h1>Edit line</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.description) }}
+    <div class="row two">{{ field(form.qty, inputmode="decimal") }}{{ field(form.unit_price, inputmode="decimal") }}</div>
+    {% if line.kind == 'labor' %}{{ field(form.labor_mode) }}{% endif %}
+    {% if line.kind == 'sublet' and form.unit_cost %}{{ field(form.unit_cost, inputmode="decimal") }}{% endif %}
+    {{ check(form.taxable) }}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('estimates.show', est_id=est.id) }}#lines">Cancel</a>
+  </form>
+</section>
+{% endblock %}

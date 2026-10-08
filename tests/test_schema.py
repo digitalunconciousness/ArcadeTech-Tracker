@@ -37,12 +37,20 @@ EXPECTED_GRANTS = {
     "attachment": {"SELECT", "INSERT", "UPDATE", "DELETE"},
     "work_order_tech": {"SELECT", "INSERT", "DELETE"},
     "manual_reading": {"SELECT", "INSERT", "DELETE"},
+    "estimate": {"SELECT", "INSERT", "UPDATE"},
+    "doc_link": {"SELECT", "INSERT", "UPDATE"},
+    "calendar_feed": {"SELECT", "INSERT", "UPDATE"},
+    "estimate_job": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "estimate_line": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "appointment": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "appointment_user": {"SELECT", "INSERT", "DELETE"},
 }
 
 AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "service",
            "job_template", "job_template_line", "markup_tier", "vendor", "part", "stock_lot",
            "stock_move", "work_order", "wo_job", "work_order_tech", "wo_line", "time_entry",
-           "reservation", "manual_reading", "attachment"}
+           "reservation", "manual_reading", "attachment", "estimate", "estimate_job",
+           "estimate_line", "appointment", "appointment_user", "calendar_feed"}
 
 
 def q(app, sql, **params):
@@ -120,7 +128,9 @@ def test_app_role_sequence_privileges(app):
     insertable = ("app_user", "customer", "contact", "site", "comm_log", "asset", "asset_event",
                   "service", "job_template", "job_template_line", "markup_tier", "vendor", "part",
                   "stock_lot", "stock_move", "work_order", "wo_job", "work_order_tech", "wo_line",
-                  "time_entry", "reservation", "manual_reading", "attachment")
+                  "time_entry", "reservation", "manual_reading", "attachment", "estimate",
+                  "estimate_job", "estimate_line", "doc_link", "appointment", "appointment_user",
+                  "calendar_feed")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)
@@ -128,7 +138,8 @@ def test_app_role_sequence_privileges(app):
 
 
 @pytest.mark.parametrize("fn", ["audit_row", "set_updated_at", "audit_log_append_only",
-                                "asset_tag_immutable", "asset_no_cycle", "stock_move_lot_guard"])
+                                "asset_tag_immutable", "asset_no_cycle", "stock_move_lot_guard",
+                                "estimate_frozen", "estimate_child_frozen"])
 def test_trigger_functions_not_public(app, fn):
     rows = q(app, "SELECT has_function_privilege('shop_app', :f, 'EXECUTE')", f=f"{fn}()")
     assert rows == [(False,)]

@@ -16,6 +16,20 @@ document.addEventListener('click', async (event) => {
   }
 });
 
+// Share buttons: <button data-share="url" data-share-title="...">: the phone's share
+// sheet (text, email…) where there is one, else copy.
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-share]');
+  if (!button) return;
+  const url = button.dataset.share;
+  if (navigator.share) {
+    try { await navigator.share({ title: button.dataset.shareTitle || '', url }); } catch (err) { /* cancelled */ }
+    return;
+  }
+  try { await navigator.clipboard.writeText(url); button.textContent = 'Copied'; }
+  catch (err) { window.prompt('Copy this:', url); }
+});
+
 // Destructive buttons: <button data-confirm="Remove this line?">.
 document.addEventListener('submit', (event) => {
   const button = event.submitter;

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Link not available · {{ shop.business_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/doc.css') }}">
+  <link rel="stylesheet" href="{{ url_for('public.accent_css') }}">
+</head>
+<body>
+  <header class="masthead"><div class="shop"><strong>{{ shop.business_name }}</strong></div></header>
+  <h1>This link isn't available</h1>
+  <p>It may have expired or been replaced. Ask us for a new one{% if shop.phone %}: {{ shop.phone }}{% endif %}.</p>
+</body>
+</html>

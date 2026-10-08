@@ -250,3 +250,10 @@ def test_untracked_part_page_has_no_stock_forms(app, signed_in):
     assert "isn't stocked" in text(resp)
     with app.app_context():
         assert db.session.scalar(select(StockLot.id)) is None
+
+
+def test_an_empty_post_is_a_form_error_not_a_crash(app, signed_in):
+    """With no form data at all, Flask-WTF leaves fields at their defaults (None)."""
+    owner = signed_in("owner")
+    for path in ("/parts/new", "/vendors/new", "/pricebook/services/new", "/pricebook/templates/new"):
+        assert owner.post(path, data={}).status_code == 200, path

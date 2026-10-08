@@ -5,6 +5,8 @@ Photos are re-encoded with Pillow before anything is stored. That drops every EX
 tag (a phone photo's GPS would give away a customer's address), applies the camera's
 rotation, caps the size, and refuses anything that isn't really an image."""
 
+import base64
+import binascii
 import hashlib
 import io
 import os
@@ -96,3 +98,39 @@ def store_photo(stream):
     _write(path_for(sha), data)
     _write(thumb_path(sha), thumb)
     return sha, len(data), width, height
+
+
+SIGNATURE_MAX_BYTES = 400_000
+SIGNATURE_MAX_SIDE = 3000
+
+
+def store_signature(data_url):
+    """A finger signature from a canvas (a data:image/png URL). Re-encoded flat on white;
+    refused if it isn't a PNG, is huge, or has nothing drawn on it. Returns the sha256."""
+    prefix = "data:image/png;base64,"
+    if not isinstance(data_url, str) or not data_url.startswith(prefix):
+        raise FileError("Sign in the box first.")
+    payload = data_url[len(prefix):]
+    if len(payload) > SIGNATURE_MAX_BYTES * 4 // 3 + 4:
+        raise FileError("That signature is too large.")
+    try:
+        raw = base64.b64decode(payload, validate=True)
+        with Image.open(io.BytesIO(raw)) as img:
+            if img.format != "PNG" or max(img.size) > SIGNATURE_MAX_SIDE:
+                raise FileError("That signature couldn't be read.")
+            img.load()
+            flat = Image.new("RGB", img.size, "white")
+            rgba = img.convert("RGBA")
+            flat.paste(rgba, mask=rgba.getchannel("A"))
+    except (ValueError, binascii.Error, UnidentifiedImageError, OSError, SyntaxError,
+            Image.DecompressionBombError):
+        raise FileError("That signature couldn't be read.") from None
+    inked = sum(flat.convert("L").point(lambda v: 255 if v < 160 else 0).histogram()[255:])
+    if inked < 40:
+        raise FileError("Sign in the box first.")
+    out = io.BytesIO()
+    flat.save(out, "PNG", optimize=True)
+    data = out.getvalue()
+    sha = hashlib.sha256(data).hexdigest()
+    _write(path_for(sha, ".png"), data)
+    return sha

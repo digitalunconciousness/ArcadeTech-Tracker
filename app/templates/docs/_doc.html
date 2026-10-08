@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <title>{% block title %}{% endblock %}</title>
   <link rel="stylesheet" href="{{ doc_css }}">
+  {% block head_extra %}{% endblock %}
 </head>
 <body>
   <header class="masthead">
@@ -23,5 +24,6 @@
     </div>
   </header>
   {% block content %}{% endblock %}
+  {% block after %}{% endblock %}
 </body>
 </html>

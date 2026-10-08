@@ -11,6 +11,21 @@
     <dd>{% if current_user.totp_enabled %}<span class="badge ok">ON</span>{% else %}<span class="badge warn">OFF</span> <a href="{{ url_for('auth.totp_setup') }}">Turn on</a>{% endif %}</dd>
   </dl>
 </section>
+<section class="panel" id="calendar">
+  <h2>Calendar</h2>
+  <p class="dim">Your appointments as a private feed: in Google Calendar, Other calendars → + → From URL, and paste the link. Anyone with the link can read your appointments (customer names and addresses), so keep it to yourself.</p>
+  {% if feed_url %}
+  <p class="mono key break">{{ feed_url }}</p>
+  <p class="actions"><button class="btn primary" type="button" data-copy="{{ feed_url }}">Copy</button></p>
+  <p class="dim">Shown once. Make a new one if you lose it; the old one then stops working.</p>
+  {% elif feed %}
+  <p>Your feed has been live since {{ feed.created_at | localdt('%Y-%m-%d') }}.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('auth.calendar_link') }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn" type="submit"{% if feed %} data-confirm="Make a new link? The old one stops working."{% endif %}>{{ 'Make a new calendar link' if feed else 'Make my calendar link' }}</button>
+  </form>
+</section>
 <section class="panel">
   <h2>Change password</h2>
   <form method="post" action="{{ url_for('auth.change_password') }}" novalidate>

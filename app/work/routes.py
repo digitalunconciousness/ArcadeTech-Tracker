@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from flask import (
     Blueprint,
     abort,
@@ -26,9 +28,12 @@ from app.models import (
     READING_PHASES,
     WO_KINDS,
     WO_STATUSES,
+    Appointment,
+    AppointmentUser,
     Asset,
     Attachment,
     Customer,
+    Estimate,
     ManualReading,
     Part,
     Reservation,
@@ -48,6 +53,7 @@ from app.timeutil import from_local_naive, to_local_naive, utcnow
 from app.work import docs, files, service
 from app.work.forms import (
     AddJobForm,
+    AppointmentForm,
     CustomerPartForm,
     CustomLineForm,
     JobForm,
@@ -211,10 +217,23 @@ def show(wo_id):
     if wo.warranty_of_job_id:
         orig = db.session.get(WoJob, wo.warranty_of_job_id)
         warranty_of = (orig, db.session.get(WorkOrder, orig.work_order_id))
+    appointments = db.session.scalars(select(Appointment).where(Appointment.work_order_id == wo.id)
+                                      .order_by(Appointment.starts_at)).all()
+    who = {}
+    for appt_id, name in db.session.execute(
+            select(AppointmentUser.appointment_id, User.display_name)
+            .join(User, User.id == AppointmentUser.user_id)
+            .where(AppointmentUser.appointment_id.in_([a.id for a in appointments]))):
+        who.setdefault(appt_id, []).append(name)
+    estimates = db.session.scalars(select(Estimate).where(Estimate.work_order_id == wo.id)
+                                   .order_by(Estimate.revision)).all()
     return render_template("work/show.html", wo=wo, customer=customer, site=site, jobs=jobs,
                            job_totals=job_totals, total=total, techs=techs, over_nte=over_nte,
                            status_form=StatusForm(status=wo.status), add_job=add_job,
-                           warranty_of=warranty_of, costs=sees_costs())
+                           warranty_of=warranty_of, costs=sees_costs(),
+                           appointments=appointments, who=who, estimates=estimates,
+                           appointment_form=appointment_form(wo, customer)
+                           if current_user.role in EDIT_ROLES else None)
 
 
 @bp.route("/work/<int:wo_id>/edit", methods=["GET", "POST"])
@@ -274,6 +293,56 @@ def add_job(wo_id):
             return back_to_job(holder["job"].id)
     flash_errors(form)
     return redirect(url_for("work.show", wo_id=wo.id))
+
+
+# --- appointments ------------------------------------------------------------------------
+
+def appointment_form(wo, customer):
+    form = AppointmentForm(site_id=wo.site_id, users=sorted(service.tech_ids(wo)) or
+                           [current_user.id])
+    form.site_id.choices = site_choices(customer, wo.site_id)
+    form.users.choices = tech_choices()
+    return form
+
+
+@bp.route("/work/<int:wo_id>/appointments", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def appointment_add(wo_id):
+    wo, customer = load_wo(wo_id)
+    form = appointment_form(wo, customer)
+    if form.validate_on_submit():
+        def add():
+            start = from_local_naive(form.starts_at.data)
+            appt = Appointment(work_order_id=wo.id, starts_at=start,
+                               ends_at=start + timedelta(minutes=form.minutes.data),
+                               site_id=form.site_id.data, note=form.note.data)
+            db.session.add(appt)
+            db.session.flush()
+            for uid in form.users.data:
+                db.session.add(AppointmentUser(appointment_id=appt.id, user_id=uid))
+            if wo.status == "new":
+                wo.status = "scheduled"
+
+        attempt(add, "Appointment added.")
+    else:
+        flash_errors(form)
+    return redirect(url_for("work.show", wo_id=wo.id) + "#appointments")
+
+
+@bp.route("/work/appointments/<int:appt_id>/delete", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def appointment_delete(appt_id):
+    appt = get_or_404(Appointment, appt_id)
+    if EmptyForm().validate_on_submit():
+        def remove():
+            for row in db.session.scalars(select(AppointmentUser).where(
+                    AppointmentUser.appointment_id == appt.id)):
+                db.session.delete(row)
+            db.session.flush()
+            db.session.delete(appt)
+
+        attempt(remove, "Appointment removed.")
+    return redirect(url_for("work.show", wo_id=appt.work_order_id) + "#appointments")
 
 
 # --- a job --------------------------------------------------------------------------------

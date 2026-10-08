@@ -106,7 +106,7 @@ def test_owner_sets_password(app, make_user):
 
 def test_business_settings(app, make_user):
     client, _ = _owner_client(app, make_user)
-    form = {"business_name": "Neon Repair Test Co", "doc_accent_color": "#123abc",
+    form = {"business_name": "Neon Repair Test Co", "doc_accent_color": "#123abc", "estimate_link_days": "30",
             "email": "shop@example.com", "website": "https://shop.example.com"}
     assert client.post("/settings/", data=form).status_code == 302
     assert b"Neon Repair Test Co" in client.get("/").data

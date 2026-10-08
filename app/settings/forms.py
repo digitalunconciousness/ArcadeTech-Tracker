@@ -4,6 +4,7 @@ from flask_wtf import FlaskForm
 from wtforms import (
     BooleanField,
     DecimalField,
+    IntegerField,
     PasswordField,
     SelectField,
     StringField,
@@ -13,6 +14,7 @@ from wtforms.validators import (
     URL,
     DataRequired,
     EqualTo,
+    InputRequired,
     Length,
     NumberRange,
     Optional,
@@ -49,6 +51,11 @@ class BusinessForm(FlaskForm):
     warranty_terms = TextAreaField(
         "Warranty terms (printed on service reports)", filters=[blank_to_none],
         validators=[Optional(), Length(max=6000)])
+    estimate_terms = TextAreaField(
+        "Estimate terms (authorization, the NTE rule, payment; estimates can't be sent "
+        "without them)", filters=[blank_to_none], validators=[Optional(), Length(max=6000)])
+    estimate_link_days = IntegerField("Estimates are good for (days)",
+                                      validators=[InputRequired(), NumberRange(min=1, max=365)])
 
 
 ROLE_CHOICES = [(role, label) for role, label in ROLE_LABELS.items()]

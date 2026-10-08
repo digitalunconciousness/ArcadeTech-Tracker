@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Link for {{ label }}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <p class="dim"><a href="{{ url_for('estimates.show', est_id=est.id) }}"><span class="mono">{{ label }}</span></a> · {{ customer.display_name }}</p>
+  <h1>Send this link</h1>
+  <p class="mono key break">{{ url }}</p>
+  <p class="actions">
+    <button class="btn primary" type="button" data-share="{{ url }}" data-share-title="Estimate {{ label }}">Share…</button>
+    <button class="btn" type="button" data-copy="{{ url }}">Copy</button>
+    <a class="btn" href="{{ url }}" target="_blank" rel="noopener noreferrer">Open</a>
+  </p>
+  <p class="dim">Text or email it from your phone. It opens this estimate only, works until {{ (est.valid_until | string) if est.valid_until else 'it expires' }} or you withdraw it, and isn't shown again: make a new one any time.</p>
+  <p><a class="btn" href="{{ url_for('estimates.show', est_id=est.id) }}">Back to the estimate</a></p>
+</section>
+{% endblock %}

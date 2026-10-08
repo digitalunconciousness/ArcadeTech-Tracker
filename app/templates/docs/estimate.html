@@ -1,0 +1,70 @@
+{% extends "docs/_doc.html" %}
+{% block title %}{{ label }} estimate{% endblock %}
+{% block doctype %}Estimate{% endblock %}
+{% block docno %}{{ label }}{% endblock %}
+{% block docmeta %}{{ (est.sent_at or est.created_at) | localdt('%Y-%m-%d') }}{% if est.valid_until %} · good until {{ est.valid_until }}{% endif %}{% endblock %}
+{% block content %}
+<div class="cols">
+  <div>
+    <h3>For</h3>
+    <p>{{ customer.display_name }}{% if site %}<br>{{ site.name }}{% if site.city %}, {{ site.city }}{% endif %}{% endif %}</p>
+  </div>
+  <div>
+    <h3>Work</h3>
+    <p>{{ est.summary }}</p>
+  </div>
+</div>
+
+{% for job, asset in jobs %}
+<section class="job">
+  <h2>{% if asset %}<span class="mono">{{ asset.tag }}</span> · {{ asset.name }}{% else %}Consultation{% endif %}</h2>
+  <p class="pre">{{ job.complaint }}</p>
+  <table>
+    <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Each</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {% for x in lines[job.id] %}
+    <tr>
+      <td>{{ x.description }}{% if x.labor_mode == 'actual' %} <span class="muted">(estimated hours; billed as worked)</span>{% endif %}</td>
+      <td class="num">{{ x.qty | qty }}{% if x.kind == 'labor' %} h{% endif %}</td>
+      <td class="num">{{ x.unit_price | money }}</td>
+      <td class="num">{{ line_amount(x) | money }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="muted">No lines yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endfor %}
+
+<table class="totals">
+  <tbody>
+    <tr><td>Estimated total</td><td class="num"><strong>{{ totals.total | money }}</strong></td></tr>
+    {% if totals.taxable %}<tr><td class="muted">Sales tax is added where it applies.</td><td></td></tr>{% endif %}
+    {% if est.not_to_exceed is not none %}<tr><td>We won't go over this without your OK</td><td class="num">{{ est.not_to_exceed | money }}</td></tr>{% endif %}
+    {% if est.deposit_required %}<tr><td>Deposit due before work starts</td><td class="num">{{ est.deposit_required | money }}</td></tr>{% endif %}
+  </tbody>
+</table>
+
+{% if est.notes %}<p class="pre">{{ est.notes }}</p>{% endif %}
+{% if terms %}<div class="terms pre">{{ terms }}</div>{% endif %}
+
+<section class="approval">
+  {% if est.approved_at %}
+  <h2>Approved</h2>
+  <p>{{ est.approved_name }} · {{ est.approved_at | localdt }} · {{ methods[est.approval_method] | lower }}{% if est.approval_note %} · {{ est.approval_note }}{% endif %}</p>
+  {% if signature_src %}<img class="signature" src="{{ signature_src }}" alt="Signature of {{ est.approved_name }}">{% endif %}
+  {% elif est.status == 'declined' %}
+  <h2>Declined</h2>
+  <p>{{ est.declined_at | localdt }}{% if est.decline_reason %} · {{ est.decline_reason }}{% endif %}</p>
+  {% else %}
+  {% block approve %}
+  <div class="sign">
+    <div>Approved by (signature)</div>
+    <div>Printed name</div>
+    <div>Date</div>
+  </div>
+  {% endblock %}
+  {% endif %}
+</section>
+{% endblock %}
