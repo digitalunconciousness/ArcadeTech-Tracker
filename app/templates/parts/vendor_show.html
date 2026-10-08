@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ vendor.name }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>{{ vendor.name }}</h1>
+    {% if can_edit %}<a class="btn" href="{{ url_for('parts.vendor_edit', vendor_id=vendor.id) }}">Edit</a>{% endif %}
+  </div>
+  <dl class="facts">
+    {% if vendor.website %}<dt>Website</dt><dd><a href="{{ vendor.website }}" rel="noopener noreferrer" target="_blank">{{ vendor.website }}</a></dd>{% endif %}
+    {% if vendor.account_ref %}<dt>Account</dt><dd class="mono">{{ vendor.account_ref }}</dd>{% endif %}
+    {% if vendor.contact %}<dt>Contact</dt><dd>{{ vendor.contact }}</dd>{% endif %}
+    <dt>Resale cert</dt><dd>{{ 'on file' if vendor.resale_cert_on_file else 'not on file' }}</dd>
+    {% if not vendor.active %}<dt>Status</dt><dd><span class="badge danger">inactive</span></dd>{% endif %}
+  </dl>
+  {% if vendor.notes %}<p class="notes">{{ vendor.notes }}</p>{% endif %}
+</section>
+<section class="panel">
+  <h2>Preferred vendor for</h2>
+  <ul class="list">
+    {% for p in parts %}<li><a class="mono" href="{{ url_for('parts.show', part_id=p.id) }}">{{ p.sku }}</a> {{ p.name }}</li>
+    {% else %}<li class="dim">No parts.</li>{% endfor %}
+  </ul>
+  <h2>Received from them</h2>
+  <ul class="list">
+    {% for lot, p in lots %}<li><span class="dim">{{ lot.received_at | localdt('%Y-%m-%d') }}</span> <a class="mono" href="{{ url_for('parts.show', part_id=p.id) }}">{{ p.sku }}</a> lot #{{ lot.id }}{% if lot.date_code %} · dc {{ lot.date_code }}{% endif %}{% if can_see_costs %} · {{ lot.unit_cost | unit_cost }}{% endif %}</li>
+    {% else %}<li class="dim">Nothing yet.</li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

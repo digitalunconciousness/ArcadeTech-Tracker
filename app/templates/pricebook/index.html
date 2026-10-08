@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Price book{% endblock %}
+{% block content %}
+{% include "pricebook/_tabs.html" %}
+<section class="panel">
+  <div class="head">
+    <h1>Services</h1>
+    {% if is_owner %}<a class="btn primary" href="{{ url_for('pricebook.service_new') }}">Add service</a>{% endif %}
+  </div>
+  <div class="scroll">
+  <table class="grid">
+    <thead><tr><th>Code</th><th>Name</th><th>Kind</th><th class="num">Rate</th><th class="num">Warranty</th></tr></thead>
+    <tbody>
+    {% for s in services %}
+    <tr{% if not s.active %} class="inactive"{% endif %}>
+      <td class="mono">{% if is_owner %}<a href="{{ url_for('pricebook.service_edit', service_id=s.id) }}">{{ s.code }}</a>{% else %}{{ s.code }}{% endif %}</td>
+      <td>{{ s.name }}{% if not s.active %} <span class="badge danger">off</span>{% endif %}{% if s.taxable %} <span class="badge">taxable</span>{% endif %}</td>
+      <td>{{ kinds[s.kind] }}</td>
+      <td class="num">{{ s.rate | money }} / {{ s.unit }}</td>
+      <td class="num">{{ s.warranty_days }} d</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="dim">No services yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if is_owner %}<p class="dim">Services marked off can't go on an estimate. Set a rate, then switch each one on. Labor billing steps and minimum are in <a href="{{ url_for('settings.pricing') }}">Settings → Pricing</a>.</p>{% endif %}
+</section>
+{% endblock %}

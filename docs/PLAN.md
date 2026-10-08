@@ -142,7 +142,7 @@ PostgreSQL, through SQLAlchemy 2 + Flask-Migrate.
 - **`asset_event`**
   - `asset_id`, `at`, `kind` (intake | returned | ownership_change | moved | note), `from`/`to`, `note`
   - Warranty and history follow the asset when a machine changes hands.
-- **Labels:** each asset gets a QR of `{SHOP_BASE_URL}/g/<tag>`, the same `/g/` shape as the tracker's. GATBOX's scanner already pulls the slug out of `…/g/<slug>`. The Katasymbol workflow carries over: the shop gives you a label list exactly like the dashboard's.
+- **Labels:** none on customer machines (owner, 2026-10-08: that's the barcade's way, not the shop's). Tags stay, and `{SHOP_BASE_URL}/g/<tag>` still opens an asset, the same `/g/` shape as the tracker's, for GATBOX. Bin labels for inventory may come later.
 
 ### Price book
 
@@ -259,7 +259,7 @@ PostgreSQL, through SQLAlchemy 2 + Flask-Migrate.
   - `datasheet_url`, `notes`, `active`
 - **`markup_tier`**: cost-bracket markup rules (settings). The UI always shows margin.
 - **`stock_lot`**
-  - `part_id`, `qty_received`, `qty_remaining`, `unit_cost`, `received_at`, `po_line_id`
+  - `part_id`, `unit_cost`, `received_at`, `po_line_id` (as built: what's left in a lot is the sum of its moves, never a stored quantity)
   - `date_code` / `vendor_lot`: for caps, the date code matters
   - Lots give FIFO cost **and** recalls: "which jobs got caps from that lot?"
 - **`stock_move`**
@@ -499,8 +499,8 @@ Each phase runs: design note → your OK → code + tests → diff, tests and pr
 | # | Where | What | Exit test |
 |---|---|---|---|
 | **0 Foundation** | shop-hub | Repo, app factory, Postgres + Flask-Migrate, users/roles/TOTP, settings, audit trigger, `doc_counter`, LXC runbook, `deploy.sh`, nightly backup, restore drill, CI against a real Postgres | ⏸ You and your partner log in with 2FA from phones over the tunnel; `deploy.sh` round-trips; the restore drill passes |
-| **1 Customers & assets** | shop-hub | Customers, contacts, sites, assets (machines and boards, parent/child), asset events, labels, comm log, global search | ⏸ A printed asset label opens the asset on a phone |
-| **2 Price book & parts** | shop-hub | Services, job templates, labor policy, parts, lots, the stock ledger, counts, vendors, markup tiers, bin labels | Stock on hand = sum of moves, under test; a count adjustment leaves an audit row |
+| **1 Customers & assets** | shop-hub | Customers, contacts, sites, assets (machines and boards, parent/child), asset events, comm log, global search | ⏸ On site, from the phone: customer, site, machines and boards, a comm entry; found again by phone number |
+| **2 Price book & parts** | shop-hub | Services, job templates, labor policy, parts, lots, the stock ledger, counts, vendors, markup tiers (bin labels deferred) | Stock on hand = sum of moves, under test; a count adjustment leaves an audit row |
 | **3 Work** | shop-hub | Estimates (approval, signature, revisions, NTE, deposit), WOs, jobs (3C, intake), lines, timer, part issue / reserve / customer-supplied, manual readings, photos, claim ticket and service report PDFs, `/d/` links, appointments with .ics | ⏸ An estimate is approved on a phone through a link; it converts; the timer runs; the service report prints |
 | **4 Billing** | shop-hub | Tax jurisdictions, invoice issue (snapshot, number, frozen PDF, warranty dates), payments and allocations, deposits, credit memos, voids, reversals, statements, receipts, immutability triggers | Editing an issued invoice line fails *in the database*; a partial + final payment closes the invoice; numbers stay gapless across a forced rollback |
 | **5 Purchasing** | shop-hub | Shopping list, POs, lines tied to jobs, shipments + tracking links, receive → lot + reservation + WO status, vendor RMAs | Receiving a line tied to a job reserves it and moves that WO out of `waiting_parts` |

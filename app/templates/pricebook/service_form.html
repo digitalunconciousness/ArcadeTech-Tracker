@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ service.code if service else 'New service' }}{% endblock %}
+{% block content %}
+{% include "pricebook/_tabs.html" %}
+<section class="panel">
+  <h1>{{ service.code ~ ' · ' ~ service.name if service else 'New service' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.code, autofocus=not service) }}{{ field(form.name) }}</div>
+    <div class="row">{{ field(form.kind) }}{{ field(form.rate, inputmode="decimal") }}{{ field(form.unit) }}</div>
+    {{ field(form.warranty_days, inputmode="numeric") }}
+    {{ check(form.taxable) }}
+    {{ field(form.description) }}
+    {{ check(form.active) }}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('pricebook.index') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

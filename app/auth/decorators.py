@@ -8,6 +8,9 @@ from app.extensions import login_manager
 ALL_ROLES = ("owner", "tech", "viewer")
 # Who may create and change customers, assets and work records. Viewers only read.
 EDIT_ROLES = ("owner", "tech")
+# Who sees what parts cost and the margins on them (owner, 2026-10-08). Techs see sell
+# prices and stock, never costs.
+COST_ROLES = ("owner", "viewer")
 
 
 def requires_role(*roles):

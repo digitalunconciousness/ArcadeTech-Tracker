@@ -6,6 +6,7 @@ The session creates database shop_test_<random> owned by a throwaway owner role,
 throwaway app login role in the shop_app group, exactly like prod's shop_owner / shop.
 The app under test connects as the app role; migrations run as the owner."""
 
+import importlib.util
 import os
 import secrets
 from pathlib import Path
@@ -21,6 +22,17 @@ ADMIN_URL = os.environ.get(
 )
 TEST_PASSWORD = "correct-horse-test-pw"  # synthetic; >= 12 chars
 TEST_TZ = "Pacific/Kiritimati"  # UTC+14: a year boundary differs from UTC's by a day
+
+VERSIONS = Path(__file__).resolve().parent.parent / "migrations" / "versions"
+
+
+def migration(name):
+    """A revision module, for the seed SQL a data migration exposes."""
+    spec = importlib.util.spec_from_file_location(name, VERSIONS / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 if DEVDB_PGPASS.exists():
     os.environ.setdefault("PGPASSFILE", str(DEVDB_PGPASS))
@@ -145,6 +157,9 @@ def app(tdb):
     return app
 
 
+SEED_SERVICES = migration("0006_seed_services").SEED_SQL
+
+
 @pytest.fixture(autouse=True)
 def _clean(request, tdb):
     """Every test starts from the migrated, seeded state."""
@@ -170,6 +185,7 @@ def _clean(request, tdb):
         # migration 0004's row: the shop as its own customer
         c.execute("INSERT INTO customer (kind, name, is_shop) "
                   "SELECT 'business', business_name, true FROM shop_setting")
+        c.execute(SEED_SERVICES)
 
 
 @pytest.fixture

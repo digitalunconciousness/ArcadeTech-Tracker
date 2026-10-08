@@ -40,19 +40,6 @@
 </section>
 {% endif %}
 
-<section class="panel">
-  <h2>Label</h2>
-  <div class="label-preview">
-    <div class="qr">{{ qr|safe }}</div>
-    <div>
-      <p class="mono tag">{{ asset.tag }}</p>
-      <p><button class="btn" type="button" data-copy="{{ url }}">Copy URL (for the QR)</button></p>
-      <p><button class="btn" type="button" data-copy="{{ asset.tag }}">Copy tag (for the text)</button></p>
-      <p class="dim">{% if asset.label_printed_at %}Printed {{ asset.label_printed_at | localdt('%Y-%m-%d') }}{% else %}Not printed yet{% endif %}</p>
-    </div>
-  </div>
-</section>
-
 <section class="panel" id="history">
   <h2>History</h2>
   {% if can_edit %}

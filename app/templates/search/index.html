@@ -4,7 +4,7 @@
 <section class="panel">
   <h1>Search</h1>
   <form method="get" action="{{ url_for('search.index') }}" class="row two">
-    <label class="field"><span>Name, phone, email, tag, serial, model, site</span>
+    <label class="field"><span>Name, phone, email, tag, serial, model, site, part, MPN, vendor</span>
       <input type="search" name="q" value="{{ q }}" autofocus></label>
   </form>
   {% if q and q|length < 2 %}<p class="dim">Type at least two characters.</p>
@@ -20,6 +20,14 @@
   {% if results.assets %}
   <h2>Assets</h2>
   <ul class="list">{% for a, c in results.assets %}<li><a href="{{ url_for('assets.show', asset_id=a.id) }}"><span class="mono tag">{{ a.tag }}</span></a> {{ a.name }} <span class="dim">{{ c.display_name }}{% if a.serial %} · s/n {{ a.serial }}{% endif %}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if results.parts %}
+  <h2>Parts</h2>
+  <ul class="list">{% for p in results.parts %}<li{% if not p.active %} class="inactive"{% endif %}><a href="{{ url_for('parts.show', part_id=p.id) }}"><span class="mono">{{ p.sku }}</span></a> {{ p.name }} <span class="dim">{{ p.mpn or '' }}{% if p.equivalents %} · ≈ {{ p.equivalents | join(', ') }}{% endif %}{% if p.bin %} · bin {{ p.bin }}{% endif %}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if results.vendors %}
+  <h2>Vendors</h2>
+  <ul class="list">{% for v in results.vendors %}<li><a href="{{ url_for('parts.vendor_show', vendor_id=v.id) }}">{{ v.name }}</a></li>{% endfor %}</ul>
   {% endif %}
   {% if results.sites %}
   <h2>Sites</h2>

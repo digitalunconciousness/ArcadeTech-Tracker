@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ vendor.name if vendor else 'New vendor' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>{{ vendor.name if vendor else 'New vendor' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.name, autofocus=not vendor) }}
+    {{ field(form.website, inputmode="url") }}
+    <div class="row two">{{ field(form.account_ref) }}{{ field(form.contact) }}</div>
+    {{ check(form.resale_cert_on_file) }}
+    {{ field(form.notes) }}
+    {% if vendor %}{{ check(form.active) }}{% endif %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('parts.vendor_show', vendor_id=vendor.id) if vendor else url_for('parts.vendors') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

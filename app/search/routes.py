@@ -1,11 +1,11 @@
 import re
 
 from flask import Blueprint, render_template, request
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from app.auth.decorators import ALL_ROLES, requires_role
 from app.extensions import db
-from app.models import Asset, Contact, Customer, Site
+from app.models import Asset, Contact, Customer, Part, Site, Vendor
 
 bp = Blueprint("search", __name__)
 
@@ -53,5 +53,14 @@ def index():
             .where(or_(Site.name.ilike(pat), Site.city.ilike(pat),
                        Site.address_line1.ilike(pat)))
             .order_by(Site.name).limit(LIMIT)).all()
+
+        results["parts"] = db.session.scalars(
+            select(Part).where(or_(Part.sku.ilike(pat), Part.name.ilike(pat), Part.mpn.ilike(pat),
+                                   func.array_to_string(Part.equivalents, " ").ilike(pat)))
+            .order_by(Part.active.desc(), Part.sku).limit(LIMIT)).all()
+
+        results["vendors"] = db.session.scalars(
+            select(Vendor).where(or_(Vendor.name.ilike(pat), Vendor.account_ref.ilike(pat)))
+            .order_by(Vendor.name).limit(LIMIT)).all()
     return render_template("search/index.html", q=q, results=results,
                            found=any(results.values()))

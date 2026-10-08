@@ -1,0 +1,4 @@
+<nav class="tabs">
+  <a href="{{ url_for('pricebook.index') }}" {% if request.endpoint.startswith('pricebook.service') or request.endpoint == 'pricebook.index' %}class="active"{% endif %}>Services</a>
+  <a href="{{ url_for('pricebook.templates') }}" {% if request.endpoint.startswith('pricebook.template') %}class="active"{% endif %}>Job templates</a>
+</nav>

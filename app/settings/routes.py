@@ -1,12 +1,22 @@
 from flask import Blueprint, abort, flash, redirect, render_template, url_for
 from flask_login import current_user, login_user
+from psycopg.errors import ExclusionViolation, UniqueViolation
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.auth.decorators import requires_role
 from app.auth.forms import EmptyForm
 from app.extensions import db
-from app.models import ShopSetting, User
-from app.settings.forms import BusinessForm, SetPasswordForm, UserCreateForm, UserEditForm
+from app.models import MarkupTier, ShopSetting, User
+from app.pricing import multiplier_margin
+from app.settings.forms import (
+    BusinessForm,
+    LaborPolicyForm,
+    MarkupTierForm,
+    SetPasswordForm,
+    UserCreateForm,
+    UserEditForm,
+)
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
 
@@ -136,3 +146,63 @@ def user_reset_2fa(user_id):
         db.session.commit()
         flash(f"2FA reset for {user.username}; they enroll again at next sign-in.", "ok")
     return redirect(url_for("settings.user_edit", user_id=user.id))
+
+
+# --- pricing: labor policy and markup brackets -----------------------------------------------
+
+def _pricing_page(labor_form=None, tier_form=None, status=200):
+    row = db.session.get(ShopSetting, True)
+    tiers = db.session.scalars(select(MarkupTier).order_by(MarkupTier.min_cost)).all()
+    return render_template(
+        "settings/pricing.html", labor_form=labor_form or LaborPolicyForm(obj=row),
+        tier_form=tier_form or MarkupTierForm(), tiers=tiers,
+        margins={t.id: multiplier_margin(t.multiplier) for t in tiers},
+        delete_form=EmptyForm()), status
+
+
+@bp.route("/pricing", methods=["GET", "POST"])
+@requires_role("owner")
+def pricing():
+    form = LaborPolicyForm()
+    if form.validate_on_submit():
+        form.populate_obj(db.session.get(ShopSetting, True))
+        db.session.commit()
+        flash("Labor policy saved.", "ok")
+        return redirect(url_for("settings.pricing"))
+    if form.is_submitted():
+        _flash_errors(form)
+        return _pricing_page(labor_form=form, status=422)
+    return _pricing_page()
+
+
+@bp.route("/pricing/tiers", methods=["POST"])
+@requires_role("owner")
+def tier_add():
+    form = MarkupTierForm()
+    if form.validate_on_submit():
+        db.session.add(MarkupTier(min_cost=form.min_cost.data, max_cost=form.max_cost.data,
+                                  multiplier=form.multiplier.data))
+        try:
+            db.session.commit()
+        except IntegrityError as e:
+            db.session.rollback()
+            if not isinstance(e.orig, (ExclusionViolation, UniqueViolation)):
+                raise
+            form.min_cost.errors.append("Overlaps another bracket.")
+        else:
+            flash("Bracket added.", "ok")
+            return redirect(url_for("settings.pricing"))
+    _flash_errors(form)
+    return _pricing_page(tier_form=form, status=422)
+
+
+@bp.route("/pricing/tiers/<int:tier_id>/delete", methods=["POST"])
+@requires_role("owner")
+def tier_delete(tier_id):
+    tier = db.session.get(MarkupTier, tier_id) or abort(404)
+    if EmptyForm().validate_on_submit():
+        db.session.delete(tier)
+        db.session.commit()
+        flash("Bracket removed. Parts it priced have no markup price until another covers them.",
+              "ok")
+    return redirect(url_for("settings.pricing"))
