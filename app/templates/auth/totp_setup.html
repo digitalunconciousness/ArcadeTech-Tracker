@@ -11,10 +11,12 @@
     {% if current_user.role == 'owner' %}<p class="badge warn">Required for owners</p>{% endif %}
     <ol class="steps">
       <li>Open your authenticator app (Aegis, 2FAS, Google Authenticator, 1Password…).</li>
-      <li>Scan this code, or type the key below.</li>
+      <li>Scan this code from another screen, or on this phone tap
+        <a href="{{ otpauth_uri }}">add to authenticator app</a>, or type the key below.</li>
       <li>Enter the 6-digit code it shows.</li>
     </ol>
     <div class="qr">{{ qr|safe }}</div>
+    <p class="dim">Key (time-based, 6 digits, 30 seconds; spaces don't matter):</p>
     <p class="mono key">{{ secret }}</p>
     <form method="post" novalidate>
       {{ form.csrf_token }}

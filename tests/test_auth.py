@@ -49,6 +49,9 @@ def test_owner_without_2fa_is_held_at_enrollment(app, client, make_user):
 
     with app.app_context():
         secret = db.session.get(User, owner["id"]).totp_secret
+    html = page.get_data(as_text=True)
+    assert 'href="otpauth://totp/' in html and f"secret={secret}" in html  # phone-only setup
+    assert " ".join(secret[i:i + 4] for i in range(0, len(secret), 4)) in html  # typeable key
     assert client.post("/account/2fa", data={"code": "000000"}).status_code == 200
     resp = client.post("/account/2fa", data={"code": totp_code(secret)})
     assert resp.status_code == 302 and resp.location == "/"
