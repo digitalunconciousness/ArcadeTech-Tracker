@@ -31,33 +31,55 @@ hex so nothing needs escaping in a URL or a shell:
 
 ## 1. Postgres host: roles and databases ⏸
 
-Three roles (see `deploy/sql/create_roles.sql` for why):
+Three roles (see `deploy/sql/create_roles.psql` for why):
 
 - `shop_owner` owns the database and every object. Migrations run as it. It's the only
   role that could `DISABLE TRIGGER`, so the app never connects as it.
 - `shop_app` is a NOLOGIN group holding exactly the privileges the migrations grant.
 - `shop` is the app's login, a member of `shop_app`.
 
-Copy `deploy/sql/create_roles.sql` to the Postgres host, then:
+Copy `deploy/sql/create_roles.psql` to the Postgres container from the Proxmox host
+(`pct pull <SHOP_CTID> /opt/shop-hub/deploy/sql/create_roles.psql /tmp/create_roles.psql`,
+then `pct push <PG_CTID> /tmp/create_roles.psql /tmp/create_roles.psql`), then inside it,
+reading the two passwords without echoing them or leaving them in shell history:
 
 ```
-sudo -u postgres psql -X -v owner_password=<HEX1> -v app_password=<HEX2> -f create_roles.sql
+read -rsp 'shop_owner password: ' OWNER_PW; echo
+read -rsp 'shop password: ' APP_PW; echo
+runuser -u postgres -- psql -X -v "owner_password=$OWNER_PW" -v "app_password=$APP_PW" \
+  -f /tmp/create_roles.psql
+unset OWNER_PW APP_PW; rm /tmp/create_roles.psql
 ```
 
 That also creates `shop_restore_test` (owned by `shop_owner`) for the monthly drill.
 There are no grants between `shop` and the barcade's tracker role, in either direction.
 
-`pg_hba.conf`: admit only the shop LXC, only to its databases, over TLS if the host
-has it (use `host` instead of `hostssl` if not):
+`pg_hba.conf` (`runuser -u postgres -- psql -Atc 'SHOW hba_file'`): admit the shop roles
+only from the shop LXC, only to their databases, over TLS if the host has it
+(`SHOW ssl`; if `off`, write `host` instead of `hostssl` in the two allow lines).
+
+pg_hba is **first match**: put these lines *above* any broader line already there (a
+`host all all <subnet> …` for other apps, say). Otherwise the broad line matches first,
+and the shop roles can log in from anywhere on that subnet, to any database, without TLS.
+The reject lines stop the shop roles at any other database or address:
 
 ```
 hostssl  shop               shop,shop_owner  <LXC_LAN_IP>/32  scram-sha-256
 hostssl  shop_restore_test  shop_owner       <LXC_LAN_IP>/32  scram-sha-256
+host     all                shop,shop_owner  0.0.0.0/0        reject
+host     all                shop,shop_owner  ::/0             reject
 ```
 
+Reload and check the order (the shop rows must have lower line numbers than any broader
+`host` row, and `error` must be empty):
+
 ```
-sudo -u postgres psql -c 'SELECT pg_reload_conf()'
+runuser -u postgres -- psql -c 'SELECT pg_reload_conf()'
+runuser -u postgres -- psql -c "SELECT line_number, type, database, user_name, address, auth_method, error FROM pg_hba_file_rules ORDER BY line_number"
 ```
+
+From the shop LXC once it exists: `psql "postgresql://shop@<PG_HOST>/shop?sslmode=require" -c 'SELECT 1'`
+must work, and the same with `/postgres` instead of `/shop` must be rejected.
 
 ## 2. Create the LXC ⏸
 

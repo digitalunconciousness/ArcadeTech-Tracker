@@ -87,7 +87,7 @@ cmd_init() {
   secrets
   "$ENGINE" exec -i "$NAME" psql -X -q -U postgres -d postgres \
     -v "owner_password=$OWNER_PASSWORD" -v "app_password=$APP_PASSWORD" \
-    < "$ROOT/deploy/sql/create_roles.sql"
+    < "$ROOT/deploy/sql/create_roles.psql"
   echo "devdb: roles shop_owner, shop_app, shop and databases shop, shop_restore_test ready"
 }
 
