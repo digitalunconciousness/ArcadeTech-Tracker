@@ -175,3 +175,12 @@ class ReadingForm(FlaskForm):
 class PhotoForm(FlaskForm):
     photo = FileField("Photo", validators=[FileRequired("Pick a photo.")])
     caption = optional_text("Caption", 200)
+
+
+class AppointmentForm(FlaskForm):
+    starts_at = DateTimeLocalField("Starts", format=LOCAL_FORMATS, validators=[InputRequired()])
+    minutes = IntegerField("How long (minutes)", default=60,
+                           validators=[InputRequired(), NumberRange(min=5, max=1440)])
+    site_id = SelectField("Where", coerce=opt_int)
+    users = MultiCheckboxField("Who", coerce=int)
+    note = optional_text("Note", 300)

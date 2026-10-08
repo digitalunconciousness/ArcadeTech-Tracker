@@ -24,6 +24,9 @@ def split_equivalents(value):
 
 
 class EquivalentsField(StringField):
+    def process_data(self, value):
+        self.data = list(value or [])   # a list even when nothing was posted at all
+
     def _value(self):
         return ", ".join(self.data or [])
 
@@ -32,6 +35,7 @@ class EquivalentsField(StringField):
 
 
 def check_equivalents(form, field):
+    field.data = field.data or []
     if len(field.data) > EQUIV_MAX:
         raise ValidationError(f"At most {EQUIV_MAX}.")
     if any(len(e) > 80 for e in field.data):

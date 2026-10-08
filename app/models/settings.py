@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Numeric, String, Text, text, true
+from sqlalchemy import Boolean, CheckConstraint, Integer, Numeric, String, Text, text, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.extensions import db
@@ -20,6 +20,7 @@ class ShopSetting(StandardColumns, db.Model):
         CheckConstraint("doc_accent_color ~ '^#[0-9a-fA-F]{6}$'", name="accent_hex"),
         CheckConstraint("labor_increment_hours > 0", name="labor_increment_positive"),
         CheckConstraint("labor_minimum_hours >= 0", name="labor_minimum_nonnegative"),
+        CheckConstraint("estimate_link_days BETWEEN 1 AND 365", name="estimate_link_days_range"),
     )
 
     id: Mapped[bool] = mapped_column(Boolean, primary_key=True, server_default=true())
@@ -48,3 +49,7 @@ class ShopSetting(StandardColumns, db.Model):
     # Printed on customer documents. The owner writes them (and has a lawyer look).
     claim_terms: Mapped[str | None] = mapped_column(Text)
     warranty_terms: Mapped[str | None] = mapped_column(Text)
+    # Estimates can't be sent until these exist (owner, 2026-10-08).
+    estimate_terms: Mapped[str | None] = mapped_column(Text)
+    estimate_link_days: Mapped[int] = mapped_column(Integer, nullable=False,
+                                                    server_default=text("30"))

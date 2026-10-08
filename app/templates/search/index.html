@@ -13,6 +13,10 @@
   <h2>Work orders</h2>
   <ul class="list">{% for wo, c in results.work %}<li><a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono tag">{{ wo.number }}</span></a> {{ wo.summary }} <span class="dim">{{ c.display_name }}</span></li>{% endfor %}</ul>
   {% endif %}
+  {% if results.estimates %}
+  <h2>Estimates</h2>
+  <ul class="list">{% for est, c in results.estimates %}<li><a href="{{ url_for('estimates.show', est_id=est.id) }}"><span class="mono tag">{{ est.number }}{% if est.revision > 1 %} r{{ est.revision }}{% endif %}</span></a> {{ est.summary }} <span class="dim">{{ c.display_name }} · {{ est.status }}</span></li>{% endfor %}</ul>
+  {% endif %}
   {% if results.customers %}
   <h2>Customers</h2>
   <ul class="list">{% for c in results.customers %}<li><a href="{{ url_for('customers.show', customer_id=c.id) }}">{{ c.display_name }}</a> <span class="dim">{{ c.phone or '' }}</span></li>{% endfor %}</ul>

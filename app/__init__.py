@@ -13,7 +13,12 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
 # Reachable without signing in. Everything else needs a login (and, for an owner,
 # 2FA); every view outside this set must carry @requires_role (a test checks).
-PUBLIC_ENDPOINTS = frozenset({"auth.login", "auth.login_totp", "health.healthz", "static"})
+PUBLIC_ENDPOINTS = frozenset({
+    "auth.login", "auth.login_totp", "health.healthz", "static",
+    # customer links and calendar feeds (/d/...): token-only, see app/public/routes.py
+    "public.estimate", "public.approve", "public.decline", "public.estimate_pdf",
+    "public.signature", "public.accent_css", "public.calendar_feed",
+})
 # Reachable by an owner who hasn't enrolled 2FA yet.
 ENROLLMENT_ENDPOINTS = frozenset({"auth.totp_setup", "auth.logout", "static"})
 
@@ -43,15 +48,17 @@ def create_app(overrides=None):
     from app.auth.routes import bp as auth_bp
     from app.customers.routes import bp as customers_bp
     from app.dashboard.routes import bp as dashboard_bp
+    from app.estimates.routes import bp as estimates_bp
     from app.health.routes import bp as health_bp
     from app.parts.routes import bp as parts_bp
     from app.pricebook.routes import bp as pricebook_bp
+    from app.public.routes import bp as public_bp
     from app.search.routes import bp as search_bp
     from app.settings.routes import bp as settings_bp
     from app.work.routes import bp as work_bp
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
-               pricebook_bp, parts_bp, work_bp):
+               pricebook_bp, parts_bp, work_bp, estimates_bp, public_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)

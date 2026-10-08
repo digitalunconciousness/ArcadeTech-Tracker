@@ -163,7 +163,7 @@ PostgreSQL, through SQLAlchemy 2 + Flask-Migrate.
 
 - **`estimate`**
   - `number` (`EST-2026-0001`), `customer_id`, `site_id`
-  - `status`: draft | sent | approved | declined | expired | converted
+  - `status`: draft | sent | approved | declined | superseded | converted (as built: "expired" is the valid-until date passing, checked rather than stored; a replaced revision is `superseded`)
   - `valid_until`, `not_to_exceed`, `deposit_required`, `terms_snapshot`
   - `approved_at`, `approved_name`, `approval_method` (on_screen | link | verbal), `signature_file`, `approval_ip`, `approval_ua`
   - Lines like a work order's.

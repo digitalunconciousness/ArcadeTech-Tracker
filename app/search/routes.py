@@ -5,7 +5,17 @@ from sqlalchemy import func, or_, select
 
 from app.auth.decorators import ALL_ROLES, requires_role
 from app.extensions import db
-from app.models import Asset, Contact, Customer, Part, Site, Vendor, WoJob, WorkOrder
+from app.models import (
+    Asset,
+    Contact,
+    Customer,
+    Estimate,
+    Part,
+    Site,
+    Vendor,
+    WoJob,
+    WorkOrder,
+)
 
 bp = Blueprint("search", __name__)
 
@@ -65,6 +75,11 @@ def index():
                        WorkOrder.id.in_(select(WoJob.work_order_id)
                                         .where(WoJob.inbound_tracking.ilike(pat)))))
             .order_by(WorkOrder.id.desc()).limit(LIMIT)).all()
+
+        results["estimates"] = db.session.execute(
+            select(Estimate, Customer).join(Customer, Customer.id == Estimate.customer_id)
+            .where(or_(Estimate.number.ilike(pat), Estimate.summary.ilike(pat)))
+            .order_by(Estimate.id.desc()).limit(LIMIT)).all()
 
         results["vendors"] = db.session.scalars(
             select(Vendor).where(or_(Vendor.name.ilike(pat), Vendor.account_ref.ilike(pat)))

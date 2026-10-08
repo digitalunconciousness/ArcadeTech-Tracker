@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Estimates{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Estimates</h1>
+    {% if can_edit %}<a class="btn primary" href="{{ url_for('estimates.new') }}">New estimate</a>{% endif %}
+  </div>
+  {% set ns = namespace(any=false) %}
+  {% for status, rows in groups.items() if rows %}
+  {% set ns.any = true %}
+  <h2>{{ est_statuses[status] }} <span class="dim">{{ rows | length }}</span></h2>
+  <ul class="list">
+    {% for est, customer in rows %}
+    <li>
+      <a href="{{ url_for('estimates.show', est_id=est.id) }}"><span class="mono tag">{{ label(est) }}</span></a>
+      {{ customer.display_name }}
+      <div>{{ est.summary }}</div>
+      {% if est.valid_until %}<div class="dim">good until {{ est.valid_until }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+  {% if not ns.any %}<p class="dim">No open estimates.</p>{% endif %}
+  <p><a href="{{ url_for('estimates.index', all=None if show_all else 1) }}">{{ 'Open only' if show_all else 'Include declined, replaced and converted' }}</a></p>
+</section>
+{% endblock %}

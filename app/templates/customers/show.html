@@ -85,6 +85,23 @@
   </ul>
 </section>
 
+<section class="panel" id="estimates">
+  <div class="head">
+    <h2>Estimates</h2>
+    {% if can_edit %}<a class="btn" href="{{ url_for('estimates.new', customer=customer.id) }}">New estimate</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for est in estimates %}
+    <li{% if est.status in ('superseded', 'declined') %} class="inactive"{% endif %}>
+      <a href="{{ url_for('estimates.show', est_id=est.id) }}"><span class="mono tag">{{ est.number }}{% if est.revision > 1 %} r{{ est.revision }}{% endif %}</span></a> {{ est.summary }}
+      <span class="badge">{{ est.status }}</span>
+    </li>
+    {% else %}
+    <li class="dim">None yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
 <section class="panel" id="work">
   <div class="head">
     <h2>Work orders</h2>

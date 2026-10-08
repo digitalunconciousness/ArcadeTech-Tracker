@@ -21,7 +21,9 @@
     {{ field(form.website, inputmode="url") }}
     {{ field(form.doc_accent_color) }}
     <h2>Terms on documents</h2>
-    <p class="dim">Write these once; they print on every claim ticket and service report. Have a lawyer look.</p>
+    <p class="dim">Write these once; they print on every estimate, claim ticket and service report. Have a lawyer look.</p>
+    {{ field(form.estimate_terms) }}
+    {{ field(form.estimate_link_days, inputmode="numeric") }}
     {{ field(form.claim_terms) }}
     {{ field(form.warranty_terms) }}
     <p class="dim">Display time zone: <span class="mono">{{ config.SHOP_TZ }}</span> (set by SHOP_TZ in the server's environment).</p>

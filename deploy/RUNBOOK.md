@@ -233,7 +233,9 @@ systemctl enable --now cloudflared
 
 Check from a private window: `https://<SHOP_HOSTNAME>/` shows the Access PIN page first,
 then the app's sign-in; `https://<SHOP_HOSTNAME>/d/x` reaches the app (its 404 page, not
-Cloudflare's). What the errors mean: Cloudflare **1033** = no connector running
+Cloudflare's). Customer estimate links (`/d/<token>`) and calendar feeds
+(`/d/cal/<token>.ics`, fetched by Google's servers) only work through app 3: if `/d/x`
+shows the Access PIN page, app 3 is missing. What the errors mean: Cloudflare **1033** = no connector running
 (`systemctl status cloudflared`); **502/503** = the connector runs but nothing answers on
 127.0.0.1:8080 (`systemctl status shop-hub`, `curl -s http://127.0.0.1:8080/healthz`).
 

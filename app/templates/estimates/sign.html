@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Sign {{ label }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('estimates.show', est_id=est.id) }}"><span class="mono">{{ label }}</span></a></p>
+  <h1>Hand the phone to {{ customer.display_name }}</h1>
+  <p class="lead">{{ est.summary }}: <strong>{{ totals.total | money }}</strong></p>
+  {% for job, asset in jobs %}
+  <h3>{% if asset %}{{ asset.name }}{% else %}Consultation{% endif %}</h3>
+  <ul class="list">{% for x in lines[job.id] %}<li>{{ x.description }} <span class="dim">{{ x.qty | qty }} × {{ x.unit_price | money }}</span> <strong class="mono">{{ line_amount(x) | money }}</strong></li>{% endfor %}</ul>
+  {% endfor %}
+  {% if est.not_to_exceed is not none %}<p>We won't go over <strong>{{ est.not_to_exceed | money }}</strong> without your OK.</p>{% endif %}
+  {% if est.deposit_required %}<p>Deposit before work starts: <strong>{{ est.deposit_required | money }}</strong></p>{% endif %}
+  {% if terms %}<details class="form" open><summary>Terms</summary><p class="notes">{{ terms }}</p></details>{% endif %}
+  <form method="post" novalidate data-signature-form>
+    {{ form.csrf_token }}
+    {{ form.seen() }}
+    {{ form.signature() }}
+    {{ field(form.name, autocomplete="name") }}
+    <p class="dim">Sign with a finger:</p>
+    <canvas class="pad" data-pad aria-label="Signature box"></canvas>
+    <p class="err" data-pad-error hidden>Sign in the box first.</p>
+    <p class="actions">
+      <button class="btn" type="button" data-pad-clear>Clear</button>
+      <button class="btn primary" type="submit">I approve this estimate</button>
+    </p>
+  </form>
+</section>
+<script src="{{ url_for('static', filename='js/sign.js') }}" defer></script>
+{% endblock %}

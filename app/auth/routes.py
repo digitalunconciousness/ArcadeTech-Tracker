@@ -1,8 +1,19 @@
+import hashlib
+import secrets
 import time
 from functools import cache
 from urllib.parse import urlsplit
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_login import current_user, login_user, logout_user
 from sqlalchemy import select
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -12,7 +23,7 @@ from app.auth import totp
 from app.auth.decorators import ALL_ROLES, requires_role
 from app.auth.forms import EmptyForm, LoginForm, PasswordChangeForm, TotpForm
 from app.extensions import db, limiter, login_manager
-from app.models import User
+from app.models import CalendarFeed, User
 from app.settings_store import get_settings
 from app.timeutil import utcnow
 
@@ -121,7 +132,33 @@ def logout():
 @bp.route("/account")
 @requires_role(*ALL_ROLES)
 def account():
-    return render_template("auth/account.html", form=PasswordChangeForm(), logout_form=EmptyForm())
+    return render_template("auth/account.html", form=PasswordChangeForm(), logout_form=EmptyForm(),
+                           feed=live_feed())
+
+
+def live_feed():
+    return db.session.scalar(select(CalendarFeed).where(CalendarFeed.user_id == current_user.id,
+                                                        CalendarFeed.revoked_at.is_(None)))
+
+
+@bp.route("/account/calendar", methods=["POST"])
+@requires_role(*ALL_ROLES)
+@limiter.limit("5 per minute")
+def calendar_link():
+    """A new private calendar feed URL, shown once; the old one stops working."""
+    if not EmptyForm().validate_on_submit():
+        return redirect(url_for("auth.account"))
+    old = live_feed()
+    if old is not None:
+        old.revoked_at = utcnow()
+        db.session.flush()
+    token = secrets.token_urlsafe(32)
+    db.session.add(CalendarFeed(user_id=current_user.id,
+                                token_sha256=hashlib.sha256(token.encode()).hexdigest()))
+    db.session.commit()
+    url = current_app.config["SHOP_BASE_URL"] + url_for("public.calendar_feed", token=token)
+    return render_template("auth/account.html", form=PasswordChangeForm(),
+                           logout_form=EmptyForm(), feed=live_feed(), feed_url=url)
 
 
 @bp.route("/account/password", methods=["POST"])

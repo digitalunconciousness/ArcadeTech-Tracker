@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.customers.forms import CommLogForm, ContactForm, CustomerForm, SiteForm
 from app.extensions import db
-from app.models import Asset, CommLog, Contact, Customer, Site, WorkOrder
+from app.models import Asset, CommLog, Contact, Customer, Estimate, Site, WorkOrder
 
 bp = Blueprint("customers", __name__)
 
@@ -65,7 +65,10 @@ def show(customer_id):
                                      .order_by(WorkOrder.id.desc()).limit(50)).all()
     return render_template("customers/show.html", customer=customer, contacts=contacts,
                            sites=sites, assets=assets, log=log, contacts_by_id=contacts_by_id,
-                           log_form=CommLogForm(), work_orders=work_orders)
+                           log_form=CommLogForm(), work_orders=work_orders,
+                           estimates=db.session.scalars(
+                               select(Estimate).where(Estimate.customer_id == customer_id)
+                               .order_by(Estimate.id.desc()).limit(50)).all())
 
 
 @bp.route("/customers/<int:customer_id>/edit", methods=["GET", "POST"])

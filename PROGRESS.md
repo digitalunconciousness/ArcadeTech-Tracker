@@ -54,7 +54,7 @@ push/PR → owner deploys (⏸).
       - [x] `deploy.sh` round-trip: dump → pull → hash-checked install → migrate → restart →
             healthy (2026-10-08)
       - [x] restore drill PASS (5 tables, 7 triggers); backup + drill timers enabled (2026-10-08)
-      - [ ] ⏸ partner signed in with 2FA
+      - [x] partner's user created (2026-10-08); ⏸ their first sign-in with 2FA is still to do
 
 ## Phase 1: Customers & assets (branch `phase/1-customers-assets`)
 
@@ -64,10 +64,10 @@ push/PR → owner deploys (⏸).
 - [x] Global search; labels built, then removed in Phase 2 (owner: no QR labels on customer
       machines; `/g/<tag>` stays as a lookup)
 - [x] Diff, tests, privacy output → OK → PR #5 (merged, deployed 2026-10-08)
-- [ ] ⏸ Exit (revised 2026-10-08, on site, all from the phone): add the customer, a contact and
-      a site; add the machine(s), and any board pulled with "Inside" set to its machine; log a
-      comm entry; set "In the shop" + shelf on anything that leaves with you; back home, search
-      the phone number typed in a different format and find it all
+- [x] ⏸ Exit (revised 2026-10-08, on site, all from the phone; passed 2026-10-08): add the
+      customer, a contact and a site; add the machine(s), and any board pulled with "Inside" set
+      to its machine; log a comm entry; set "In the shop" + shelf on anything that leaves with
+      you; back home, search the phone number typed in a different format and find it all
 
 ## Phase 2: Price book & parts (branch `phase/2-pricebook-parts`)
 
@@ -90,12 +90,14 @@ push/PR → owner deploys (⏸).
   - [x] Photos (EXIF stripped), claim ticket and service report PDFs, work board
   - [ ] Diff, tests, privacy output → ⏸ OK → PR
   - [ ] ⏸ Owner deploys (migration 0007) and writes the claim and warranty terms in Settings
-- **3b: estimates and links**
-  - [ ] Estimates: lines, NTE, deposit, revisions, approval via `/d/<token>` on a phone
+- **3b: estimates and links** (branch `phase/3b-estimates`, on top of 3a)
+  - [x] Estimates: lines, NTE, deposit, revisions, approval via `/d/<token>` on a phone
         (finger signature canvas → PNG + typed name; time, IP, UA logged); convert to a WO
-  - [ ] Appointments + .ics feed (`/d/cal/<token>.ics`)
-  - [ ] ⏸ Cloudflare Access bypass for `/d/*` in place
+  - [x] Appointments + .ics feed (`/d/cal/<token>.ics`)
+  - [ ] ⏸ Cloudflare Access bypass for `/d/*` in place (RUNBOOK §7, app 3): `/d/x` must
+        show the app's own "isn't available" page, not the Access PIN page
   - [ ] Diff, tests, privacy output → ⏸ OK → PR
+  - [ ] ⏸ Owner deploys (migration 0008), writes the estimate terms in Settings
 - [ ] ⏸ Exit: estimate approved on a phone through a link; converts; timer runs; report prints
 
 ## Phase 4: Billing (branch `phase/4-billing`)
@@ -185,6 +187,12 @@ push/PR → owner deploys (⏸).
 | 2026-10-08 | Labor on a job: flat hours, or actual = `bill_hours(the job's billable timer minutes)`; the minimum applies once per job; one actual-time labor line per job (DB index) | Owner's labor policy, applied per job not per tech |
 | 2026-10-08 | Issued parts: one line per lot (FIFO), each at that lot's cost; `stock_move.wo_job_id` links issue and return moves to the job (the plan said `wo_line_id`, but lines can be removed and the ledger can't change) | Recall tracing survives a removed line |
 | 2026-10-08 | Warranty printed per line: 365 d on parts we supply and labor; labor on a job with a customer-supplied part 90 d; the customer's part none | Owner's warranty decision (2026-10-07) |
+| 2026-10-08 | Estimates: revisions keep the number (`EST-2026-0004 r2`); a new revision replaces an unapproved one (status `superseded`, its links stop). After approval, triggers freeze the estimate, its jobs and lines; only approved → converted may change | Plan: "an approved estimate is frozen", enforced in the database |
+| 2026-10-08 | What the customer approves is pinned: the approval form carries a hash of the estimate as shown; a change since is refused ("reload") | A price edited while the customer reads can't be approved unseen |
+| 2026-10-08 | Customer links: `secrets.token_urlsafe(32)`, only its sha256 stored; each "Send link" mints a new one; expiry = the estimate's link days (default 30); revocable; view count; bad/expired/withdrawn all give the same 404 | CLAUDE.md `/d/<token>` rules |
+| 2026-10-08 | Converting: jobs, labor, fees, sublets and discounts carry over; quoted stocked parts become reservations at the quoted price (issued when used; shortfalls flagged to order); actual-time labor starts at 0 | Parts are issued when used, not when quoted |
+| 2026-10-08 | Change orders: a revision of a converted estimate, once approved, raises the WO's NTE and takes it out of waiting_approval | The plan's over-NTE flow |
+| 2026-10-08 | Calendar feeds: one live per user, token hashed, made on the Account page; events for appointments the user is on, from 60 days back | Owner: name + address in Google is fine |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -278,3 +286,19 @@ push/PR → owner deploys (⏸).
   issue a part, actual labor, a reading, a photo, stop from the timer bar, both PDFs; no
   horizontal scroll, no CSP or console errors. The lines and readings tables were folded
   to fit a phone after the first pass.
+
+### Session 2, Phase 3b (2026-10-08, same cloud session)
+
+- Migration 0008: estimate, estimate_job, estimate_line, doc_link, appointment,
+  appointment_user, calendar_feed; `reservation.unit_price`; estimate terms and link days
+  in settings. Trigger functions `estimate_frozen()` and `estimate_child_frozen()` (the
+  latter takes a share lock on the estimate, so an edit and an approval can't interleave).
+  doc_link isn't audited: every view updates it.
+- `/d/` pages share the print-first template with the PDF; no inline CSS or script (the
+  accent colour comes from `/d/style/accent.css`, the signature pad is `static/js/sign.js`).
+  Rate-limited (60/min views, 10/min decisions), `Referrer-Policy: no-referrer`, noindex.
+- Phone walk-through of the exit path (two iPhone 13 contexts, the customer signed out):
+  build an estimate, send the link, sign with a finger, approve, convert, timer, service
+  report. It caught two real problems, both fixed: the signature pad cleared itself on
+  every `resize` (phones fire one when the address bar hides) and a refresh after approving
+  re-posted the form (now redirects). Tests: 237 passed.

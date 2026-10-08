@@ -1,0 +1,43 @@
+{% extends "docs/estimate.html" %}
+{% block head_extra %}
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="{{ url_for('public.accent_css') }}">
+  <script src="{{ url_for('static', filename='js/sign.js') }}" defer></script>
+{% endblock %}
+{% block approve %}
+  {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+  {% if newer %}
+  <p class="notice">There's a newer version of this estimate. Ask us for its link.</p>
+  {% elif expired %}
+  <p class="notice">This estimate was good until {{ est.valid_until }}. Call us for a fresh one{% if shop.phone %}: {{ shop.phone }}{% endif %}.</p>
+  {% elif can_decide %}
+  <form class="approve-panel" method="post" action="{{ url_for('public.approve', token=token) }}" novalidate data-signature-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ form.seen() }}
+    {{ form.signature() }}
+    <h2>Approve</h2>
+    <label for="name">Your name</label>
+    {{ form.name(autocomplete="name", type="text") }}
+    <label>Sign with your finger or mouse</label>
+    <canvas class="pad" data-pad aria-label="Signature box"></canvas>
+    <p class="error" data-pad-error hidden>Sign in the box first.</p>
+    <div class="row-buttons">
+      <button type="button" data-pad-clear>Clear</button>
+      <button class="go" type="submit">I approve this estimate</button>
+    </div>
+  </form>
+  <details class="approve-panel">
+    <summary>Not going ahead?</summary>
+    <form method="post" action="{{ url_for('public.decline', token=token) }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="reason">Anything we should know (optional)</label>
+      {{ decline_form.reason(type="text") }}
+      <div class="row-buttons"><button type="submit">Decline this estimate</button></div>
+    </form>
+  </details>
+  {% endif %}
+{% endblock %}
+{% block after %}
+<p class="no-print"><a class="button" href="{{ url_for('public.estimate_pdf', token=token) }}">Download a PDF</a></p>
+{% endblock %}
