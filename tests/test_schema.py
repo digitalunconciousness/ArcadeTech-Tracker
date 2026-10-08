@@ -29,11 +29,20 @@ EXPECTED_GRANTS = {
     "part": {"SELECT", "INSERT", "UPDATE"},
     "stock_lot": {"SELECT", "INSERT"},
     "stock_move": {"SELECT", "INSERT"},
+    "work_order": {"SELECT", "INSERT", "UPDATE"},
+    "wo_job": {"SELECT", "INSERT", "UPDATE"},
+    "reservation": {"SELECT", "INSERT", "UPDATE"},
+    "wo_line": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "time_entry": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "attachment": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "work_order_tech": {"SELECT", "INSERT", "DELETE"},
+    "manual_reading": {"SELECT", "INSERT", "DELETE"},
 }
 
 AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "service",
            "job_template", "job_template_line", "markup_tier", "vendor", "part", "stock_lot",
-           "stock_move"}
+           "stock_move", "work_order", "wo_job", "work_order_tech", "wo_line", "time_entry",
+           "reservation", "manual_reading", "attachment"}
 
 
 def q(app, sql, **params):
@@ -110,7 +119,8 @@ def test_app_role_sequence_privileges(app):
         WHERE c.relkind = 'S' AND n.nspname = 'public'""")
     insertable = ("app_user", "customer", "contact", "site", "comm_log", "asset", "asset_event",
                   "service", "job_template", "job_template_line", "markup_tier", "vendor", "part",
-                  "stock_lot", "stock_move")
+                  "stock_lot", "stock_move", "work_order", "wo_job", "work_order_tech", "wo_line",
+                  "time_entry", "reservation", "manual_reading", "attachment")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)

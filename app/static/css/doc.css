@@ -1,0 +1,54 @@
+/* Customer documents: print-first. White page, black text, house fonts, one accent
+   (--accent, from Settings, injected as its own stylesheet). Rendered by WeasyPrint. */
+
+@font-face { font-family: "Chakra Petch"; src: url("../fonts/ChakraPetch-Regular.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Chakra Petch"; src: url("../fonts/ChakraPetch-Bold.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "Share Tech Mono"; src: url("../fonts/ShareTechMono-Regular.woff2") format("woff2"); }
+
+:root { --accent: #b0126f; --rule: #bbb; --muted: #555; }
+
+@page {
+  size: letter;
+  margin: 0.55in 0.6in 0.7in;
+  @bottom-left { content: string(docno); font: 8pt "Share Tech Mono", monospace; color: #555; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt "Share Tech Mono", monospace; color: #555; }
+}
+
+html { font: 10pt/1.38 "Chakra Petch", sans-serif; color: #000; background: #fff; }
+body { margin: 0; }
+h1, h2, h3 { font-weight: 700; margin: 0; line-height: 1.15; }
+h1 { font-size: 17pt; }
+h2 { font-size: 12pt; margin: 14pt 0 5pt; padding-bottom: 2pt; border-bottom: 1.5pt solid var(--accent); }
+h3 { font-size: 10.5pt; margin: 9pt 0 3pt; }
+p { margin: 0 0 5pt; }
+.mono, .num, .docno { font-family: "Share Tech Mono", monospace; }
+.muted { color: var(--muted); }
+.pre { white-space: pre-wrap; }
+
+.masthead { display: flex; justify-content: space-between; align-items: flex-start; gap: 18pt;
+            border-bottom: 3pt solid var(--accent); padding-bottom: 7pt; margin-bottom: 10pt; }
+.masthead .shop { font-size: 9pt; }
+.masthead .shop strong { font-size: 13pt; display: block; }
+.masthead .doc { text-align: right; }
+.docno { string-set: docno content(); font-size: 15pt; display: block; }
+
+.cols { display: flex; gap: 18pt; }
+.cols > div { flex: 1; }
+dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 1pt 8pt; margin: 0; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; }
+
+table { width: 100%; border-collapse: collapse; margin: 3pt 0 6pt; page-break-inside: auto; }
+th { text-align: left; font-weight: 700; font-size: 8.5pt; border-bottom: 1pt solid #000; padding: 2pt 4pt; }
+td { border-bottom: 0.5pt solid var(--rule); padding: 3pt 4pt; vertical-align: top; }
+tr { page-break-inside: avoid; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+.pass { font-weight: 700; }
+.fail { font-weight: 700; color: var(--accent); }
+
+.job { page-break-inside: avoid; margin-bottom: 8pt; }
+.tc dt { font-weight: 700; color: #000; }
+.terms { font-size: 8.5pt; border: 0.75pt solid var(--rule); padding: 6pt 8pt; margin-top: 10pt; }
+.sign { display: flex; gap: 24pt; margin-top: 22pt; }
+.sign div { flex: 1; border-top: 0.75pt solid #000; padding-top: 2pt; font-size: 8pt; color: var(--muted); }
+.big { font-size: 26pt; font-weight: 700; letter-spacing: 1pt; }

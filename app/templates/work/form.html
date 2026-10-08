@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, checks %}
+{% block title %}{{ wo.number if wo else 'New work order' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></p>
+  <h1>{% if wo %}<span class="mono tag">{{ wo.number }}</span>{% else %}New work order{% endif %}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.kind) }}{{ field(form.priority) }}</div>
+    {{ field(form.summary, autofocus=not wo) }}
+    {% if not wo %}
+    <h2>First job</h2>
+    {{ field(form.asset_id) }}
+    {{ field(form.complaint) }}
+    <p class="dim">Not in the list? <a href="{{ url_for('assets.new', customer=customer.id) }}">Add the machine or board</a> first. More jobs can be added after.</p>
+    <h2>Details</h2>
+    {% endif %}
+    {{ field(form.site_id) }}
+    <div class="row two">{{ field(form.promised_date) }}{{ field(form.not_to_exceed, inputmode="decimal") }}</div>
+    {{ checks(form.techs) }}
+    {{ field(form.notes) }}
+    <button class="btn primary" type="submit">{{ 'Save' if wo else 'Open work order' }}</button>
+    <a class="btn" href="{{ url_for('work.show', wo_id=wo.id) if wo else url_for('work.index') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

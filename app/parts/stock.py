@@ -50,8 +50,9 @@ def _check(part, qty):
         raise StockError("Quantity must be more than zero.")
 
 
-def _move(part, lot, qty, reason, note):
-    move = StockMove(part_id=part.id, lot_id=lot.id, qty=qty, reason=reason, note=note)
+def _move(part, lot, qty, reason, note, wo_job_id=None):
+    move = StockMove(part_id=part.id, lot_id=lot.id, qty=qty, reason=reason, note=note,
+                     wo_job_id=wo_job_id)
     db.session.add(move)
     return move
 
@@ -71,7 +72,7 @@ def receive(part, qty, unit_cost, *, vendor_id=None, date_code=None, vendor_lot=
     return lot
 
 
-def take(part, qty, reason, note=None, lot_id=None):
+def take(part, qty, reason, note=None, lot_id=None, wo_job_id=None):
     """Remove qty: from one lot when lot_id is given, else oldest lot first (FIFO).
     Returns the moves (one per lot touched)."""
     _check(part, qty)
@@ -89,13 +90,13 @@ def take(part, qty, reason, note=None, lot_id=None):
         if need <= 0:
             break
         step = min(rem, need)
-        moves.append(_move(part, lot, -step, reason, note))
+        moves.append(_move(part, lot, -step, reason, note, wo_job_id))
         need -= step
     db.session.flush()
     return moves
 
 
-def put(part, qty, reason, note=None, lot_id=None):
+def put(part, qty, reason, note=None, lot_id=None, wo_job_id=None):
     """Add qty that turned up (a count or an adjustment) to lot_id, or else the newest
     lot, at that lot's cost. With no lot yet, open one at the part's default cost."""
     _check(part, qty)
@@ -113,7 +114,7 @@ def put(part, qty, reason, note=None, lot_id=None):
                              "with a cost, instead.")
         lot = receive(part, qty, part.default_cost, note=note, reason=reason)
         return db.session.scalar(select(StockMove).where(StockMove.lot_id == lot.id))
-    move = _move(part, newest, qty, reason, note)
+    move = _move(part, newest, qty, reason, note, wo_job_id)
     db.session.flush()
     return move
 

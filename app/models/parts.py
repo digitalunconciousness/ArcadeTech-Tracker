@@ -130,3 +130,6 @@ class StockMove(StandardColumns, db.Model):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False,
                                          server_default=func.now())
     note: Mapped[str | None] = mapped_column(String(200))
+    # The job a part was issued to or returned from: recall tracing ("which jobs got
+    # caps from that lot?"). Jobs are never deleted, so this always resolves.
+    wo_job_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("wo_job.id"), index=True)

@@ -6,7 +6,7 @@ from app.assets.forms import AssetForm, NewAssetForm, NoteForm, StatusForm, Tran
 from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
-from app.models import Asset, AssetEvent, Customer, Site
+from app.models import Asset, AssetEvent, Customer, Site, WoJob, WorkOrder
 
 bp = Blueprint("assets", __name__)
 
@@ -72,9 +72,13 @@ def show(asset_id):
     events = db.session.scalars(select(AssetEvent).where(AssetEvent.asset_id == asset.id)
                                 .order_by(AssetEvent.at.desc(), AssetEvent.id.desc())).all()
     status_form = StatusForm(status=asset.status)
+    work = db.session.execute(select(WoJob, WorkOrder)
+                              .join(WorkOrder, WorkOrder.id == WoJob.work_order_id)
+                              .where(WoJob.asset_id == asset.id)
+                              .order_by(WoJob.id.desc())).all()
     return render_template("assets/show.html", asset=asset, customer=customer, site=site,
                            parent=parent, children=children, events=events,
-                           status_form=status_form, note_form=NoteForm())
+                           status_form=status_form, note_form=NoteForm(), work=work)
 
 
 @bp.route("/assets/<int:asset_id>/edit", methods=["GET", "POST"])

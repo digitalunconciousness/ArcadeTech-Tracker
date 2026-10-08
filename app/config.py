@@ -49,4 +49,6 @@ def load_config(env=None):
         "RATELIMIT_STORAGE_URI": "memory://",
         "RATELIMIT_HEADERS_ENABLED": True,
         "MAX_CONTENT_LENGTH": 16 * 1024 * 1024,
+        # Photos, signatures and frozen PDFs; backed up with the database (backup.sh).
+        "SHOP_FILES_DIR": env.get("SHOP_FILES_DIR", "/var/lib/shop-hub/files"),
     }

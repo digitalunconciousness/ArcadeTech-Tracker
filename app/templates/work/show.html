@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ wo.number }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1 class="mono tag">{{ wo.number }}</h1>
+    {% if can_edit %}<a class="btn" href="{{ url_for('work.edit', wo_id=wo.id) }}">Edit</a>{% endif %}
+  </div>
+  <p class="lead">{{ wo.summary }} <span class="badge {{ 'ok' if wo.status == 'completed' else 'danger' if wo.status == 'cancelled' else 'warn' if wo.status.startswith('waiting') else '' }}">{{ statuses[wo.status] | lower }}</span></p>
+  <dl class="facts">
+    <dt>Customer</dt><dd><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a>{% if customer.phone %} · <a href="tel:{{ customer.phone }}">{{ customer.phone }}</a>{% endif %}</dd>
+    {% if site %}<dt>Site</dt><dd>{{ site.name }}{% if site.city %}, {{ site.city }}{% endif %}</dd>{% endif %}
+    <dt>Kind</dt><dd>{{ kinds[wo.kind] }}{% if wo.priority != 'normal' %} · {{ priorities[wo.priority] | lower }} priority{% endif %}</dd>
+    {% if wo.promised_date %}<dt>Promised</dt><dd>{{ wo.promised_date }}</dd>{% endif %}
+    {% if techs %}<dt>Techs</dt><dd>{{ techs | map(attribute='display_name') | join(', ') }}</dd>{% endif %}
+    {% if warranty_of %}<dt>Warranty on</dt><dd><a href="{{ url_for('work.job', job_id=warranty_of[0].id) }}">{{ warranty_of[1].number }}</a></dd>{% endif %}
+    <dt>Total</dt><dd><strong>{{ total.charge | money }}</strong>{% if wo.not_to_exceed is not none %} of {{ wo.not_to_exceed | money }} NTE{% endif %}{% if total.unbilled %} <span class="dim">· {{ total.unbilled | money }} not billed</span>{% endif %}</dd>
+    {% if costs %}<dt>Cost</dt><dd>{{ total.cost | money }}{% if total.margin is not none %} <span class="dim">· parts and sublets margin {{ total.margin | pct }}</span>{% endif %}</dd>{% endif %}
+    {% if wo.completed_at %}<dt>Completed</dt><dd>{{ wo.completed_at | localdt }}</dd>{% endif %}
+  </dl>
+  {% if wo.notes %}<p class="notes">{{ wo.notes }}</p>{% endif %}
+  {% if over_nte %}
+  <div class="flash flash-error">
+    Over the not-to-exceed by {{ (total.charge - wo.not_to_exceed) | money }}.
+    {% if can_edit and wo.status != 'waiting_approval' %}
+    <form class="inline-form" method="post" action="{{ url_for('work.hold', wo_id=wo.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn small danger" type="submit">Hold for approval</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+  <p class="actions">
+    <a class="btn small" href="{{ url_for('work.service_report', wo_id=wo.id) }}">Service report (PDF)</a>
+    {% if wo.kind in ('bench', 'mail_in') %}<a class="btn small" href="{{ url_for('work.claim_ticket', wo_id=wo.id) }}">Claim ticket (PDF)</a>{% endif %}
+  </p>
+</section>
+
+<section class="panel">
+  <h2>Jobs</h2>
+  <ul class="list">
+    {% for job, asset in jobs %}
+    {% set t = job_totals[job.id] %}
+    <li{% if job.status == 'cancelled' %} class="inactive"{% endif %}>
+      <a href="{{ url_for('work.job', job_id=job.id) }}">{% if asset %}<span class="mono tag">{{ asset.tag }}</span> {{ asset.name }}{% else %}Consult{% endif %}</a>
+      <span class="badge {{ 'ok' if job.status == 'done' else '' }}">{{ job_statuses[job.status] | lower }}</span>
+      <div class="notes">{{ job.complaint | truncate(160) }}</div>
+      <div class="dim">{{ t.charge | money }}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if can_edit %}
+  <details class="form">
+    <summary>Add a job</summary>
+    <form method="post" action="{{ url_for('work.add_job', wo_id=wo.id) }}" novalidate>
+      {{ add_job.csrf_token }}
+      {{ field(add_job.asset_id) }}
+      {{ field(add_job.complaint) }}
+      <button class="btn" type="submit">Add job</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+{% if can_edit %}
+<section class="panel">
+  <h2>Status</h2>
+  <form method="post" action="{{ url_for('work.status', wo_id=wo.id) }}" novalidate class="filters">
+    {{ status_form.csrf_token }}
+    {{ field(status_form.status) }}
+    <button class="btn" type="submit">Update</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

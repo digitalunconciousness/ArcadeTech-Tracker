@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check, checks %}
+{% block title %}{{ wo.number }}{% if asset %} · {{ asset.tag }}{% endif %}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono">{{ wo.number }}</span></a> · {{ customer.display_name }}</p>
+  <div class="head">
+    <h1>{% if asset %}<a class="mono tag" href="{{ url_for('assets.show', asset_id=asset.id) }}">{{ asset.tag }}</a>{% else %}Consult{% endif %}</h1>
+    <span class="badge {{ 'ok' if job.status == 'done' else '' }}">{{ job_statuses[job.status] | lower }}</span>
+  </div>
+  {% if asset %}<p class="lead">{{ asset.name }}{% if asset.serial %} <span class="dim mono">s/n {{ asset.serial }}</span>{% endif %}</p>{% endif %}
+  {% if can_edit %}
+  <form method="post" action="{{ url_for('work.timer', job_id=job.id) }}" class="timer">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if my_timer and my_timer.wo_job_id == job.id %}
+    <button class="btn danger big" name="action" value="stop" type="submit">Stop timer <span class="mono" data-elapsed="{{ my_timer.started_at.isoformat() }}"></span></button>
+    {% else %}
+    <button class="btn primary big" name="action" value="start" type="submit">Start timer</button>
+    {% if my_timer %}<span class="dim">(stops the one running on another job)</span>{% endif %}
+    {% endif %}
+  </form>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Complaint · cause · correction</h2>
+  {% if job_form %}
+  <form method="post" action="{{ url_for('work.job_edit', job_id=job.id) }}" novalidate>
+    {{ job_form.csrf_token }}
+    {{ field(job_form.complaint) }}
+    {{ field(job_form.cause) }}
+    {{ field(job_form.correction) }}
+    <details class="form"{% if wo.kind in ('bench', 'mail_in') and not job.received_at %} open{% endif %}>
+      <summary>Intake: how it came in</summary>
+      <div class="row two">{{ field(job_form.received_at) }}{{ field(job_form.received_via) }}</div>
+      {{ field(job_form.condition) }}
+      {{ checks(job_form.accessories) }}
+      {{ field(job_form.accessories_note) }}
+      {{ field(job_form.inbound_tracking) }}
+    </details>
+    <div class="filters">{{ field(job_form.status) }}<button class="btn primary" type="submit">Save</button></div>
+  </form>
+  {% else %}
+  <dl class="facts">
+    <dt>Complaint</dt><dd class="notes">{{ job.complaint }}</dd>
+    <dt>Cause</dt><dd class="notes">{{ job.cause or '—' }}</dd>
+    <dt>Correction</dt><dd class="notes">{{ job.correction or '—' }}</dd>
+  </dl>
+  {% endif %}
+</section>
+
+<section class="panel" id="lines">
+  <h2>Lines</h2>
+  <table class="grid">
+    <thead><tr><th>Item</th><th class="num">Qty × each</th><th class="num">Amount</th>{% if costs %}<th class="num">Cost</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for line in lines %}
+    {% set c = line_cost(line) %}
+    <tr{% if not line.billable %} class="inactive"{% endif %}>
+      <td>{{ line.description }}
+        <div class="dim small">
+          {{ line.kind }}{% if line.labor_mode %} · {{ labor_modes[line.labor_mode] | lower }}{% endif %}{% if line.tech_user_id and line.tech_user_id in users %} · {{ users[line.tech_user_id].display_name }}{% endif %}{% if line.stock_lot_id %} · lot #{{ line.stock_lot_id }}{% if lots.get(line.stock_lot_id) %} dc {{ lots[line.stock_lot_id] }}{% endif %}{% endif %}{% if line.taxable %} · taxable{% endif %} · warranty {{ warranty(line) }} d
+          {% if line.customer_supplied %}<span class="badge">customer's</span>{% endif %}
+          {% if not line.billable %}<span class="badge warn">not billed</span>{% endif %}
+        </div>
+        {% if can_edit %}<div class="actions">
+          <a class="btn small" href="{{ url_for('work.line_edit', line_id=line.id) }}">Edit</a>
+          <form class="inline-form" method="post" action="{{ url_for('work.line_delete', line_id=line.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn small danger" type="submit" data-confirm="Remove this line?{{ ' The part goes back into stock.' if line.stock_lot_id }}">Remove</button>
+          </form>
+        </div>{% endif %}
+      </td>
+      <td class="num">{{ line.qty | qty }} × {{ line.unit_price | money }}</td>
+      <td class="num">{{ amount(line) | money }}</td>
+      {% if costs %}<td class="num">{{ c | money if c is not none else '' }}</td>{% endif %}
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="dim">No lines yet.</td></tr>
+    {% endfor %}
+    {% if lines %}
+    <tr class="total"><td colspan="2">Job total{% if totals.unbilled %} <span class="dim">({{ totals.unbilled | money }} not billed)</span>{% endif %}</td><td class="num"><strong>{{ totals.charge | money }}</strong></td>{% if costs %}<td class="num">{{ totals.cost | money }}</td>{% endif %}</tr>
+    {% endif %}
+    </tbody>
+  </table>
+  {% if costs and totals.margin is not none %}<p class="dim">Parts and sublets margin {{ totals.margin | pct }}.</p>{% endif %}
+
+  {% if forms %}
+  <details class="form">
+    <summary>Add labor or a service</summary>
+    <form method="post" action="{{ url_for('work.line_service', job_id=job.id) }}" novalidate>
+      {{ forms.service.csrf_token }}
+      {{ field(forms.service.service_id) }}
+      <div class="row two">{{ field(forms.service.labor_mode) }}{{ field(forms.service.qty, inputmode="decimal") }}</div>
+      <p class="dim">Actual time: hours come from the timer on this job ({{ billable_minutes }} min billable → {{ actual_hours | qty }} h after rounding). Flat: type the hours.</p>
+      <div class="row two">{{ field(forms.service.unit_price, inputmode="decimal") }}{{ field(forms.service.tech_user_id) }}</div>
+      {{ field(forms.service.description) }}
+      {{ check(forms.service.billable) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>Add a part from stock</summary>
+    <form method="post" action="{{ url_for('work.line_part', job_id=job.id) }}" novalidate>
+      {{ forms.part.csrf_token }}
+      {{ field(forms.part.part_id) }}
+      <div class="row two">{{ field(forms.part.qty, inputmode="decimal") }}{{ field(forms.part.unit_price, inputmode="decimal") }}</div>
+      {{ check(forms.part.billable) }}
+      <p class="dim">Comes out of the oldest lot first.</p>
+      <button class="btn" type="submit">Issue</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>Add the customer's own part</summary>
+    <form method="post" action="{{ url_for('work.line_customer_part', job_id=job.id) }}" novalidate>
+      {{ forms.customer_part.csrf_token }}
+      <div class="row two">{{ field(forms.customer_part.description) }}{{ field(forms.customer_part.qty, inputmode="decimal") }}</div>
+      <p class="dim">No charge, no warranty on it; labor on this job then carries 90 days.</p>
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>Add a fee, sublet or discount</summary>
+    <form method="post" action="{{ url_for('work.line_other', job_id=job.id) }}" novalidate>
+      {{ forms.other.csrf_token }}
+      <div class="row two">{{ field(forms.other.kind) }}{{ field(forms.other.description) }}</div>
+      <div class="row">{{ field(forms.other.qty, inputmode="decimal") }}{{ field(forms.other.unit_price, inputmode="decimal") }}{% if forms.other.unit_cost %}{{ field(forms.other.unit_cost, inputmode="decimal") }}{% endif %}</div>
+      {{ check(forms.other.taxable) }}{{ check(forms.other.billable) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="panel" id="parts">
+  <h2>Set aside for this job</h2>
+  <ul class="list">
+    {% for res, part in reservations %}
+    <li{% if res.status != 'reserved' %} class="inactive"{% endif %}>
+      <span class="mono">{{ part.sku }}</span> × {{ res.qty | qty }} <span class="badge">{{ res.status }}</span>
+      {% if res.note %}<span class="dim">{{ res.note }}</span>{% endif %}
+      {% if can_edit and res.status == 'reserved' %}
+      <form class="inline-form" method="post" action="{{ url_for('work.reservation', res_id=res.id, action='issue') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">Issue</button></form>
+      <form class="inline-form" method="post" action="{{ url_for('work.reservation', res_id=res.id, action='release') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">Release</button></form>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="dim">Nothing set aside.</li>
+    {% endfor %}
+  </ul>
+  {% if forms %}
+  <details class="form">
+    <summary>Set a part aside</summary>
+    <form method="post" action="{{ url_for('work.reserve', job_id=job.id) }}" novalidate>
+      {{ forms.reserve.csrf_token }}
+      {{ field(forms.reserve.part_id) }}
+      <div class="row two">{{ field(forms.reserve.qty, inputmode="decimal") }}{{ field(forms.reserve.note) }}</div>
+      <button class="btn" type="submit">Set aside</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="panel" id="time">
+  <h2>Time</h2>
+  <ul class="list">
+    {% for e in entries %}
+    <li{% if not e.billable %} class="inactive"{% endif %}>
+      <span class="dim">{{ e.started_at | localdt }}</span> {{ users[e.user_id].display_name if e.user_id in users else '' }}
+      {% if e.ended_at %}<span class="mono">{{ e.minutes }} min</span>{% else %}<span class="badge warn">running <span class="mono" data-elapsed="{{ e.started_at.isoformat() }}"></span></span>{% endif %}
+      {% if not e.billable %}<span class="badge">not billed</span>{% endif %}
+      {% if e.source == 'manual' %}<span class="dim">typed in</span>{% endif %}
+      {% if e.note %}<div class="notes">{{ e.note }}</div>{% endif %}
+      {% if can_edit and e.ended_at %}
+      <form class="inline-form" method="post" action="{{ url_for('work.time_delete', entry_id=e.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" aria-label="Remove time" data-confirm="Remove this time?">✕</button></form>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="dim">No time yet.</li>
+    {% endfor %}
+  </ul>
+  <p class="dim">Billable: {{ billable_minutes }} min → {{ actual_hours | qty }} h billed (rounded up to the step, at least the minimum).</p>
+  {% if forms %}
+  <details class="form">
+    <summary>Add time by hand</summary>
+    <form method="post" action="{{ url_for('work.time_add', job_id=job.id) }}" novalidate>
+      {{ forms.time.csrf_token }}
+      <div class="row two">{{ field(forms.time.started_at) }}{{ field(forms.time.minutes, inputmode="numeric") }}</div>
+      {{ check(forms.time.billable) }}
+      {{ field(forms.time.note) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="panel" id="readings">
+  <h2>Readings</h2>
+  <table class="grid">
+    <thead><tr><th>Test point</th><th class="num">Reading</th><th class="num">Spec</th></tr></thead>
+    <tbody>
+    {% for r in readings %}
+    <tr>
+      <td>{{ r.test_point }} <span class="dim">· {{ phases[r.phase] | lower }}</span>
+        {% if r.note %}<div class="dim small">{{ r.note }}</div>{% endif %}
+        {% if can_edit %}<form class="inline-form" method="post" action="{{ url_for('work.reading_delete', reading_id=r.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Remove this reading?">Remove</button></form>{% endif %}
+      </td>
+      <td class="num">{{ r.value | plain }} {{ r.unit }}{% if r.passed is not none %}<br><span class="badge {{ 'ok' if r.passed else 'danger' }}">{{ 'ok' if r.passed else 'out' }}</span>{% endif %}</td>
+      <td class="num">{% if r.spec_lo is not none or r.spec_hi is not none %}{{ r.spec_lo | plain }}–{{ r.spec_hi | plain }}{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="dim">No readings yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if forms %}
+  <details class="form">
+    <summary>Add a reading</summary>
+    <form method="post" action="{{ url_for('work.reading_add', job_id=job.id) }}" novalidate>
+      {{ forms.reading.csrf_token }}
+      <div class="row two">{{ field(forms.reading.test_point) }}{{ field(forms.reading.phase) }}</div>
+      <div class="row two">{{ field(forms.reading.value, inputmode="decimal") }}{{ field(forms.reading.unit) }}</div>
+      <div class="row two">{{ field(forms.reading.spec_lo, inputmode="decimal") }}{{ field(forms.reading.spec_hi, inputmode="decimal") }}</div>
+      {{ field(forms.reading.note) }}
+      <button class="btn" type="submit">Save reading</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="panel" id="photos">
+  <h2>Photos</h2>
+  <div class="photos">
+    {% for p in photos %}
+    <figure>
+      <a href="{{ url_for('work.file', sha256=p.sha256) }}"><img src="{{ url_for('work.file', sha256=p.sha256, thumb=1) }}" alt="{{ p.caption or 'Photo' }}" loading="lazy"></a>
+      <figcaption>{{ p.caption or '' }}
+        {% if can_edit %}<form class="inline-form" method="post" action="{{ url_for('work.photo_delete', attachment_id=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" aria-label="Remove photo" data-confirm="Remove this photo?">✕</button></form>{% endif %}
+      </figcaption>
+    </figure>
+    {% else %}
+    <p class="dim">No photos yet.</p>
+    {% endfor %}
+  </div>
+  {% if forms %}
+  <form method="post" action="{{ url_for('work.photo_add', job_id=job.id) }}" enctype="multipart/form-data" novalidate class="inline">
+    {{ forms.photo.csrf_token }}
+    <label class="field"><span>Photo</span>{{ forms.photo.photo(accept="image/*") }}</label>
+    {{ field(forms.photo.caption) }}
+    <button class="btn" type="submit">Upload</button>
+  </form>
+  <p class="dim">Location data in the photo is removed before it's stored.</p>
+  {% endif %}
+</section>
+{% endblock %}

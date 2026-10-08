@@ -85,6 +85,23 @@
   </ul>
 </section>
 
+<section class="panel" id="work">
+  <div class="head">
+    <h2>Work orders</h2>
+    {% if can_edit %}<a class="btn" href="{{ url_for('work.new', customer=customer.id) }}">New work order</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for wo in work_orders %}
+    <li{% if wo.status == 'cancelled' %} class="inactive"{% endif %}>
+      <a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono tag">{{ wo.number }}</span></a> {{ wo.summary }}
+      <span class="badge">{{ wo.status.replace('_', ' ') }}</span>
+    </li>
+    {% else %}
+    <li class="dim">None yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
 <section class="panel" id="log">
   <h2>Communication log</h2>
   {% if can_edit %}

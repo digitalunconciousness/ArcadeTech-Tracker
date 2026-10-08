@@ -1,7 +1,14 @@
 from decimal import Decimal
 
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DecimalField, PasswordField, SelectField, StringField
+from wtforms import (
+    BooleanField,
+    DecimalField,
+    PasswordField,
+    SelectField,
+    StringField,
+    TextAreaField,
+)
 from wtforms.validators import (
     URL,
     DataRequired,
@@ -36,6 +43,12 @@ class BusinessForm(FlaskForm):
         "Document accent color", filters=[blank_to_none],
         validators=[DataRequired(), Regexp(r"^#[0-9a-fA-F]{6}$", message="Use #rrggbb.")],
     )
+    claim_terms = TextAreaField(
+        "Claim ticket terms (storage fees, abandonment, what we're not responsible for)",
+        filters=[blank_to_none], validators=[Optional(), Length(max=6000)])
+    warranty_terms = TextAreaField(
+        "Warranty terms (printed on service reports)", filters=[blank_to_none],
+        validators=[Optional(), Length(max=6000)])
 
 
 ROLE_CHOICES = [(role, label) for role, label in ROLE_LABELS.items()]
