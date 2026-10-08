@@ -190,3 +190,21 @@ def test_last_login_recorded(app, client, make_user):
     login(client, user)
     with app.app_context():
         assert db.session.get(User, user["id"]).last_login_at is not None
+
+
+def test_csrf_failure_is_explained_and_logged(app, signed_in, caplog):
+    """An intermittent 'CSRF token missing' must say what happened and leave a trace of
+    why: the message, the endpoint, and whether the session cookie came with the request."""
+    owner = signed_in("owner")
+    app.config["WTF_CSRF_ENABLED"] = True
+    try:
+        with caplog.at_level("WARNING"):
+            resp = owner.post("/parts/new", data={"sku": "CSRF-1", "name": "No token"})
+    finally:
+        app.config["WTF_CSRF_ENABLED"] = False
+    text = resp.get_data(as_text=True)
+    assert resp.status_code == 400 and "nothing was saved" in text
+    record = next(r for r in caplog.records if "csrf rejected" in r.getMessage())
+    assert "The CSRF token is missing." in record.getMessage()
+    assert "endpoint=parts.new" in record.getMessage()
+    assert "session_cookie=True" in record.getMessage()

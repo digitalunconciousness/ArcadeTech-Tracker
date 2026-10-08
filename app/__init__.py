@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, redirect, render_template, request, session, url_for
 from flask_login import current_user
+from flask_wtf.csrf import CSRFError
 
 from app import actor  # noqa: F401  (registers the after_begin listener)
 from app.config import load_config
@@ -138,6 +139,20 @@ def _register_hooks(app):
         if request.endpoint != "static":
             h["Cache-Control"] = "no-store"
         return response
+
+    @app.errorhandler(CSRFError)
+    def csrf_rejected(error):
+        """A form arrived without a valid token. Logged with the reason (which of the two
+        Flask-WTF messages it was, and whether the session cookie came with the request),
+        so an intermittent failure can be traced, and the user is told what to do."""
+        app.logger.warning(
+            "csrf rejected: %s; endpoint=%s; session_token=%s; session_cookie=%s; ua=%s",
+            error.description, request.endpoint, "csrf_token" in session,
+            "shop_session" in request.cookies, (request.headers.get("User-Agent") or "")[:120],
+        )
+        message = ("That form expired, so nothing was saved. Go back, reload the page and send "
+                   "it again. If it keeps happening, sign out and sign back in.")
+        return render_template("errors/error.html", code=400, message=message), 400
 
     @app.errorhandler(403)
     @app.errorhandler(404)
