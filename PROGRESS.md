@@ -76,10 +76,10 @@ push/PR → owner deploys (⏸).
       Pricing)
 - [x] Parts, lots, stock ledger (append-only), receive / adjust / scrap, count sheet, vendors;
       bin labels deferred (owner)
-- [ ] Diff, tests, privacy output → ⏸ OK → PR
+- [x] Diff, tests, privacy output → OK → PR #6 (merged, deployed 2026-10-08)
 - [x] Exit: on hand = sum of moves (`test_stock.py`, 300 randomized moves); a count adjustment
       leaves an audit row with its user (`test_stock.py`, `test_parts.py` count sheet)
-- [ ] ⏸ Owner deploys (migrations 0005 + 0006), sets the service rates and switches them on
+- [ ] ⏸ Owner sets the service rates in the price book and switches them on
 
 ## Phase 3: Work (branch `phase/3-work`)
 
