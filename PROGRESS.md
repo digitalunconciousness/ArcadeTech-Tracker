@@ -54,7 +54,7 @@ push/PR → owner deploys (⏸).
       - [x] `deploy.sh` round-trip: dump → pull → hash-checked install → migrate → restart →
             healthy (2026-10-08)
       - [x] restore drill PASS (5 tables, 7 triggers); backup + drill timers enabled (2026-10-08)
-      - [ ] ⏸ partner signed in with 2FA
+      - [x] partner's user created (2026-10-08); ⏸ their first sign-in with 2FA is still to do
 
 ## Phase 1: Customers & assets (branch `phase/1-customers-assets`)
 
@@ -64,10 +64,10 @@ push/PR → owner deploys (⏸).
 - [x] Global search; labels built, then removed in Phase 2 (owner: no QR labels on customer
       machines; `/g/<tag>` stays as a lookup)
 - [x] Diff, tests, privacy output → OK → PR #5 (merged, deployed 2026-10-08)
-- [ ] ⏸ Exit (revised 2026-10-08, on site, all from the phone): add the customer, a contact and
-      a site; add the machine(s), and any board pulled with "Inside" set to its machine; log a
-      comm entry; set "In the shop" + shelf on anything that leaves with you; back home, search
-      the phone number typed in a different format and find it all
+- [x] ⏸ Exit (revised 2026-10-08, on site, all from the phone; passed 2026-10-08): add the
+      customer, a contact and a site; add the machine(s), and any board pulled with "Inside" set
+      to its machine; log a comm entry; set "In the shop" + shelf on anything that leaves with
+      you; back home, search the phone number typed in a different format and find it all
 
 ## Phase 2: Price book & parts (branch `phase/2-pricebook-parts`)
 
