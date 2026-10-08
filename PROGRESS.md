@@ -47,7 +47,7 @@ push/PR → owner deploys (⏸).
 - [x] `scripts/backup.sh` (pg_dump -Fc + files; 14 daily / 12 monthly / 7 yearly) + timer
 - [x] `scripts/restore_drill.sh` + monthly timer
 - [x] GitHub Actions with a postgres service container
-- [ ] Diff, tests, privacy output → ⏸ OK → PR (blocked: patterns.local MISSING in the cloud session)
+- [x] Diff, tests, privacy output → OK → PR #1 (privacy check clean with 17 patterns)
 - [ ] ⏸ Exit: both owners log in with 2FA from phones over the tunnel; `deploy.sh`
       round-trips; the restore drill passes
 
