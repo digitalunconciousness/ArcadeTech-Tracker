@@ -31,23 +31,23 @@ push/PR → owner deploys (⏸).
 
 ## Phase 0: Foundation (branch `phase/0-foundation`)
 
-- [ ] Design note → ⏸ OK
-- [ ] Pin library versions (looked up, not remembered), `requirements.txt`
-- [ ] App factory, config from env, extensions (limiter with a real client-IP key behind the tunnel)
-- [ ] Postgres + Flask-Migrate; first migration builds from empty; downgrade tested
-- [ ] `doc_counter` + gapless issue helper (test: rollback leaves no gap)
-- [ ] `audit_log` + trigger function + `SET LOCAL shop.user_id` per request
-- [ ] Users, roles (owner / tech / viewer), scrypt, TOTP required for owners, login rate limit
-- [ ] Settings (business name, `SHOP_TZ`, …)
-- [ ] Float-near-money grep test; no-external-assets test
-- [ ] `scripts/create_owner.py` (prompts; nothing on argv)
-- [ ] `deploy/`: RUNBOOK.md (new unprivileged Debian 13 LXC, service user, venv outside the
-      checkout, ReadWritePaths, listen.conf, WeasyPrint apt deps, DB + role + pg_hba,
-      cloudflared ingress), deploy.sh with `--check`, shop-hub.service, listen.conf.example
-- [ ] `scripts/backup.sh` (pg_dump -Fc + files; 14 daily / 12 monthly / 7 yearly) + timer
-- [ ] `scripts/restore_drill.sh`
-- [ ] GitHub Actions with a postgres service container
-- [ ] Diff, tests, privacy output → ⏸ OK → PR
+- [x] Design note → OK (owner, 2026-10-08; cloud session 2)
+- [x] Pin library versions (looked up on PyPI 2026-10-08), `requirements.in` → hash-pinned
+      `requirements.txt` / `requirements-dev.txt`
+- [x] App factory, config from env, extensions (limiter keyed on `CF-Connecting-IP` only from loopback)
+- [x] Postgres + Flask-Migrate; first migration builds from empty; downgrade tested
+- [x] `doc_counter` + gapless issue helper (test: rollback leaves no gap; concurrent issuers serialize)
+- [x] `audit_log` + trigger function + `set_config('shop.user_id', …, true)` per transaction
+- [x] Users, roles (owner / tech / viewer), scrypt, TOTP required for owners, login rate limit
+- [x] Settings (business details; `SHOP_TZ` from env, shown read-only)
+- [x] Float-near-money grep test; no-external-assets test (+ no inline script/style for the CSP)
+- [x] `scripts/create_owner.py` (prompts; nothing on argv) + `scripts/reset_2fa.py`
+- [x] `deploy/`: RUNBOOK.md, deploy.sh with `--check`, shop-hub.service, listen.conf.example,
+      cloudflared ingress example, `sql/create_roles.sql`
+- [x] `scripts/backup.sh` (pg_dump -Fc + files; 14 daily / 12 monthly / 7 yearly) + timer
+- [x] `scripts/restore_drill.sh` + monthly timer
+- [x] GitHub Actions with a postgres service container (manual-only since 2026-10-08; see Decisions)
+- [x] Diff, tests, privacy output → OK → PR #1 (privacy check clean with 17 patterns)
 - [ ] ⏸ Exit: both owners log in with 2FA from phones over the tunnel; `deploy.sh`
       round-trips; the restore drill passes
 
@@ -138,6 +138,14 @@ push/PR → owner deploys (⏸).
 | 2026-10-07 | Dev Postgres: podman `postgres:17`; Python env: uv venv at `~/.venvs/shop-hub` | Owner; matches prod 17.9 |
 | 2026-10-07 | Phase 0 onward may run in claude.ai/code cloud sessions | Owner. Setup in `docs/cloud-setup.sh` |
 | 2026-10-07 | **No Oklahoma sales tax permit yet**; tax switched off until the business picks up | Owner. Phase 4 must decide how parts lines behave with tax off |
+| 2026-10-08 | Two DB roles: `shop_owner` (owns objects, migrations) and `shop` in group `shop_app` (DML only) | Owner. A table owner can DISABLE TRIGGER; the app must not be able to |
+| 2026-10-08 | Display time zone from `SHOP_TZ` (env) only; settings page shows it read-only | Owner. One source of truth |
+| 2026-10-08 | No 2FA recovery codes: owners reset each other; `scripts/reset_2fa.py` on the LXC as last resort | Owner |
+| 2026-10-08 | Requirements hash-pinned (`uv pip compile --generate-hashes`), installed with `--require-hashes` | Owner. A swapped PyPI file can't land on the LXC |
+| 2026-10-08 | SQLAlchemy 2.0.54, not 2.1.x | 2.1.0 went GA 2026-09-24 with four patches since; Flask-SQLAlchemy 3.1.1 predates 2.1 |
+| 2026-10-08 | Users table named `app_user` | `user` is reserved; `SELECT * FROM user` returns the current role in psql |
+| 2026-10-08 | `audit_log` exempt from created_at/updated_at/created_by (`at`, `user_id` instead) | Append-only; never updated |
+| 2026-10-08 | Green CI is not a merge requirement; `ci.yml` is manual-only (`workflow_dispatch`) | Owner. Actions won't start jobs on this account (runner never assigned); the local pytest + privacy check before each push is the gate |
 
 ## Notes
 
@@ -158,3 +166,19 @@ push/PR → owner deploys (⏸).
   line with tax off" would block every invoice with parts, since parts default to taxable.
   Options to decide then: block; or issue with tax 0 and flag the lines. Ask the CPA whether
   selling parts at all needs the permit first.
+
+### Session 2 (2026-10-08, cloud)
+
+- Phase 0 code written on `phase/0-foundation`: 84 tests green against Postgres 17 (docker),
+  ruff and shellcheck clean.
+- Cloud environment gaps (owner to fix in the environment settings):
+  `SHOP_PATTERNS` unset, so `privacy_check.sh` reports patterns.local MISSING and nothing
+  can be pushed from this session; `/opt/refs` absent (the clones of the private reference
+  repos fail silently). `docs/cloud-setup.sh` now takes an optional `REFS_TOKEN` and warns
+  instead of failing silently.
+- Ported files (role decorator, limiter, deploy.sh, RUNBOOK, unit, listen.conf) were written
+  from scratch, not adapted from arcade-tracker: diff them against the tracker's.
+- CI pins `actions/checkout@v7` / `actions/setup-python@v7` by tag, not SHA: this session
+  can't read other repos. Pin to SHAs with `git ls-remote --tags` on the workstation.
+- The VM's pg_dump is 16; backups were tested through `docker run postgres:17` wrappers
+  (`SHOP_PG_BIN`); CI does the same.

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Users</h1>
+  <p><a class="btn primary" href="{{ url_for('settings.user_new') }}">Add user</a></p>
+  <ul class="list">
+    {% for u in users %}
+    <li{% if not u.active %} class="inactive"{% endif %}>
+      <a href="{{ url_for('settings.user_edit', user_id=u.id) }}">
+        <strong>{{ u.display_name }}</strong> <span class="mono dim">{{ u.username }}</span>
+      </a>
+      <span class="badge">{{ u.role }}</span>
+      {% if u.totp_enabled %}<span class="badge ok">2FA</span>{% else %}<span class="badge warn">no 2FA</span>{% endif %}
+      {% if not u.active %}<span class="badge danger">inactive</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

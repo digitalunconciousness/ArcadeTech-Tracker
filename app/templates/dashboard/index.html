@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Dashboard</h1>
+  <p>Signed in as <strong>{{ current_user.display_name }}</strong> <span class="badge">{{ current_user.role }}</span></p>
+  <p class="dim">Phase 0: the foundation. Customers, work orders and money arrive in later phases.</p>
+</section>
+{% endblock %}

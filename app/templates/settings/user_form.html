@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ user.username if user else 'New user' }}{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>{{ user.display_name if user else 'New user' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {% if not user %}{{ field(form.username, autocomplete="off") }}{% endif %}
+    {{ field(form.display_name) }}
+    {{ field(form.email, inputmode="email") }}
+    {{ field(form.role) }}
+    {{ check(form.active) }}
+    {{ check(form.is_partner) }}
+    {{ field(form.split_pct, inputmode="decimal") }}
+    {% if not user %}
+      {{ field(form.new_password, autocomplete="new-password") }}
+      {{ field(form.confirm_password, autocomplete="new-password") }}
+    {% endif %}
+    <button class="btn primary" type="submit">Save</button>
+  </form>
+</section>
+{% if user %}
+<section class="panel">
+  <h2>Set password</h2>
+  <form method="post" action="{{ url_for('settings.user_password', user_id=user.id) }}" novalidate>
+    {{ password_form.csrf_token }}
+    {{ field(password_form.new_password, autocomplete="new-password") }}
+    {{ field(password_form.confirm_password, autocomplete="new-password") }}
+    <button class="btn" type="submit">Set password</button>
+  </form>
+</section>
+<section class="panel">
+  <h2>Two-factor sign-in</h2>
+  <p>{% if user.totp_enabled %}<span class="badge ok">ON</span> since {{ user.totp_enabled_at|localdt }}{% else %}<span class="badge warn">OFF</span>{% endif %}</p>
+  <form method="post" action="{{ url_for('settings.user_reset_2fa', user_id=user.id) }}">
+    {{ reset_form.csrf_token }}
+    <button class="btn danger" type="submit">Reset 2FA and sign them out</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

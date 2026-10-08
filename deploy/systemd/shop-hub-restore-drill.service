@@ -1,0 +1,15 @@
+# Monthly restore drill: restores the newest nightly backup into shop_restore_test.
+# Runs as root because it needs the owner role (migrate.env, root-only).
+[Unit]
+Description=shop-hub monthly restore drill
+After=network-online.target shop-hub-backup.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/shop-hub/restore.env
+ExecStart=/opt/shop-hub/scripts/restore_drill.sh
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

@@ -50,8 +50,13 @@ Port patterns by copying and adapting; never import from them.
 
 - Flask app factory + Jinja, server-rendered, mobile-first, plain JS, no framework, **no
   CDN**: every asset (Chart.js, fonts) is vendored under `app/static/vendor/`.
-- **PostgreSQL only**, in dev, tests, CI and prod. Prod: database `shop`, role `shop`, on the
-  owner's existing Postgres host.
+- **PostgreSQL only**, in dev, tests, CI and prod. Prod: database `shop` on the owner's
+  existing Postgres host. Roles (owner's OK, 2026-10-08): `shop_owner` owns every object and
+  runs migrations (`MIGRATE_DATABASE_URL`); the app logs in as `shop`, a member of the NOLOGIN
+  group `shop_app`, which gets only the grants the migrations give it (no DDL, so it can't
+  disable a trigger). Every new table needs `grant_app()` in its migration and an entry in
+  `tests/test_schema.py`'s `EXPECTED_GRANTS`.
+- The users table is `app_user` (`user` is reserved and `SELECT * FROM user` lies in psql).
 - SQLAlchemy 2 + psycopg 3 (`postgresql+psycopg://`), Flask-Migrate, Flask-Login, Flask-WTF
   (CSRF everywhere except token routes), Flask-Limiter, pyotp (TOTP), segno (QR), WeasyPrint
   (PDF), waitress.
@@ -90,16 +95,20 @@ Port patterns by copying and adapting; never import from them.
    after. **Never SQLite**: locking, triggers and NUMERIC behave differently.
 4. Run as the owner's normal user. Ask before installing anything (pacman, podman, uv
    packages, pip into a new env) and before any sudo.
-5. One branch per phase (`phase/N-name`), PR into `main`, CI green before merge. Never
-   force-push `main`.
+5. One branch per phase (`phase/N-name`), PR into `main`. Green CI is **not** a merge
+   requirement (owner, 2026-10-08: GitHub Actions won't start jobs on this account); the
+   gate is the full local `pytest` run and the privacy check, both shown before every push.
+   Never force-push `main`.
 6. Commit with `git c` (alias for `TZ=UTC git commit`), as `digitalunconciousness` with the
    GitHub noreply email (set in this repo's local git config, not global).
 7. Before every push, run `scripts/privacy_check.sh` and show the output. The same check runs
    in `.githooks/pre-push` (`git config core.hooksPath .githooks`). Owner-specific patterns
    live in the git-ignored `.githooks/patterns.local`; never copy its values anywhere.
 8. The barcade's name and data never appear in this repo. Refer to it as "the barcade".
-9. Library versions are pinned in `requirements.txt`; when pinning, look up current releases
-   rather than trusting memory, and say what was pinned and why.
+9. Library versions are pinned in `requirements.in` and compiled with hashes into
+   `requirements.txt` (`uv pip compile --generate-hashes`; header has the exact command);
+   deploy installs with `--require-hashes`. When pinning, look up current releases rather
+   than trusting memory, and say what was pinned and why.
 
 ## Design tokens (app UI only, not customer documents)
 
@@ -139,7 +148,10 @@ PROGRESS.md             where we are; resume from the first unchecked box
   start|stop|status|psql` (Phase 0) wraps it, listening on `127.0.0.1:5433` only, data under
   `~/.local/share/shop-hub/`.
 - Config comes from the environment (`.env` locally, git-ignored; `.env.example` committed):
-  `DATABASE_URL`, `SECRET_KEY`, `SHOP_BASE_URL`, `SHOP_TZ`.
+  `DATABASE_URL`, `MIGRATE_DATABASE_URL`, `SECRET_KEY`, `SHOP_BASE_URL`, `SHOP_TZ`
+  (display zone, env only; settings shows it read-only). `scripts/devdb.sh start && init`
+  makes the dev roles; `scripts/devdb.sh env` prints the lines for `.env` (passwords go
+  through `PGPASSFILE`, never a URL).
 
 ## Tests
 
@@ -152,8 +164,10 @@ pytest
 The test session connects with `SHOP_TEST_ADMIN_URL` (default: the dev server's `postgres`
 database), creates `shop_test_<random>`, runs the real migrations into it (so triggers are
 tested), and drops it at the end. It refuses to run if `DATABASE_URL` names anything that
-is not a `shop_test_` database. CI does the same against a `postgres` service container of
-the prod major version.
+is not a `shop_test_` database. `.github/workflows/ci.yml` does the same against a
+`postgres:17` service container, but it's manual-only (`workflow_dispatch`) until Actions
+runs on this account; restore its `push`/`pull_request` triggers then. The backup/restore test needs pg 17+ client tools (PATH or
+`SHOP_PG_BIN`) and skips, saying why, without them.
 
 ## Cloud sessions (claude.ai/code)
 
@@ -173,7 +187,11 @@ setup script is `docs/cloud-setup.sh` (pasted into the environment settings, wit
 - `scripts/privacy_check.sh` reads `~/.config/shop-hub/patterns.local` (written by the
   setup script). If it reports the file MISSING, stop and tell the owner; never push without it.
 - Python 3.13 is `python3.13` (deadsnakes); make the venv with
-  `python3.13 -m venv ~/.venvs/shop-hub`. Postgres 17 runs in docker via `scripts/devdb.sh`;
-  the VM's preinstalled PostgreSQL 16 is not used.
+  `python3.13 -m venv ~/.venvs/shop-hub`. Postgres 17 runs in docker via `scripts/devdb.sh`
+  (start `dockerd` first if `docker info` fails); the VM's preinstalled PostgreSQL 16 is not
+  used, and its pg_dump 16 can't dump a 17 server, so point `SHOP_PG_BIN` at wrappers that
+  `docker run --rm -i --network host postgres:17 <tool>` (kept in the scratchpad).
+- `scripts/privacy_check.sh` skips the login-name check when run as root (the cloud user),
+  since "root" is a generic word; home paths and every other check still run.
 - Nothing local carries over: no `.env`, no dev database, no files. Data in the cloud VM is
   synthetic only.

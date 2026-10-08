@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Code{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Authenticator code</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.code, autocomplete="one-time-code", inputmode="numeric", autofocus=True) }}
+    <button class="btn primary" type="submit">Verify</button>
+  </form>
+  <p class="dim">Lost the phone? Another owner can reset your 2FA from Settings → Users.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Account{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>{{ current_user.display_name }}</h1>
+  <dl class="facts">
+    <dt>Username</dt><dd class="mono">{{ current_user.username }}</dd>
+    <dt>Role</dt><dd>{{ current_user.role }}</dd>
+    <dt>2FA</dt>
+    <dd>{% if current_user.totp_enabled %}<span class="badge ok">ON</span>{% else %}<span class="badge warn">OFF</span> <a href="{{ url_for('auth.totp_setup') }}">Turn on</a>{% endif %}</dd>
+  </dl>
+</section>
+<section class="panel">
+  <h2>Change password</h2>
+  <form method="post" action="{{ url_for('auth.change_password') }}" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.current_password, autocomplete="current-password") }}
+    {{ field(form.new_password, autocomplete="new-password") }}
+    {{ field(form.confirm_password, autocomplete="new-password") }}
+    <button class="btn primary" type="submit">Change password</button>
+  </form>
+</section>
+<form method="post" action="{{ url_for('auth.logout') }}">
+  {{ logout_form.csrf_token }}
+  <button class="btn" type="submit">Sign out</button>
+</form>
+{% endblock %}

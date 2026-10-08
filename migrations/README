@@ -1,0 +1,7 @@
+Flask-Migrate (Alembic). Run as the schema owner:
+
+    MIGRATE_DATABASE_URL=postgresql+psycopg://shop_owner@.../shop flask db upgrade
+
+The app's own role (DATABASE_URL) can't create or alter anything. Triggers, functions and
+grants are written explicitly in the migrations, using sqlhelpers.py. Data migrations are
+separate revisions from schema migrations. Every migration downgrades or says why not.

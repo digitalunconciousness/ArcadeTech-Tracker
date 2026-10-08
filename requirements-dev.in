@@ -1,0 +1,4 @@
+# Dev and CI only, on top of requirements.txt. Regenerate requirements-dev.txt with:
+#   uv pip compile --generate-hashes --python-version 3.13 -c requirements.txt -o requirements-dev.txt requirements-dev.in
+pytest==9.1.1
+ruff==0.16.10
