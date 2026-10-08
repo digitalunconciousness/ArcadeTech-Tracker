@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Work{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Work</h1>
+    {% if can_edit %}<a class="btn primary" href="{{ url_for('work.new') }}">New work order</a>{% endif %}
+  </div>
+  <p class="actions">
+    <a class="btn small{{ ' primary' if not mine }}" href="{{ url_for('work.index', all=1 if show_all else None) }}">Everyone's</a>
+    <a class="btn small{{ ' primary' if mine }}" href="{{ url_for('work.index', mine=1, all=1 if show_all else None) }}">Mine</a>
+    <a class="btn small" href="{{ url_for('work.index', mine=1 if mine else None, all=None if show_all else 1) }}">{{ 'Open only' if show_all else 'Include closed' }}</a>
+  </p>
+  {% set ns = namespace(any=false) %}
+  {% for status, rows in groups.items() if rows %}
+  {% set ns.any = true %}
+  <h2>{{ statuses[status] }} <span class="dim">{{ rows | length }}</span></h2>
+  <ul class="list">
+    {% for wo, customer, techs in rows %}
+    <li>
+      <a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono tag">{{ wo.number }}</span></a>
+      {{ customer.display_name }}
+      {% if wo.priority in ('high', 'rush') %}<span class="badge {{ 'danger' if wo.priority == 'rush' else 'warn' }}">{{ wo.priority }}</span>{% endif %}
+      <div>{{ wo.summary }}</div>
+      <div class="dim">{{ kinds[wo.kind] }}{% if wo.promised_date %} · promised {{ wo.promised_date }}{% if wo.promised_date < today and wo.status not in ('completed', 'cancelled') %} <span class="badge danger">late</span>{% endif %}{% endif %}{% if techs %} · {{ techs }}{% endif %}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+  {% if not ns.any %}<p class="dim">Nothing {{ 'assigned to you' if mine else 'open' }}.</p>{% endif %}
+</section>
+{% endblock %}

@@ -14,3 +14,11 @@
 {% macro check(f) %}
 <label class="check">{{ f() }} <span>{{ f.label.text }}</span></label>
 {% endmacro %}
+
+{% macro checks(f) %}
+<fieldset class="field checks">
+  <legend>{{ f.label.text }}</legend>
+  {% for option in f %}<label class="check">{{ option() }} <span>{{ option.label.text }}</span></label>{% endfor %}
+  {% for error in f.errors %}<small class="err">{{ error }}</small>{% endfor %}
+</fieldset>
+{% endmacro %}

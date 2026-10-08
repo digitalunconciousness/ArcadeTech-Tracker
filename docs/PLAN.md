@@ -265,7 +265,7 @@ PostgreSQL, through SQLAlchemy 2 + Flask-Migrate.
 - **`stock_move`**
   - Append-only ledger: `part_id`, `lot_id`, `qty` (±)
   - `reason`: receive | issue | return | adjust | count | scrap | rma_out
-  - `wo_line_id?`, `po_line_id?`, `user_id`, `at`, `note`
+  - `wo_job_id?` (as built; the plan said `wo_line_id`, but lines can be removed and the ledger can't change), `po_line_id?`, `user_id` (= `created_by`), `at`, `note`
   - **On-hand = the sum of moves.** Nothing is ever overwritten.
 - **`reservation`**
   - `part_id`, `wo_job_id`, `qty`, `status` (reserved | issued | released)

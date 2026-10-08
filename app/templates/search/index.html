@@ -4,11 +4,15 @@
 <section class="panel">
   <h1>Search</h1>
   <form method="get" action="{{ url_for('search.index') }}" class="row two">
-    <label class="field"><span>Name, phone, email, tag, serial, model, site, part, MPN, vendor</span>
+    <label class="field"><span>Name, phone, email, WO number, tracking no., tag, serial, model, site, part, vendor</span>
       <input type="search" name="q" value="{{ q }}" autofocus></label>
   </form>
   {% if q and q|length < 2 %}<p class="dim">Type at least two characters.</p>
   {% elif q and not found %}<p class="dim">Nothing matches “{{ q }}”.</p>{% endif %}
+  {% if results.work %}
+  <h2>Work orders</h2>
+  <ul class="list">{% for wo, c in results.work %}<li><a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono tag">{{ wo.number }}</span></a> {{ wo.summary }} <span class="dim">{{ c.display_name }}</span></li>{% endfor %}</ul>
+  {% endif %}
   {% if results.customers %}
   <h2>Customers</h2>
   <ul class="list">{% for c in results.customers %}<li><a href="{{ url_for('customers.show', customer_id=c.id) }}">{{ c.display_name }}</a> <span class="dim">{{ c.phone or '' }}</span></li>{% endfor %}</ul>

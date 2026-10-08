@@ -40,6 +40,26 @@
 </section>
 {% endif %}
 
+<section class="panel" id="work">
+  <div class="head">
+    <h2>Work</h2>
+    {% if can_edit %}<a class="btn" href="{{ url_for('work.new', customer=asset.customer_id, asset=asset.id) }}">New work order</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for job, wo in work %}
+    <li>
+      <span class="dim">{{ wo.created_at | localdt('%Y-%m-%d') }}</span>
+      <a href="{{ url_for('work.job', job_id=job.id) }}"><span class="mono">{{ wo.number }}</span></a>
+      <span class="badge">{{ job.status }}</span>
+      <div class="notes">{{ job.complaint | truncate(140) }}</div>
+      {% if job.correction %}<div class="dim">{{ job.correction | truncate(140) }}</div>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">No work yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
 <section class="panel" id="history">
   <h2>History</h2>
   {% if can_edit %}

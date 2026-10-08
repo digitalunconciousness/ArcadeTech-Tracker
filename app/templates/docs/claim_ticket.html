@@ -1,0 +1,39 @@
+{% extends "docs/_doc.html" %}
+{% block title %}{{ wo.number }} claim ticket{% endblock %}
+{% block doctype %}Claim ticket{% endblock %}
+{% block docno %}{{ wo.number }}{% endblock %}
+{% block docmeta %}{{ wo.created_at | localdt('%Y-%m-%d') }}{% endblock %}
+{% block content %}
+<div class="cols">
+  <div>
+    <h3>Customer</h3>
+    <p>{{ customer.display_name }}{% if customer.phone %}<br><span class="mono">{{ customer.phone }}</span>{% endif %}</p>
+  </div>
+  <div>
+    <h3>Ticket</h3>
+    <p class="big mono">{{ wo.number }}</p>
+  </div>
+</div>
+
+{% for job, asset in jobs %}
+<section class="job">
+  <h2>{% if asset %}<span class="mono">{{ asset.tag }}</span> · {{ asset.name }}{% else %}Consult{% endif %}</h2>
+  <dl class="kv">
+    {% if asset and (asset.manufacturer or asset.model) %}<dt>Make</dt><dd>{{ asset.manufacturer or '' }} {{ asset.model or '' }}</dd>{% endif %}
+    {% if asset and asset.serial %}<dt>Serial</dt><dd class="mono">{{ asset.serial }}</dd>{% endif %}
+    {% if job.received_at %}<dt>Received</dt><dd>{{ job.received_at | localdt }}{% if job.received_via %} · {{ received_via[job.received_via] | lower }}{% endif %}</dd>{% endif %}
+    {% if job.inbound_tracking %}<dt>Tracking</dt><dd class="mono">{{ job.inbound_tracking }}</dd>{% endif %}
+    <dt>Complaint</dt><dd class="pre">{{ job.complaint }}</dd>
+    {% if job.condition %}<dt>Condition</dt><dd class="pre">{{ job.condition }}</dd>{% endif %}
+    <dt>Came with</dt><dd>{{ (job.accessories | join(', ')) or 'nothing else' }}{% if job.accessories_note %}; {{ job.accessories_note }}{% endif %}</dd>
+  </dl>
+</section>
+{% endfor %}
+
+{% if shop.claim_terms %}<div class="terms pre">{{ shop.claim_terms }}</div>{% endif %}
+<div class="sign">
+  <div>Customer</div>
+  <div>Received by</div>
+  <div>Date</div>
+</div>
+{% endblock %}

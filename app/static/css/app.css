@@ -210,3 +210,19 @@ table.grid input { padding: 0.4rem 0.5rem; width: 5.5rem; text-align: right; }
 .filters .field { margin-bottom: 0; flex: 1 1 12rem; }
 details.form { margin-top: 0.8rem; }
 details.form summary { cursor: pointer; color: var(--cyan); padding: 0.3rem 0; }
+
+/* Phase 3: work */
+.timerbar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.4rem 1rem; background: var(--bg2); border-bottom: 1px solid var(--amber); color: var(--amber); }
+.timerbar a { color: var(--amber); text-decoration: none; }
+.timer { margin-top: 0.6rem; }
+.btn.big { font-size: 1.15rem; padding: 0.8rem 1.4rem; width: 100%; }
+@media (min-width: 36rem) { .btn.big { width: auto; } }
+fieldset.checks { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.75rem 0; }
+fieldset.checks legend { color: var(--dim); font-size: 0.9rem; padding: 0 0.3rem; }
+td.actions { white-space: nowrap; }
+.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.6rem; }
+.photos figure { margin: 0; }
+.photos img { width: 100%; height: auto; display: block; border-radius: var(--radius); border: 1px solid var(--border); }
+.photos figcaption { font-size: 0.85rem; color: var(--dim); display: flex; justify-content: space-between; gap: 0.3rem; margin-top: 0.2rem; }
+.small { font-size: 0.85rem; }
+table.grid td .actions { margin-top: 0.3rem; }

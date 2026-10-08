@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Numeric, String, text, true
+from sqlalchemy import Boolean, CheckConstraint, Numeric, String, Text, text, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.extensions import db
@@ -45,3 +45,6 @@ class ShopSetting(StandardColumns, db.Model):
         Numeric(4, 2), nullable=False, server_default=text("0.25"))
     labor_minimum_hours: Mapped[Decimal] = mapped_column(
         Numeric(4, 2), nullable=False, server_default=text("0.50"))
+    # Printed on customer documents. The owner writes them (and has a lawyer look).
+    claim_terms: Mapped[str | None] = mapped_column(Text)
+    warranty_terms: Mapped[str | None] = mapped_column(Text)

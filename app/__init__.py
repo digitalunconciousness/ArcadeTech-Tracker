@@ -48,9 +48,10 @@ def create_app(overrides=None):
     from app.pricebook.routes import bp as pricebook_bp
     from app.search.routes import bp as search_bp
     from app.settings.routes import bp as settings_bp
+    from app.work.routes import bp as work_bp
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
-               pricebook_bp, parts_bp):
+               pricebook_bp, parts_bp, work_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)
@@ -74,6 +75,27 @@ def _register_hooks(app):
         role = current_user.role if current_user.is_authenticated else None
         return {"can_edit": role in EDIT_ROLES, "can_see_costs": role in COST_ROLES,
                 "is_owner": role == "owner"}
+
+    @app.context_processor
+    def inject_timer():
+        """The signed-in user's running timer, for the bar at the top of every page."""
+        if not current_user.is_authenticated or request.endpoint == "static":
+            return {}
+        from sqlalchemy import select
+
+        from app.models import TimeEntry, WoJob, WorkOrder
+
+        try:
+            row = db.session.execute(
+                select(TimeEntry, WorkOrder.number)
+                .join(WoJob, WoJob.id == TimeEntry.wo_job_id)
+                .join(WorkOrder, WorkOrder.id == WoJob.work_order_id)
+                .where(TimeEntry.user_id == current_user.id, TimeEntry.ended_at.is_(None))
+            ).first()
+        except Exception:  # an error page must render even with the database down
+            db.session.rollback()
+            return {}
+        return {"running_timer": row}
 
     @app.context_processor
     def inject_shop():

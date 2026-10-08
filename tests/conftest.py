@@ -139,8 +139,9 @@ def tdb():
 
 
 @pytest.fixture(scope="session")
-def app(tdb):
+def app(tdb, tmp_path_factory):
     os.environ.update(test_env(tdb))
+    os.environ["SHOP_FILES_DIR"] = str(tmp_path_factory.mktemp("files"))
     from flask_migrate import upgrade
 
     from app import create_app

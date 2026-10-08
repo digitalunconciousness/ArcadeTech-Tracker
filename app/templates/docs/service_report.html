@@ -1,0 +1,80 @@
+{% extends "docs/_doc.html" %}
+{% block title %}{{ wo.number }} service report{% endblock %}
+{% block doctype %}Service report{% endblock %}
+{% block docno %}{{ wo.number }}{% endblock %}
+{% block docmeta %}{{ (wo.completed_at or wo.created_at) | localdt('%Y-%m-%d') }} · {{ wo_kinds[wo.kind] | lower }}{% endblock %}
+{% block content %}
+<div class="cols">
+  <div>
+    <h3>Customer</h3>
+    <p>{{ customer.display_name }}{% if site %}<br>{{ site.name }}{% if site.city %}, {{ site.city }}{% endif %}{% endif %}</p>
+  </div>
+  <div>
+    <h3>Work</h3>
+    <p>{{ wo.summary }}{% if techs %}<br><span class="muted">Tech{{ 's' if techs | length > 1 }}: {{ techs | join(', ') }}</span>{% endif %}</p>
+  </div>
+</div>
+
+{% for job, asset in jobs %}
+<section class="job">
+  <h2>{% if asset %}<span class="mono">{{ asset.tag }}</span> · {{ asset.name }}{% else %}Consult{% endif %}
+    {% if asset and asset.serial %}<span class="muted mono"> · s/n {{ asset.serial }}</span>{% endif %}</h2>
+  <dl class="kv tc">
+    <dt>Complaint</dt><dd class="pre">{{ job.complaint }}</dd>
+    <dt>Cause</dt><dd class="pre">{{ job.cause or '—' }}</dd>
+    <dt>Correction</dt><dd class="pre">{{ job.correction or '—' }}</dd>
+  </dl>
+
+  {% if readings.get(job.id) %}
+  <h3>Readings</h3>
+  <table>
+    <thead><tr><th>Test point</th><th class="num">Spec</th><th class="num">As found</th><th class="num">As left</th></tr></thead>
+    <tbody>
+    {% for row in readings[job.id] %}
+    <tr>
+      <td>{{ row.test_point }}</td>
+      <td class="num">{{ row.spec }}</td>
+      {% for phase in ('as_found', 'as_left') %}
+      {% set r = row.get(phase) %}
+      <td class="num">{% if r %}{{ r.value | plain }} {{ r.unit }}{% if r.passed is not none %} <span class="{{ 'pass' if r.passed else 'fail' }}">{{ 'OK' if r.passed else 'OUT' }}</span>{% endif %}{% else %}—{% endif %}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% set parts = lines[job.id] | selectattr('kind', 'equalto', 'part') | list %}
+  {% if parts %}
+  <h3>Parts</h3>
+  <table>
+    <thead><tr><th>Part</th><th class="num">Qty</th><th>Date code</th><th class="num">Warranty</th></tr></thead>
+    <tbody>
+    {% for x, days in warranty[job.id] if x.kind == 'part' %}
+    <tr>
+      <td>{{ x.description }}{% if x.customer_supplied %} <span class="muted">(supplied by the customer)</span>{% endif %}</td>
+      <td class="num">{{ x.qty | qty }}</td>
+      <td class="mono">{{ lots.get(x.stock_lot_id) or '' }}</td>
+      <td class="num">{{ days ~ ' days' if days else 'none' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% set labor_lines = labor_warranty[job.id] %}
+  {% if labor.get(job.id) or labor_lines %}
+  <h3>Labor</h3>
+  <table>
+    <thead><tr><th>Tech</th><th class="num">Hours on the job</th></tr></thead>
+    <tbody>
+    {% for name, hours in labor.get(job.id, []) %}<tr><td>{{ name }}</td><td class="num">{{ hours }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% for x, days in labor_lines %}<p class="muted">{{ x.description }}: warranty {{ days ~ ' days' if days else 'none' }}.</p>{% endfor %}
+  {% endif %}
+</section>
+{% endfor %}
+
+{% if shop.warranty_terms %}<div class="terms pre">{{ shop.warranty_terms }}</div>{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}Edit line{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <p class="dim"><a href="{{ url_for('work.job', job_id=job.id) }}"><span class="mono">{{ wo.number }}</span></a></p>
+  <h1>Edit line</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.description) }}
+    {% if line.stock_lot_id is none and line.labor_mode != 'actual' %}{{ field(form.qty, inputmode="decimal") }}
+    {% else %}<p class="dim">Quantity {{ line.qty | qty }}: {{ 'set by the timer' if line.labor_mode == 'actual' else 'remove the line and issue again to change it' }}.</p>{% endif %}
+    {{ field(form.unit_price, inputmode="decimal") }}
+    {% if line.kind == 'sublet' and form.unit_cost %}{{ field(form.unit_cost, inputmode="decimal") }}{% endif %}
+    {% if line.kind == 'labor' %}{{ field(form.tech_user_id) }}{% endif %}
+    {{ check(form.taxable) }}
+    {{ check(form.billable) }}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('work.job', job_id=job.id) }}#lines">Cancel</a>
+  </form>
+</section>
+{% endblock %}

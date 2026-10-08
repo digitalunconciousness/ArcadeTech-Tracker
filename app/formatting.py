@@ -30,8 +30,16 @@ def qty(value):
     return "0" if text in ("-0", "") else text
 
 
+def plain(value):
+    """A measured value as typed: 4.98, 0.0001, 12000 (no exponent, no trailing zeros)."""
+    if value is None:
+        return ""
+    text = f"{Decimal(value).normalize():f}"
+    return "0" if text in ("-0", "") else text
+
+
 def pct(value):
     return "" if value is None else f"{value}%"
 
 
-FILTERS = {"money": money, "unit_cost": unit_cost, "qty": qty, "pct": pct}
+FILTERS = {"money": money, "unit_cost": unit_cost, "qty": qty, "pct": pct, "plain": plain}

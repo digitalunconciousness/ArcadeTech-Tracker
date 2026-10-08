@@ -13,6 +13,24 @@ from app.models.pricebook import (
 )
 from app.models.settings import ShopSetting
 from app.models.user import ROLES, User
+from app.models.work import (
+    JOB_STATUSES,
+    LABOR_MODES,
+    OPEN_WO_STATUSES,
+    PRIORITIES,
+    READING_PHASES,
+    RECEIVED_VIA,
+    WO_KINDS,
+    WO_STATUSES,
+    Attachment,
+    ManualReading,
+    Reservation,
+    TimeEntry,
+    WoJob,
+    WoLine,
+    WorkOrder,
+    WorkOrderTech,
+)
 
 __all__ = [
     "ASSET_KINDS", "ASSET_STATUSES", "COMM_KINDS", "DOC_KINDS", "MOVE_REASONS", "PAYMENT_TERMS",
@@ -20,4 +38,8 @@ __all__ = [
     "Asset", "AssetEvent", "AuditLog", "CommLog", "Contact", "Customer", "DocCounter",
     "JobTemplate", "JobTemplateLine", "MarkupTier", "Part", "Service", "ShopSetting", "Site",
     "StockLot", "StockMove", "User", "Vendor",
+    "JOB_STATUSES", "LABOR_MODES", "OPEN_WO_STATUSES", "PRIORITIES", "READING_PHASES",
+    "RECEIVED_VIA", "WO_KINDS", "WO_STATUSES",
+    "Attachment", "ManualReading", "Reservation", "TimeEntry", "WoJob", "WoLine", "WorkOrder",
+    "WorkOrderTech",
 ]

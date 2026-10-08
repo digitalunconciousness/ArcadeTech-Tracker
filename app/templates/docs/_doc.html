@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ doc_css }}">
+</head>
+<body>
+  <header class="masthead">
+    <div class="shop">
+      <strong>{{ shop.business_name }}</strong>
+      {% if shop.legal_name and shop.legal_name != shop.business_name %}{{ shop.legal_name }}<br>{% endif %}
+      {% if shop.address_line1 %}{{ shop.address_line1 }}<br>{% endif %}
+      {% if shop.address_line2 %}{{ shop.address_line2 }}<br>{% endif %}
+      {% if shop.city %}{{ shop.city }}{% if shop.region %}, {{ shop.region }}{% endif %} {{ shop.postal_code or '' }}<br>{% endif %}
+      {{ shop.phone or '' }}{% if shop.phone and shop.email %} · {% endif %}{{ shop.email or '' }}
+      {% if shop.website %}<br>{{ shop.website }}{% endif %}
+    </div>
+    <div class="doc">
+      <div>{% block doctype %}{% endblock %}</div>
+      <span class="docno">{% block docno %}{% endblock %}</span>
+      <div class="muted">{% block docmeta %}{% endblock %}</div>
+    </div>
+  </header>
+  {% block content %}{% endblock %}
+</body>
+</html>

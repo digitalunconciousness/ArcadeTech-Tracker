@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}New work order{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>New work order: for whom?</h1>
+  <form method="get" action="{{ url_for('work.new') }}">
+    <label class="field"><span>Customer</span>
+      <select name="customer" required>
+        {% for c in customers %}<option value="{{ c.id }}">{{ c.display_name }}{% if c.is_shop %} (the shop){% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="btn primary" type="submit">Next</button>
+  </form>
+  <p class="dim">Not listed? <a href="{{ url_for('customers.new') }}">Add the customer</a> first.</p>
+</section>
+{% endblock %}

@@ -83,13 +83,19 @@ push/PR → owner deploys (⏸).
 
 ## Phase 3: Work (branch `phase/3-work`)
 
-- [ ] Design note → ⏸ OK
-- [ ] Estimates: lines, NTE, deposit, revisions, approval via `/d/<token>` on a phone
-      (finger signature canvas → PNG + typed name; time, IP, UA logged)
-- [ ] WOs, jobs (3C, intake), lines, timer, part issue / reserve / customer-supplied
-- [ ] Manual readings; service report with as-found → as-left, spec and pass
-- [ ] Photos, claim ticket and service report PDFs, appointments + .ics feed
-- [ ] Diff, tests, privacy output → ⏸ OK → PR
+- [x] Design note → OK (owner, 2026-10-08): two PRs, 3a then 3b
+- **3a: work orders**
+  - [x] WOs, jobs (3C, intake), lines, timer, part issue / reserve / customer-supplied
+  - [x] Manual readings; service report with as-found → as-left, spec and pass
+  - [x] Photos (EXIF stripped), claim ticket and service report PDFs, work board
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR
+  - [ ] ⏸ Owner deploys (migration 0007) and writes the claim and warranty terms in Settings
+- **3b: estimates and links**
+  - [ ] Estimates: lines, NTE, deposit, revisions, approval via `/d/<token>` on a phone
+        (finger signature canvas → PNG + typed name; time, IP, UA logged); convert to a WO
+  - [ ] Appointments + .ics feed (`/d/cal/<token>.ics`)
+  - [ ] ⏸ Cloudflare Access bypass for `/d/*` in place
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR
 - [ ] ⏸ Exit: estimate approved on a phone through a link; converts; timer runs; report prints
 
 ## Phase 4: Billing (branch `phase/4-billing`)
@@ -171,6 +177,15 @@ push/PR → owner deploys (⏸).
 | 2026-10-08 | No markup brackets seeded. Brackets are [from, up to); no overlaps (a DB exclusion constraint); markup applies to the part's default cost | Owner |
 | 2026-10-08 | On hand is only ever the sum of moves (no `qty_received`/`qty_remaining` columns as the plan had). A trigger refuses a move that takes a lot below zero, serialized per lot by an advisory lock (the app role can't `SELECT … FOR UPDATE` a table it may not UPDATE) | Nothing stored can drift from the ledger |
 | 2026-10-08 | Stock found goes into the newest lot at its cost (or a new lot at the default cost if none); missing comes out oldest-first (FIFO) unless a lot is picked | FIFO cost and recall tracing stay true |
+| 2026-10-08 | Phase 3 ships as two PRs: 3a work orders, 3b estimates and `/d/` links | Owner. Smaller reviews; 3a is usable on its own |
+| 2026-10-08 | No QR on the claim ticket: WO number and asset tag in large text | Owner (same reason as no QR labels on machines) |
+| 2026-10-08 | Over the NTE: a red banner and one-tap "Hold for approval" (status waiting_approval); no hard block | Owner. A tech can always record what was actually done |
+| 2026-10-08 | Calendar feed (3b) carries the customer's name and the site address | Owner. Needed to drive there; Google will hold it |
+| 2026-10-08 | Terms are written in Settings; "Send link" (3b) stays off until the estimate terms exist | Owner. Placeholder text never reaches a customer |
+| 2026-10-08 | Labor on a job: flat hours, or actual = `bill_hours(the job's billable timer minutes)`; the minimum applies once per job; one actual-time labor line per job (DB index) | Owner's labor policy, applied per job not per tech |
+| 2026-10-08 | Issued parts: one line per lot (FIFO), each at that lot's cost; `stock_move.wo_job_id` links issue and return moves to the job (the plan said `wo_line_id`, but lines can be removed and the ledger can't change) | Recall tracing survives a removed line |
+| 2026-10-08 | Warranty printed per line: 365 d on parts we supply and labor; labor on a job with a customer-supplied part 90 d; the customer's part none | Owner's warranty decision (2026-10-07) |
+| 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
 
@@ -247,3 +262,19 @@ push/PR → owner deploys (⏸).
   receive, adjust, count, template; no horizontal scroll, no CSP or console errors. It caught
   two layout problems, both fixed: the signed "change" box (iOS's decimal keypad has no minus;
   Adjust is now Missing/Found + quantity) and a five-column count sheet (now three).
+
+### Session 2, Phase 3a (2026-10-08, same cloud session)
+
+- Migration 0007: eight tables (work_order, wo_job, work_order_tech, wo_line, time_entry,
+  reservation, manual_reading, attachment), `stock_move.wo_job_id`, claim and warranty terms
+  on shop_setting. The work_order ↔ wo_job foreign keys point at each other, so the warranty
+  link is added after both tables. No new trigger functions: one running timer per user and
+  one actual-time labor line per job are partial unique indexes; a reading's pass/fail is a
+  generated column.
+- Customer documents: WeasyPrint, `templates/docs/` + `static/css/doc.css`, no inline CSS
+  (3b serves the same HTML under the CSP); the accent colour goes in as its own stylesheet.
+  Checked: the override reaches the PDF.
+- Tests: 217 passed. Phone walk-through (iPhone 13 viewport): open a WO, timer, 3C + intake,
+  issue a part, actual labor, a reading, a photo, stop from the timer bar, both PDFs; no
+  horizontal scroll, no CSP or console errors. The lines and readings tables were folded
+  to fit a phone after the first pass.

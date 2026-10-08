@@ -14,6 +14,7 @@
     {% if current_user.is_authenticated %}
     <nav class="nav">
       <a href="{{ url_for('dashboard.index') }}" {% if request.endpoint == 'dashboard.index' %}class="active"{% endif %}>Dashboard</a>
+      <a href="{{ url_for('work.index') }}" {% if request.blueprint == 'work' %}class="active"{% endif %}>Work</a>
       <a href="{{ url_for('customers.index') }}" {% if request.blueprint == 'customers' %}class="active"{% endif %}>Customers</a>
       <a href="{{ url_for('assets.index') }}" {% if request.blueprint == 'assets' %}class="active"{% endif %}>Assets</a>
       <a href="{{ url_for('parts.index') }}" {% if request.blueprint == 'parts' %}class="active"{% endif %}>Parts</a>
@@ -24,10 +25,20 @@
       <a href="{{ url_for('auth.account') }}" {% if request.endpoint == 'auth.account' %}class="active"{% endif %}>{{ current_user.username }}</a>
     </nav>
     <form class="search" action="{{ url_for('search.index') }}" method="get" role="search">
-      <input type="search" name="q" placeholder="Search: name, phone, tag, serial, part" value="{{ request.args.get('q', '') if request.endpoint == 'search.index' else '' }}" aria-label="Search">
+      <input type="search" name="q" placeholder="Search: name, phone, WO, tag, serial, part" value="{{ request.args.get('q', '') if request.endpoint == 'search.index' else '' }}" aria-label="Search">
     </form>
     {% endif %}
   </header>
+  {% if running_timer %}
+  {% set entry, wo_number = running_timer %}
+  <div class="timerbar">
+    <a href="{{ url_for('work.job', job_id=entry.wo_job_id) }}">⏱ <span class="mono" data-elapsed="{{ entry.started_at.isoformat() }}">running</span> on {{ wo_number }}</a>
+    <form class="inline-form" method="post" action="{{ url_for('work.timer', job_id=entry.wo_job_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn small" name="action" value="stop" type="submit">Stop</button>
+    </form>
+  </div>
+  {% endif %}
   <main class="page">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
