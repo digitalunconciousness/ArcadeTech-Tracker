@@ -5,6 +5,8 @@
 #
 #   scripts/privacy_check.sh                         # origin/main..HEAD (all of HEAD if no origin/main)
 #   scripts/privacy_check.sh <rev-list args...>      # e.g. main..phase/0-foundation
+#   SHOP_PRIVACY_CI=1 scripts/privacy_check.sh ...   # CI: no owner patterns exist there, so
+#                                                    # section 4 is skipped (and says so)
 #
 # Every commit in the range is checked on its own (git log -p), not just the net diff:
 # a secret added in one commit and deleted in the next is still in the history.
@@ -107,9 +109,17 @@ emails=$(printf '%s\n' "$ADDED" | while IFS=$'\t' read -r sha path line text; do
 section "email addresses (allowed: the noreply ones and reserved example/test domains)"
 if [ -n "$emails" ]; then while IFS= read -r l; do hit "$l"; done <<<"$emails"; else clean; fi
 
+# The login name identifies the owner only on the owner's machine. In CI (runner) or a
+# cloud session (root) it's a generic word that appears in legitimate content, so there
+# only the generic home-path patterns are checked.
 me=$(id -un)
-grep_added "login name and home paths" 1 \
-  "(/home/[A-Za-z0-9._-]+|/Users/[A-Za-z0-9._-]+|${HOME//./\\.}|(^|[^A-Za-z0-9])${me}([^A-Za-z0-9]|$))"
+if [ -n "${SHOP_PRIVACY_CI:-}" ] || [ "$me" = root ]; then
+  grep_added "home paths (login name not checked: CI or root)" 1 \
+    "(/home/[A-Za-z0-9._-]+|/Users/[A-Za-z0-9._-]+)"
+else
+  grep_added "login name and home paths" 1 \
+    "(/home/[A-Za-z0-9._-]+|/Users/[A-Za-z0-9._-]+|${HOME//./\\.}|(^|[^A-Za-z0-9])${me}([^A-Za-z0-9]|$))"
+fi
 
 grep_added "token- and key-shaped strings" 0 \
   'gbx_[0-9a-f]{12}\.[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|sk-(ant-)?[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{30,}\.?|postgres(ql)?(\+psycopg[0-9]?)?://[^:/@[:space:]]+:[^<${@[:space:]][^@[:space:]]*@|(secret[_-]?key|api[_-]?key|access[_-]?token|auth[_-]?token|password|passwd|totp[_-]?secret)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{8,}["'"'"']' \
@@ -117,7 +127,9 @@ grep_added "token- and key-shaped strings" 0 \
 
 # --- 4. owner-specific patterns -------------------------------------------------
 section "local patterns (.githooks/patterns.local)"
-if [ -r "$PATTERNS" ]; then
+if [ -n "${SHOP_PRIVACY_CI:-}" ]; then
+  printf '  skipped (CI: owner patterns are local-only; the pre-push hook checks them)\n'
+elif [ -r "$PATTERNS" ]; then
   n=0; lhits=0
   while IFS= read -r pat; do
     case "$pat" in ''|\#*) continue ;; esac

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Business</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.business_name) }}
+    {{ field(form.legal_name) }}
+    {{ field(form.address_line1, autocomplete="address-line1") }}
+    {{ field(form.address_line2, autocomplete="address-line2") }}
+    <div class="row">
+      {{ field(form.city, autocomplete="address-level2") }}
+      {{ field(form.region, autocomplete="address-level1") }}
+      {{ field(form.postal_code, autocomplete="postal-code") }}
+    </div>
+    {{ field(form.phone, autocomplete="tel", inputmode="tel") }}
+    {{ field(form.email, autocomplete="email", inputmode="email") }}
+    {{ field(form.website, inputmode="url") }}
+    {{ field(form.doc_accent_color) }}
+    <p class="dim">Display time zone: <span class="mono">{{ config.SHOP_TZ }}</span> (set by SHOP_TZ in the server's environment).</p>
+    <button class="btn primary" type="submit">Save</button>
+  </form>
+</section>
+{% endblock %}

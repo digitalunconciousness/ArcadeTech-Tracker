@@ -1,0 +1,16 @@
+{% macro field(f, autocomplete=None, inputmode=None, autofocus=False) %}
+{% set attrs = {} %}
+{% if autocomplete %}{% set _ = attrs.update({'autocomplete': autocomplete}) %}{% endif %}
+{% if inputmode %}{% set _ = attrs.update({'inputmode': inputmode}) %}{% endif %}
+{% if autofocus %}{% set _ = attrs.update({'autofocus': True}) %}{% endif %}
+{% if f.errors %}{% set _ = attrs.update({'aria-invalid': 'true'}) %}{% endif %}
+<label class="field">
+  <span>{{ f.label.text }}</span>
+  {{ f(**attrs) }}
+  {% for error in f.errors %}<small class="err">{{ error }}</small>{% endfor %}
+</label>
+{% endmacro %}
+
+{% macro check(f) %}
+<label class="check">{{ f() }} <span>{{ f.label.text }}</span></label>
+{% endmacro %}

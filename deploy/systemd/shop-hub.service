@@ -1,0 +1,42 @@
+# /etc/systemd/system/shop-hub.service (copied by RUNBOOK.md step 6)
+[Unit]
+Description=ArcadeTech Tracker (shop-hub)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=shop-hub
+Group=shop-hub
+WorkingDirectory=/opt/shop-hub
+EnvironmentFile=/etc/shop-hub/shop-hub.env
+EnvironmentFile=/etc/shop-hub/listen.conf
+# $SHOP_LISTEN_ARGS unbraced: systemd splits it into one argument per --listen.
+ExecStart=/opt/shop-hub-venv/bin/waitress-serve $SHOP_LISTEN_ARGS --threads=8 --ident=shop-hub wsgi:app
+Restart=on-failure
+RestartSec=3
+
+# Hardening. The service writes only under /var/lib/shop-hub.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/shop-hub
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

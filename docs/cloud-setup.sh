@@ -4,8 +4,9 @@
 # selector → gear). It runs as root on Ubuntu 24.04 before Claude starts, and its result
 # is cached for about a week, so keep it under ~5 minutes.
 #
-# The environment also needs one variable, set in the same dialog (never committed):
+# The environment also needs, set in the same dialog (never committed):
 #   SHOP_PATTERNS="<the lines of .githooks/patterns.local>"     (quoted, multi-line)
+#   REFS_TOKEN=<read-only token for the reference repos>          (only if they're private)
 # This script writes it to ~/.config/shop-hub/patterns.local, which scripts/privacy_check.sh reads.
 set -euo pipefail
 
@@ -23,10 +24,20 @@ apt-get install -y python3.13 python3.13-venv python3.13-dev \
 docker pull docker.io/library/postgres:17 || true
 
 # The reference repos, read-only by construction: cloned outside the workspace and not
-# attached to the session, so nothing in the session can push to them.
+# attached to the session, so nothing in the session can push to them. If they're
+# private, set REFS_TOKEN in the environment (a fine-grained token with read-only
+# Contents on just those two repos); it's used for the clone and not kept in .git/config.
 install -d /opt/refs
-git clone --depth 1 https://github.com/digitalunconciousness/arcade-tracker.git /opt/refs/arcade-tracker || true
-git clone --depth 1 https://github.com/digitalunconciousness/Gatbox.git /opt/refs/gatbox || true
+refs_auth=""
+[ -n "${REFS_TOKEN:-}" ] && refs_auth="x-access-token:${REFS_TOKEN}@"
+for pair in arcade-tracker:arcade-tracker Gatbox:gatbox; do
+  repo=${pair%%:*}; dir=/opt/refs/${pair##*:}
+  if git clone --depth 1 "https://${refs_auth}github.com/digitalunconciousness/${repo}.git" "$dir"; then
+    git -C "$dir" remote set-url origin "https://github.com/digitalunconciousness/${repo}.git"
+  else
+    echo "cloud-setup: WARNING: could not clone ${repo} (private? set REFS_TOKEN)" >&2
+  fi
+done
 chmod -R a-w /opt/refs || true
 
 # Owner-specific privacy patterns, from the environment variable, never from git.

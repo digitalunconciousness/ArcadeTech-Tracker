@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Two-factor sign-in{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Two-factor sign-in</h1>
+  {% if enabled %}
+    <p><span class="badge ok">ON</span> since {{ current_user.totp_enabled_at|localdt }}.</p>
+    <p class="dim">New phone? Ask another owner to reset your 2FA, then enroll again.</p>
+  {% else %}
+    {% if current_user.role == 'owner' %}<p class="badge warn">Required for owners</p>{% endif %}
+    <ol class="steps">
+      <li>Open your authenticator app (Aegis, 2FAS, Google Authenticator, 1Password…).</li>
+      <li>Scan this code, or type the key below.</li>
+      <li>Enter the 6-digit code it shows.</li>
+    </ol>
+    <div class="qr">{{ qr|safe }}</div>
+    <p class="mono key">{{ secret }}</p>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      {{ field(form.code, autocomplete="one-time-code", inputmode="numeric", autofocus=True) }}
+      <button class="btn primary" type="submit">Turn on</button>
+    </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('auth.logout') }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn" type="submit">Sign out</button>
+  </form>
+</section>
+{% endblock %}

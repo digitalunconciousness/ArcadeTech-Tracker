@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17   # prod major
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["127.0.0.1:5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s
+          --health-timeout 5s --health-retries 30
+    env:
+      PGPASSWORD: postgres
+      SHOP_TEST_ADMIN_URL: postgresql+psycopg://postgres@127.0.0.1:5432/postgres
+      SHOP_PG_BIN: ${{ github.workspace }}/.ci-pgbin
+    steps:
+      # TODO(owner): pin both actions to the release commit SHA (git ls-remote --tags).
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: System libraries (WeasyPrint) and shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 shellcheck
+
+      - name: pg 17 client tools (run from the postgres:17 image)
+        run: |
+          mkdir -p "$SHOP_PG_BIN"
+          for t in pg_dump pg_restore psql; do
+            printf '#!/bin/sh\nexec docker run --rm -i --network host -e PGPASSWORD postgres:17 %s "$@"\n' "$t" > "$SHOP_PG_BIN/$t"
+            chmod +x "$SHOP_PG_BIN/$t"
+          done
+          "$SHOP_PG_BIN/pg_dump" --version
+
+      - name: Install (hash-checked)
+        run: pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+
+      - name: ruff
+        run: ruff check .
+
+      - name: shellcheck
+        run: shellcheck -S warning scripts/*.sh deploy/*.sh .githooks/pre-push docs/cloud-setup.sh
+
+      - name: pytest
+        run: pytest
+
+      - name: privacy check (generic checks; owner patterns are local-only)
+        if: github.event_name == 'pull_request'
+        env:
+          SHOP_PRIVACY_CI: "1"
+        run: scripts/privacy_check.sh "origin/${{ github.base_ref }}..HEAD"

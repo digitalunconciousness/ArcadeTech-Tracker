@@ -1,0 +1,4 @@
+<nav class="tabs">
+  <a href="{{ url_for('settings.index') }}" {% if request.endpoint == 'settings.index' %}class="active"{% endif %}>Business</a>
+  <a href="{{ url_for('settings.users') }}" {% if request.endpoint != 'settings.index' %}class="active"{% endif %}>Users</a>
+</nav>

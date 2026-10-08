@@ -1,0 +1,7 @@
+# Merge into /etc/cloudflared/config.yml on the shop LXC (cloudflared runs here, so the
+# app sees it as 127.0.0.1 and trusts its CF-Connecting-IP header; see app/extensions.py).
+# shop.example.com is a placeholder for the shop's own hostname.
+ingress:
+  - hostname: shop.example.com
+    service: http://127.0.0.1:8080
+  - service: http_status:404

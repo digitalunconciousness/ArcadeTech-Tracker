@@ -1,0 +1,4 @@
+# /etc/shop-hub/listen.conf: where waitress listens. Loopback for cloudflared (same LXC),
+# plus the LXC's LAN address for use at home. Never 0.0.0.0.
+# Replace <LXC_LAN_IP> with this container's address.
+SHOP_LISTEN_ARGS=--listen=127.0.0.1:8080 --listen=<LXC_LAN_IP>:8080

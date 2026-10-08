@@ -1,0 +1,18 @@
+# Nightly backup: scripts/backup.sh as the service user (app role; reads every table).
+[Unit]
+Description=shop-hub nightly backup (database + file store)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=shop-hub
+Group=shop-hub
+EnvironmentFile=/etc/shop-hub/shop-hub.env
+ExecStart=/opt/shop-hub/scripts/backup.sh
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/shop-hub/backups
+ProtectHome=yes
+PrivateTmp=yes
+UMask=0077
