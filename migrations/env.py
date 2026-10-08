@@ -4,15 +4,13 @@ role does everything)."""
 
 import logging
 import os
-import sys
 from logging.config import fileConfig
 
 from alembic import context
 from flask import current_app
 from sqlalchemy import create_engine, pool
 
-# migrations/ itself, so revisions can `import sqlhelpers`.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# migrations/ is put on sys.path by alembic.ini (prepend_sys_path), for every command.
 
 config = context.config
 if config.config_file_name is not None:

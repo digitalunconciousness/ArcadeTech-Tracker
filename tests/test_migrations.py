@@ -72,3 +72,23 @@ def test_migrations_refuse_a_non_utf8_database(app, tdb, monkeypatch, capfd):
         assert "has encoding SQL_ASCII; shop-hub needs UTF8" in capfd.readouterr().err
     finally:
         tdb.drop_database(name)
+
+
+def test_read_only_alembic_commands_work_from_a_fresh_cli(app):
+    """`flask db heads/current/history` load the revision files without running env.py.
+    deploy.sh relies on them; they once failed with "No module named 'sqlhelpers'"
+    because only env.py put migrations/ on sys.path."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    flask = str(Path(sys.executable).with_name("flask"))
+    for cmd, expect in (("heads", "0002_seed_settings (head)"),
+                        ("current", "0002_seed_settings (head)"),
+                        ("history", "0001_foundation -> 0002_seed_settings")):
+        run = subprocess.run([flask, "--app", "wsgi", "db", cmd], cwd=root, env=dict(os.environ),
+                             capture_output=True, text=True, timeout=60)
+        assert run.returncode == 0, run.stderr[-800:]
+        assert expect in run.stdout, (cmd, run.stdout)

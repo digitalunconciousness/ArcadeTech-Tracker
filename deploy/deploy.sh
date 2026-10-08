@@ -44,6 +44,10 @@ load_env() {
 
 libpq_url() { printf '%s' "${1/postgresql+psycopg:/postgresql:}"; }
 
+# A revision id from `flask db current|heads` output ("0002_seed_settings (head)"), or
+# nothing. Alembic's own log lines and tracebacks never match.
+revision_of() { grep -oE '^[0-9a-z_]+( \(head\))?$' | head -n 1 | cut -d' ' -f1; }
+
 flask_cmd() {
   (cd "$APP" && load_env "$ENV_FILE" && load_env "$MIGRATE_ENV" \
      && "$VENV/bin/flask" --app wsgi "$@")
@@ -103,14 +107,18 @@ preflight() {
     bad "pg_dump ${client:-missing} vs server $server (apt install postgresql-client)"
   fi
 
-  local current heads
-  current=$(flask_cmd db current 2>/dev/null | grep -oE '^[0-9a-z_]+' | head -n 1 || true)
-  heads=$(flask_cmd db heads 2>/dev/null | grep -oE '^[0-9a-z_]+' | head -n 1 || true)
-  if [ -n "$heads" ]; then
-    [ "$current" = "$heads" ] && note "migrations: at head $heads (the pull may bring more)" \
-      || note "migrations: database at '${current:-none}', code head $heads"
+  local current heads out
+  out=$(flask_cmd db heads 2>&1 || true)
+  heads=$(printf '%s\n' "$out" | revision_of || true)
+  current=$(flask_cmd db current 2>/dev/null | revision_of || true)
+  if [ -z "$heads" ]; then
+    bad "flask db heads failed: $(printf '%s\n' "$out" | tail -n 1)"
+  elif [ -z "$current" ]; then
+    bad "flask db current failed (database revision unknown; rollback needs it)"
+  elif [ "$current" = "$heads" ]; then
+    note "migrations: at head $heads (the pull may bring more)"
   else
-    bad "flask db heads failed (run: deploy.sh --check after fixing the env files)"
+    note "migrations: database at $current, code head $heads"
   fi
 
   local avail
@@ -138,7 +146,8 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
 fi
 
 old_sha=$(git -C "$APP" rev-parse HEAD)
-old_rev=$(flask_cmd db current 2>/dev/null | grep -oE '^[0-9a-z_]+' | head -n 1 || true)
+old_rev=$(flask_cmd db current 2>/dev/null | revision_of || true)
+[ -n "$old_rev" ] || { echo "deploy: can't read the database's revision; nothing changed" >&2; exit 1; }
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 dump="$PREDEPLOY/$stamp-${old_sha:0:12}.dump"
 step="pre-deploy dump"
@@ -154,7 +163,7 @@ EOF
   if [ "$step" = "migrate" ] || [ "$step" = "restart" ] || [ "$step" = "health check" ]; then
     cat >&2 <<EOF
   # the schema may have moved; either step back down:
-  (cd $APP && set -a && . $ENV_FILE && . $MIGRATE_ENV && set +a && $VENV/bin/flask --app wsgi db downgrade ${old_rev:-base})
+  (cd $APP && set -a && . $ENV_FILE && . $MIGRATE_ENV && set +a && $VENV/bin/flask --app wsgi db downgrade $old_rev)
   # or restore the pre-deploy dump:
   (set -a && . $MIGRATE_ENV && set +a && pg_restore --clean --if-exists --no-owner --single-transaction -d "\${MIGRATE_DATABASE_URL/postgresql+psycopg:/postgresql:}" $dump)
 EOF
@@ -181,7 +190,7 @@ ok "dependencies installed (hash-checked)"
 
 step="migrate"
 flask_cmd db upgrade
-ok "migrations: $(flask_cmd db current 2>/dev/null | grep -oE '^[0-9a-z_]+' | head -n 1)"
+ok "migrations: $(flask_cmd db current 2>/dev/null | revision_of)"
 
 step="restart"
 systemctl restart "$SERVICE"
