@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Pricing{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Labor policy</h1>
+  <p class="dim">Time on a job is rounded up to the step, then raised to the minimum. With 0.25 and 0.5: 6 minutes bills 0.5 h, 36 minutes 0.75 h, 61 minutes 1.25 h.</p>
+  <form method="post" action="{{ url_for('settings.pricing') }}" novalidate>
+    {{ labor_form.csrf_token }}
+    <div class="row two">{{ field(labor_form.labor_increment_hours, inputmode="decimal") }}{{ field(labor_form.labor_minimum_hours, inputmode="decimal") }}</div>
+    <button class="btn primary" type="submit">Save</button>
+  </form>
+  <p class="dim">Service rates are in the <a href="{{ url_for('pricebook.index') }}">price book</a>.</p>
+</section>
+<section class="panel">
+  <h2>Markup brackets</h2>
+  <p class="dim">Parts set to "markup" sell at their default cost × the bracket's multiplier, rounded to the cent. A cost from the start of a bracket up to (not including) its end uses that bracket.</p>
+  <div class="scroll">
+  <table class="grid">
+    <thead><tr><th class="num">Cost from</th><th class="num">up to</th><th class="num">×</th><th class="num">Margin</th><th></th></tr></thead>
+    <tbody>
+    {% for t in tiers %}
+    <tr>
+      <td class="num">{{ t.min_cost | unit_cost }}</td>
+      <td class="num">{{ t.max_cost | unit_cost if t.max_cost is not none else 'no limit' }}</td>
+      <td class="num">{{ t.multiplier | qty }}</td>
+      <td class="num">{{ margins[t.id] | pct }}</td>
+      <td><form class="inline-form" method="post" action="{{ url_for('settings.tier_delete', tier_id=t.id) }}">{{ delete_form.csrf_token }}<button class="btn danger small" type="submit" aria-label="Remove bracket">✕</button></form></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="dim">None yet: every part has a fixed price until you add brackets.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <form method="post" action="{{ url_for('settings.tier_add') }}" novalidate class="inline">
+    {{ tier_form.csrf_token }}
+    <div class="row">{{ field(tier_form.min_cost, inputmode="decimal") }}{{ field(tier_form.max_cost, inputmode="decimal") }}{{ field(tier_form.multiplier, inputmode="decimal") }}</div>
+    <button class="btn" type="submit">Add bracket</button>
+  </form>
+</section>
+{% endblock %}

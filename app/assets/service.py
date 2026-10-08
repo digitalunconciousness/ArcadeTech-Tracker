@@ -4,7 +4,6 @@ writes an asset_event, so an asset's history follows it across owners."""
 import re
 import unicodedata
 
-from flask import current_app
 from sqlalchemy import Sequence, case, select, text, update
 
 from app.extensions import db
@@ -36,12 +35,6 @@ def slugify(name):
 def new_tag(name):
     number = db.session.execute(select(ASSET_TAG_SEQ.next_value())).scalar_one()
     return f"s-{number:04d}-{slugify(name)}"
-
-
-def tag_url(tag):
-    """What the label's QR encodes: the same /g/<slug> shape as the tracker's, so GATBOX's
-    scanner can pull the tag out of it."""
-    return f"{current_app.config['SHOP_BASE_URL']}/g/{tag}"
 
 
 def log(asset_id, kind, from_value=None, to_value=None, note=None):

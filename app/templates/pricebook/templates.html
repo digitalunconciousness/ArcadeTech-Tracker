@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Job templates{% endblock %}
+{% block content %}
+{% include "pricebook/_tabs.html" %}
+<section class="panel">
+  <div class="head">
+    <h1>Job templates</h1>
+    {% if can_edit %}<a class="btn primary" href="{{ url_for('pricebook.template_new') }}">Add template</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for t, n in rows %}
+    <li{% if not t.active %} class="inactive"{% endif %}>
+      <a href="{{ url_for('pricebook.template_show', template_id=t.id) }}"><strong>{{ t.name }}</strong></a>
+      {% if not t.active %}<span class="badge danger">inactive</span>{% endif %}
+      <div class="dim">{{ n }} line{{ 's' if n != 1 }}{% if t.est_hours is not none %} · est. {{ t.est_hours | qty }} h{% endif %}</div>
+    </li>
+    {% else %}
+    <li class="dim">No templates yet. A template is a canned job (say, a monitor cap kit plus bench labor) that fills an estimate in one tap.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

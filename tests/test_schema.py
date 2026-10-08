@@ -21,9 +21,19 @@ EXPECTED_GRANTS = {
     "asset": {"SELECT", "INSERT", "UPDATE"},
     "comm_log": {"SELECT", "INSERT"},
     "asset_event": {"SELECT", "INSERT"},
+    "service": {"SELECT", "INSERT", "UPDATE"},
+    "job_template": {"SELECT", "INSERT", "UPDATE"},
+    "job_template_line": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "markup_tier": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "vendor": {"SELECT", "INSERT", "UPDATE"},
+    "part": {"SELECT", "INSERT", "UPDATE"},
+    "stock_lot": {"SELECT", "INSERT"},
+    "stock_move": {"SELECT", "INSERT"},
 }
 
-AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset"}
+AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "service",
+           "job_template", "job_template_line", "markup_tier", "vendor", "part", "stock_lot",
+           "stock_move"}
 
 
 def q(app, sql, **params):
@@ -98,7 +108,9 @@ def test_app_role_sequence_privileges(app):
                has_sequence_privilege('shop_app', c.oid, 'UPDATE')
         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE c.relkind = 'S' AND n.nspname = 'public'""")
-    insertable = ("app_user", "customer", "contact", "site", "comm_log", "asset", "asset_event")
+    insertable = ("app_user", "customer", "contact", "site", "comm_log", "asset", "asset_event",
+                  "service", "job_template", "job_template_line", "markup_tier", "vendor", "part",
+                  "stock_lot", "stock_move")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)
@@ -106,7 +118,7 @@ def test_app_role_sequence_privileges(app):
 
 
 @pytest.mark.parametrize("fn", ["audit_row", "set_updated_at", "audit_log_append_only",
-                                "asset_tag_immutable", "asset_no_cycle"])
+                                "asset_tag_immutable", "asset_no_cycle", "stock_move_lot_guard"])
 def test_trigger_functions_not_public(app, fn):
     rows = q(app, "SELECT has_function_privilege('shop_app', :f, 'EXECUTE')", f=f"{fn}()")
     assert rows == [(False,)]

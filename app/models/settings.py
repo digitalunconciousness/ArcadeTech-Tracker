@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, CheckConstraint, String, text, true
+from decimal import Decimal
+
+from sqlalchemy import Boolean, CheckConstraint, Numeric, String, text, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.extensions import db
@@ -16,6 +18,8 @@ class ShopSetting(StandardColumns, db.Model):
     __table_args__ = (
         CheckConstraint("id", name="single_row"),
         CheckConstraint("doc_accent_color ~ '^#[0-9a-fA-F]{6}$'", name="accent_hex"),
+        CheckConstraint("labor_increment_hours > 0", name="labor_increment_positive"),
+        CheckConstraint("labor_minimum_hours >= 0", name="labor_minimum_nonnegative"),
     )
 
     id: Mapped[bool] = mapped_column(Boolean, primary_key=True, server_default=true())
@@ -35,3 +39,9 @@ class ShopSetting(StandardColumns, db.Model):
     doc_accent_color: Mapped[str] = mapped_column(
         String(7), nullable=False, server_default=text(f"'{DEFAULT_ACCENT}'")
     )
+    # Labor billing (owner, 2026-10-07): actual time rounded UP to the increment, then at
+    # least the minimum per job.
+    labor_increment_hours: Mapped[Decimal] = mapped_column(
+        Numeric(4, 2), nullable=False, server_default=text("0.25"))
+    labor_minimum_hours: Mapped[Decimal] = mapped_column(
+        Numeric(4, 2), nullable=False, server_default=text("0.50"))

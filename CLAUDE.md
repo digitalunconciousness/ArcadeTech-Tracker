@@ -62,7 +62,8 @@ Port patterns by copying and adapting; never import from them.
   (PDF), waitress.
 - Python 3.13 (Debian 13 LXC).
 - **Money is `NUMERIC(12,2)` and `Decimal` end to end.** Quantities `NUMERIC(12,3)`, tax
-  rates `NUMERIC(7,6)`. A float near money is a bug; a test greps for it.
+  rates `NUMERIC(7,6)`. A float near money is a bug; a test greps for it. One exception
+  (owner, 2026-10-08): unit costs on parts, lots and markup brackets are `NUMERIC(14,4)`.
 - `timestamptz`, stored in UTC. Display timezone from settings (`SHOP_TZ`), never hardcoded.
   (Deliberately unlike the tracker's naive-UTC columns.)
 - Every table: `created_at`, `updated_at`, `created_by`.

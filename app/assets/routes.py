@@ -1,6 +1,5 @@
-import segno
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
-from sqlalchemy import case, func, select
+from sqlalchemy import func, select
 
 from app.assets import service
 from app.assets.forms import AssetForm, NewAssetForm, NoteForm, StatusForm, TransferForm
@@ -8,16 +7,11 @@ from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.models import Asset, AssetEvent, Customer, Site
-from app.timeutil import utcnow
 
 bp = Blueprint("assets", __name__)
 
 FIELDS = ("name", "kind", "site_id", "parent_asset_id", "manufacturer", "model", "model_key",
           "year", "serial", "shop_location", "notes")
-
-
-def qr_svg(data):
-    return segno.make(data, error="m").svg_inline(scale=5, dark="#000", light="#fff", border=4)
 
 
 def fill_choices(form, customer, asset=None):
@@ -60,7 +54,7 @@ def new():
         fields = {f: getattr(form, f).data for f in FIELDS}
         asset = service.create(customer, status=form.status.data, **fields)
         db.session.commit()
-        flash(f"Added {asset.tag}. Its label is under Labels.", "ok")
+        flash(f"Added {asset.tag}.", "ok")
         return redirect(url_for("assets.show", asset_id=asset.id))
     flash_errors(form)
     return render_template("assets/form.html", form=form, customer=customer, asset=None)
@@ -77,11 +71,10 @@ def show(asset_id):
                                   .order_by(Asset.tag)).all()
     events = db.session.scalars(select(AssetEvent).where(AssetEvent.asset_id == asset.id)
                                 .order_by(AssetEvent.at.desc(), AssetEvent.id.desc())).all()
-    url = service.tag_url(asset.tag)
     status_form = StatusForm(status=asset.status)
     return render_template("assets/show.html", asset=asset, customer=customer, site=site,
-                           parent=parent, children=children, events=events, url=url,
-                           qr=qr_svg(url), status_form=status_form, note_form=NoteForm())
+                           parent=parent, children=children, events=events,
+                           status_form=status_form, note_form=NoteForm())
 
 
 @bp.route("/assets/<int:asset_id>/edit", methods=["GET", "POST"])
@@ -159,34 +152,12 @@ def transfer(asset_id):
     return render_template("assets/transfer.html", form=form, asset=asset)
 
 
-# --- labels -----------------------------------------------------------------------------
+# --- tags -------------------------------------------------------------------------------
 
 @bp.route("/g/<tag>")
 @requires_role(*ALL_ROLES)
 def by_tag(tag):
-    """Where a label's QR lands. Same /g/<slug> shape as the tracker's."""
+    """An asset by its tag. Same /g/<slug> shape as the tracker's, for GATBOX later. (No
+    QR labels on customer machines: owner's decision, 2026-10-08.)"""
     asset = db.session.scalar(select(Asset).where(Asset.tag == tag.strip().lower())) or abort(404)
     return redirect(url_for("assets.show", asset_id=asset.id))
-
-
-@bp.route("/labels")
-@requires_role(*ALL_ROLES)
-def labels():
-    """Labels are typed into the label printer's phone app, so this is a list to copy
-    from: unprinted first, each with its URL (for the QR) and its tag (for the text)."""
-    show_all = request.args.get("all") == "1"
-    q = select(Asset, Customer).join(Customer, Customer.id == Asset.customer_id)
-    if not show_all:
-        q = q.where(Asset.status.in_(service.ACTIVE_STATUSES))
-    q = q.order_by(case((Asset.label_printed_at.is_(None), 0), else_=1), Asset.tag)
-    rows = [(a, c, service.tag_url(a.tag)) for a, c in db.session.execute(q).all()]
-    return render_template("assets/labels.html", rows=rows, show_all=show_all)
-
-
-@bp.route("/assets/<int:asset_id>/printed", methods=["POST"])
-@requires_role(*EDIT_ROLES)
-def printed(asset_id):
-    asset = get_or_404(Asset, asset_id)
-    asset.label_printed_at = None if request.form.get("undo") else utcnow()
-    db.session.commit()
-    return redirect(request.form.get("back") or url_for("assets.labels"))

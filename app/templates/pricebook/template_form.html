@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ tpl.name if tpl else 'New job template' }}{% endblock %}
+{% block content %}
+{% include "pricebook/_tabs.html" %}
+<section class="panel">
+  <h1>{{ tpl.name if tpl else 'New job template' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.name, autofocus=not tpl) }}
+    {{ field(form.description) }}
+    {{ field(form.est_hours, inputmode="decimal") }}
+    {% if tpl %}{{ check(form.active) }}{% endif %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('pricebook.template_show', template_id=tpl.id) if tpl else url_for('pricebook.templates') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

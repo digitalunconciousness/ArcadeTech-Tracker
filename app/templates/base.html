@@ -15,15 +15,16 @@
     <nav class="nav">
       <a href="{{ url_for('dashboard.index') }}" {% if request.endpoint == 'dashboard.index' %}class="active"{% endif %}>Dashboard</a>
       <a href="{{ url_for('customers.index') }}" {% if request.blueprint == 'customers' %}class="active"{% endif %}>Customers</a>
-      <a href="{{ url_for('assets.index') }}" {% if request.blueprint == 'assets' and request.endpoint != 'assets.labels' %}class="active"{% endif %}>Assets</a>
-      <a href="{{ url_for('assets.labels') }}" {% if request.endpoint == 'assets.labels' %}class="active"{% endif %}>Labels</a>
+      <a href="{{ url_for('assets.index') }}" {% if request.blueprint == 'assets' %}class="active"{% endif %}>Assets</a>
+      <a href="{{ url_for('parts.index') }}" {% if request.blueprint == 'parts' %}class="active"{% endif %}>Parts</a>
+      <a href="{{ url_for('pricebook.index') }}" {% if request.blueprint == 'pricebook' %}class="active"{% endif %}>Price book</a>
       {% if current_user.role == 'owner' %}
       <a href="{{ url_for('settings.index') }}" {% if request.blueprint == 'settings' %}class="active"{% endif %}>Settings</a>
       {% endif %}
       <a href="{{ url_for('auth.account') }}" {% if request.endpoint == 'auth.account' %}class="active"{% endif %}>{{ current_user.username }}</a>
     </nav>
     <form class="search" action="{{ url_for('search.index') }}" method="get" role="search">
-      <input type="search" name="q" placeholder="Search: name, phone, tag, serial" value="{{ request.args.get('q', '') if request.endpoint == 'search.index' else '' }}" aria-label="Search">
+      <input type="search" name="q" placeholder="Search: name, phone, tag, serial, part" value="{{ request.args.get('q', '') if request.endpoint == 'search.index' else '' }}" aria-label="Search">
     </form>
     {% endif %}
   </header>

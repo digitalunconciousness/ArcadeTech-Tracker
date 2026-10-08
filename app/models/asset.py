@@ -78,7 +78,6 @@ class Asset(StandardColumns, db.Model):
     in_shop_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     shop_location: Mapped[str | None] = mapped_column(String(60))
     notes: Mapped[str | None] = mapped_column(Text)
-    label_printed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AssetEvent(StandardColumns, db.Model):

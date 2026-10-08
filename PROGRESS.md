@@ -61,17 +61,25 @@ push/PR → owner deploys (⏸).
 - [x] Design note → OK (owner, 2026-10-08)
 - [x] Customers, contacts, sites, comm log (append-only); the shop seeded as its own customer
 - [x] Assets (machines and boards, parent/child, `s-` tags never reused), asset events
-- [x] Labels (`/g/<tag>` QR, copy-to-label-app list, mark printed), global search
-- [ ] Diff, tests, privacy output → ⏸ OK → PR
-- [ ] ⏸ Exit: a printed asset label opens the asset on a phone
+- [x] Global search; labels built, then removed in Phase 2 (owner: no QR labels on customer
+      machines; `/g/<tag>` stays as a lookup)
+- [x] Diff, tests, privacy output → OK → PR #5 (merged, deployed 2026-10-08)
+- [ ] ⏸ Exit (revised 2026-10-08, on site, all from the phone): add the customer, a contact and
+      a site; add the machine(s), and any board pulled with "Inside" set to its machine; log a
+      comm entry; set "In the shop" + shelf on anything that leaves with you; back home, search
+      the phone number typed in a different format and find it all
 
 ## Phase 2: Price book & parts (branch `phase/2-pricebook-parts`)
 
-- [ ] Design note → ⏸ OK
-- [ ] Services, job templates, labor policy, markup tiers
-- [ ] Parts, lots, stock ledger (append-only), counts, vendors, bin labels
+- [x] Design note → OK (owner, 2026-10-08)
+- [x] Services (seeded off at $0.00), job templates, labor policy, markup brackets (Settings →
+      Pricing)
+- [x] Parts, lots, stock ledger (append-only), receive / adjust / scrap, count sheet, vendors;
+      bin labels deferred (owner)
 - [ ] Diff, tests, privacy output → ⏸ OK → PR
-- [ ] Exit: on hand = sum of moves (tested); a count adjustment leaves an audit row
+- [x] Exit: on hand = sum of moves (`test_stock.py`, 300 randomized moves); a count adjustment
+      leaves an audit row with its user (`test_stock.py`, `test_parts.py` count sheet)
+- [ ] ⏸ Owner deploys (migrations 0005 + 0006), sets the service rates and switches them on
 
 ## Phase 3: Work (branch `phase/3-work`)
 
@@ -153,9 +161,16 @@ push/PR → owner deploys (⏸).
 | 2026-10-08 | Green CI is not a merge requirement; `ci.yml` is manual-only (`workflow_dispatch`) | Owner. Actions won't start jobs on this account (runner never assigned); the local pytest + privacy check before each push is the gate |
 | 2026-10-08 | Tunnel is locally managed (`cloudflared tunnel create`, `/etc/cloudflared/config.yml`), cloudflared in the shop LXC | Owner's setup; loopback peer keeps per-client rate limits. RUNBOOK step 7 matches |
 | 2026-10-08 | Asset tags `s-NNNN-name-slug`: number from `asset_tag_seq` (gaps fine, never reused), name part frozen at creation, ≤ 24 chars, tag ≤ 40; a trigger refuses tag changes | Owner. Printed labels stay valid forever. Contract v1's slug limits not yet checked (refs unavailable): verify in Phase 7 |
-| 2026-10-08 | Labels: a copy-to-clipboard list (URL for the QR, tag for the text), unprinted first, "mark printed" | Owner types labels into the Katasymbol phone app; no bulk printing available |
+| 2026-10-08 | Labels: a copy-to-clipboard list (URL for the QR, tag for the text), unprinted first, "mark printed" | Owner types labels into the Katasymbol phone app; no bulk printing available. **Superseded below** |
 | 2026-10-08 | Customers, contacts, sites, assets audited; comm log and asset events append-only (INSERT/SELECT); nothing deletable | Owner |
 | 2026-10-08 | Techs create and edit customers and assets (`EDIT_ROLES`); viewers read only | Owner. Intake is tech work |
+| 2026-10-08 | **No QR labels on customer machines.** Label page, QR panel and `asset.label_printed_at` removed (migration 0005); tags and `/g/<tag>` stay. Inventory (bin) labels maybe later | Owner. Labelled machines are the barcade's way, not the shop's |
+| 2026-10-08 | `unit_cost` is NUMERIC(14,4) on parts and lots only; prices and every document amount stay NUMERIC(12,2), rounded half-up | Owner. A $0.012 resistor in cents is a 17% error |
+| 2026-10-08 | Seven services seeded **inactive at $0.00**; the owner sets rates in the price book. A labor/fee/trip/diagnostic service can't be switched on at $0.00 (sublet and discount can: priced per job) | Owner. No invented prices |
+| 2026-10-08 | Costs and margins: owner and viewer see them (`COST_ROLES`); techs see sell prices and stock only, can't edit cost or price, and their receipts are costed at the part's default cost | Owner |
+| 2026-10-08 | No markup brackets seeded. Brackets are [from, up to); no overlaps (a DB exclusion constraint); markup applies to the part's default cost | Owner |
+| 2026-10-08 | On hand is only ever the sum of moves (no `qty_received`/`qty_remaining` columns as the plan had). A trigger refuses a move that takes a lot below zero, serialized per lot by an advisory lock (the app role can't `SELECT … FOR UPDATE` a table it may not UPDATE) | Nothing stored can drift from the ledger |
+| 2026-10-08 | Stock found goes into the newest lot at its cost (or a new lot at the default cost if none); missing comes out oldest-first (FIFO) unless a lot is picked | FIFO cost and recall tracing stay true |
 
 ## Notes
 
@@ -217,3 +232,18 @@ push/PR → owner deploys (⏸).
   box, and an absent checkbox submits False); caught by the tests, fixed, asserted.
 - Tests: 125 passed. Phone-viewport walk-through (Playwright): add customer → site → asset,
   label page copy button, search by formatted phone; no CSP or console errors.
+
+### Session 2, Phase 2 (2026-10-08, same cloud session)
+
+- Migrations: 0005 (tables, `stock_move_lot_guard()`, the markup overlap exclusion, labor
+  CHECKs, audit and exact grants on all eight tables; drops `asset.label_printed_at`) and
+  0006 (seed services, data only). Round-tripped upgrade → downgrade → upgrade; autogenerate
+  finds no drift. 0006's downgrade fails once a template line uses a seeded service: by design.
+- The plan's `stock_move.wo_line_id` / `po_line_id` and `stock_lot.po_line_id` arrive with
+  Phases 3 and 5 as nullable columns; "user" on a move is `created_by`.
+- Count sheet: blank boxes are skipped; a part whose stock moved after the sheet loaded is
+  skipped and listed; one bad entry saves nothing.
+- Phone walk-through (Playwright, iPhone 13 viewport): set a rate, add brackets, vendor, part,
+  receive, adjust, count, template; no horizontal scroll, no CSP or console errors. It caught
+  two layout problems, both fixed: the signed "change" box (iOS's decimal keypad has no minus;
+  Adjust is now Missing/Found + quantity) and a five-column count sheet (now three).

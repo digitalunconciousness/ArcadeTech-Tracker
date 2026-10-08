@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, DecimalField, PasswordField, SelectField, StringField
 from wtforms.validators import (
@@ -8,10 +10,11 @@ from wtforms.validators import (
     NumberRange,
     Optional,
     Regexp,
+    ValidationError,
 )
 
 from app.auth.forms import new_password_fields
-from app.forms_common import EMAIL_RE, blank_to_none, optional_text
+from app.forms_common import EMAIL_RE, blank_to_none, cost_field, decimal_field, optional_text
 from app.models.user import PASSWORD_MAX, PASSWORD_MIN, ROLE_LABELS, USERNAME_RE
 
 
@@ -68,3 +71,21 @@ class UserCreateForm(UserEditForm):
 
 class SetPasswordForm(FlaskForm):
     new_password, confirm_password = new_password_fields()
+
+
+class LaborPolicyForm(FlaskForm):
+    labor_increment_hours = decimal_field("Bill labor in steps of (hours)", 2, Decimal("0.01"),
+                                          Decimal(8), required=True)
+    labor_minimum_hours = decimal_field("Minimum per job (hours)", 2, Decimal(0), Decimal(24),
+                                        required=True)
+
+
+class MarkupTierForm(FlaskForm):
+    min_cost = cost_field("Unit cost from", required=True)
+    max_cost = cost_field("up to (blank: no limit)")
+    multiplier = decimal_field("Multiplier (×)", 3, Decimal("1"), Decimal("100"), required=True)
+
+    def validate_max_cost(self, field):
+        if field.data is not None and self.min_cost.data is not None \
+                and field.data <= self.min_cost.data:
+            raise ValidationError("Must be more than the start of the bracket.")

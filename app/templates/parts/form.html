@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ part.sku if part else 'New part' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>{{ part.sku ~ ' · ' ~ part.name if part else 'New part' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.sku, autofocus=not part) }}{{ field(form.name) }}</div>
+    <div class="row">{{ field(form.category) }}{{ field(form.manufacturer) }}{{ field(form.mpn) }}</div>
+    {{ field(form.equivalents) }}
+    <h2>Pricing</h2>
+    {% if form.price_mode %}
+    <div class="row">{{ field(form.price_mode) }}{{ field(form.sell_price, inputmode="decimal") }}{{ field(form.default_cost, inputmode="decimal") }}</div>
+    <p class="dim">Markup prices come from the cost brackets in Settings → Pricing, applied to the default cost.</p>
+    {% else %}
+    <p class="dim">An owner sets this part's cost and price.</p>
+    {% endif %}
+    {{ check(form.taxable) }}
+    <h2>Stock</h2>
+    {{ check(form.track_stock) }}
+    <div class="row">{{ field(form.unit) }}{{ field(form.reorder_point, inputmode="decimal") }}{{ field(form.reorder_qty, inputmode="decimal") }}</div>
+    <div class="row">{{ field(form.preferred_vendor_id) }}{{ field(form.bin) }}{{ field(form.barcode) }}</div>
+    {{ field(form.datasheet_url, inputmode="url") }}
+    {{ field(form.notes) }}
+    {% if part %}{{ check(form.active) }}{% endif %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('parts.show', part_id=part.id) if part else url_for('parts.index') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

@@ -44,10 +44,13 @@ def create_app(overrides=None):
     from app.customers.routes import bp as customers_bp
     from app.dashboard.routes import bp as dashboard_bp
     from app.health.routes import bp as health_bp
+    from app.parts.routes import bp as parts_bp
+    from app.pricebook.routes import bp as pricebook_bp
     from app.search.routes import bp as search_bp
     from app.settings.routes import bp as settings_bp
 
-    for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp):
+    for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
+               pricebook_bp, parts_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)
@@ -55,17 +58,22 @@ def create_app(overrides=None):
 
 
 def _register_hooks(app):
+    from app.formatting import FILTERS
     from app.models.settings import DEFAULT_BUSINESS_NAME, ShopSetting
     from app.settings_store import get_settings
     from app.timeutil import localdt
 
     app.add_template_filter(localdt, "localdt")
+    for name, fn in FILTERS.items():
+        app.add_template_filter(fn, name)
 
     @app.context_processor
     def inject_roles():
-        from app.auth.decorators import EDIT_ROLES
+        from app.auth.decorators import COST_ROLES, EDIT_ROLES
 
-        return {"can_edit": current_user.is_authenticated and current_user.role in EDIT_ROLES}
+        role = current_user.role if current_user.is_authenticated else None
+        return {"can_edit": role in EDIT_ROLES, "can_see_costs": role in COST_ROLES,
+                "is_owner": role == "owner"}
 
     @app.context_processor
     def inject_shop():

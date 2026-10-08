@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Count sheet{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Count sheet</h1>
+    <a class="btn" href="{{ url_for('parts.index') }}">Parts</a>
+  </div>
+  <form method="get" action="{{ url_for('parts.count') }}" class="filters">
+    <label class="field"><span>Bins starting with</span><input type="search" name="bin" value="{{ bin_prefix }}"></label>
+    <button class="btn" type="submit">Show</button>
+  </form>
+  <p class="dim">Type what you count; leave a box blank to skip that part. Anything that moves while you count is skipped and listed, so count it again.</p>
+  <form method="post" action="{{ url_for('parts.count', bin=bin_prefix or None) }}" novalidate>
+    {{ form.csrf_token }}
+    <div class="scroll">
+    <table class="grid">
+      <thead><tr><th>Bin · part</th><th class="num">On hand</th><th class="num">Counted</th></tr></thead>
+      <tbody>
+      {% for p in parts %}
+      {% set have = on_hand.get(p.id, 0) %}
+      <tr>
+        <td>{% if p.bin %}<span class="mono tag">{{ p.bin }}</span> · {% endif %}<a class="mono" href="{{ url_for('parts.show', part_id=p.id) }}">{{ p.sku }}</a>
+          <div class="dim">{{ p.name }}</div></td>
+        <td class="num">{{ have | qty }}</td>
+        <td class="num">
+          <input type="hidden" name="seen-{{ p.id }}" value="{{ have }}">
+          <input name="count-{{ p.id }}" inputmode="decimal" autocomplete="off" aria-label="Counted {{ p.sku }}" value="{{ request.form.get('count-' ~ p.id, '') if request.method == 'POST' else '' }}">
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="dim">No stocked parts{{ ' in those bins' if bin_prefix }}.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if parts %}
+    <label class="field"><span>Note on every change (optional)</span><input name="note" maxlength="200" value="{{ request.form.get('note', '') if request.method == 'POST' else '' }}"></label>
+    <button class="btn primary" type="submit">Save counts</button>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

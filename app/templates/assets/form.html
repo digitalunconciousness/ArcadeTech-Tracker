@@ -8,7 +8,7 @@
   <form method="post" novalidate>
     {{ form.csrf_token }}
     {{ field(form.name, autofocus=not asset) }}
-    {% if not asset %}<p class="dim">The tag is made from this name once and never changes.</p>{% endif %}
+    {% if not asset %}<p class="dim">The tag (s-0001-…) is made from this name once and never changes.</p>{% endif %}
     <div class="row two">{{ field(form.kind) }}{% if form.status %}{{ field(form.status) }}{% endif %}</div>
     {{ field(form.site_id) }}
     {{ field(form.parent_asset_id) }}

@@ -25,8 +25,8 @@ from app.models.base import StandardColumns
 ROLES = ("owner", "tech", "viewer")
 ROLE_LABELS = {
     "owner": "Owner: everything, including money and settings",
-    "tech": "Tech: work orders, time, parts; no money, no voids",
-    "viewer": "Viewer: read-only, money and exports (the accountant)",
+    "tech": "Tech: work orders, time, parts; no costs, margins or money, no voids",
+    "viewer": "Viewer: read-only, money, costs and exports (the accountant)",
 }
 PASSWORD_MIN = 12
 PASSWORD_MAX = 256

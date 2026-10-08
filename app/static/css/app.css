@@ -177,7 +177,7 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .steps { padding-left: 1.2rem; }
 .inline { margin-top: 1rem; }
 
-/* Phase 1: lists, tags, labels, search */
+/* Phase 1: lists, tags, search */
 .head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
 .head h1, .head h2 { margin-bottom: 0.4em; }
 .tag { color: var(--cyan); letter-spacing: 0.03em; word-break: break-all; }
@@ -193,6 +193,20 @@ textarea { min-height: 5rem; }
 .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
 .inline-form { display: inline; margin: 0; }
 .btn.copied { border-color: var(--lime); color: var(--lime); }
-.label-preview { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
-.label-preview .qr svg { width: 10rem; }
-.labels li { padding: 0.8rem 0; }
+
+/* Phase 2: price book, parts, stock */
+.scroll { overflow-x: auto; }
+table.grid { width: 100%; border-collapse: collapse; }
+table.grid th, table.grid td { padding: 0.45rem 0.4rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+table.grid th { color: var(--dim); font-weight: normal; font-size: 0.9rem; }
+table.grid .num { text-align: right; font-family: var(--mono); white-space: nowrap; }
+table.grid tr.inactive { opacity: 0.55; }
+table.grid tr.total td { border-bottom: none; }
+.btn.small { padding: 0.2rem 0.55rem; font-size: 0.9rem; }
+table.grid input { padding: 0.4rem 0.5rem; width: 5.5rem; text-align: right; }
+.plus { color: var(--lime); }
+.minus { color: var(--amber); }
+.filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.8rem; }
+.filters .field { margin-bottom: 0; flex: 1 1 12rem; }
+details.form { margin-top: 0.8rem; }
+details.form summary { cursor: pointer; color: var(--cyan); padding: 0.3rem 0; }

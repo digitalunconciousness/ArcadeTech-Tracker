@@ -71,8 +71,11 @@ preflight() {
     || bad "$MIGRATE_ENV must exist, root:root, mode 600"
   [ -r "$LISTEN" ] && ok "$LISTEN present" || bad "$LISTEN missing (see listen.conf.example)"
 
-  if [ -n "$(git -C "$APP" status --porcelain 2>/dev/null)" ]; then
-    bad "$APP has local changes (git status)"
+  local dirty
+  dirty=$(git -C "$APP" status --porcelain 2>/dev/null)
+  if [ -n "$dirty" ]; then
+    bad "$APP has local changes (remove or move them; never edit code on the box):"
+    printf '%s\n' "$dirty" | sed 's/^/          /'
   else
     ok "$APP clean"
   fi

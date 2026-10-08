@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ part.sku }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1 class="mono tag">{{ part.sku }}</h1>
+    {% if can_edit %}<a class="btn" href="{{ url_for('parts.edit', part_id=part.id) }}">Edit</a>{% endif %}
+  </div>
+  <p class="lead">{{ part.name }}{% if not part.active %} <span class="badge danger">inactive</span>{% endif %}</p>
+  <dl class="facts">
+    {% if part.category %}<dt>Category</dt><dd>{{ part.category }}</dd>{% endif %}
+    {% if part.manufacturer or part.mpn %}<dt>Make</dt><dd>{{ part.manufacturer or '' }} <span class="mono">{{ part.mpn or '' }}</span></dd>{% endif %}
+    {% if part.equivalents %}<dt>Equivalents</dt><dd class="mono">{{ part.equivalents | join(', ') }}</dd>{% endif %}
+    <dt>Price</dt><dd>{% if price is not none %}{{ price | money }} / {{ part.unit }}{% else %}<span class="badge warn">no price</span>{% endif %}
+      <span class="dim">{{ 'markup' if part.price_mode == 'markup' else 'fixed' }}{{ ', taxable' if part.taxable else ', not taxed' }}</span></dd>
+    {% if costs %}
+    <dt>Default cost</dt><dd>{{ part.default_cost | unit_cost if part.default_cost is not none else '—' }}{% if costs.tier %} <span class="dim">× {{ costs.tier.multiplier | qty }} bracket</span>{% endif %}</dd>
+    {% if costs.next is not none %}<dt>Next unit (FIFO)</dt><dd>{{ costs.next | unit_cost }}</dd>{% endif %}
+    <dt>Margin</dt><dd>{% if costs.margin_next is not none and costs.margin_next == costs.margin_default %}{{ costs.margin_next | pct }}
+      {%- else %}{% if costs.margin_next is not none %}{{ costs.margin_next | pct }} on the next unit{% endif %}{% if costs.margin_next is not none and costs.margin_default is not none %} · {% endif %}{% if costs.margin_default is not none %}{{ costs.margin_default | pct }} at default cost{% endif %}{% if costs.margin_next is none and costs.margin_default is none %}—{% endif %}{% endif %}</dd>
+    {% endif %}
+    {% if part.track_stock %}
+    <dt>On hand</dt><dd class="mono">{{ on_hand | qty }} {{ part.unit }}{% if part.reorder_point is not none and on_hand <= part.reorder_point %} <span class="badge warn">low</span>{% endif %}</dd>
+    {% if costs %}<dt>Stock value</dt><dd>{{ costs.value | money }}</dd>{% endif %}
+    {% if part.reorder_point is not none %}<dt>Reorder</dt><dd>at {{ part.reorder_point | qty }}{% if part.reorder_qty %}, order {{ part.reorder_qty | qty }}{% endif %}</dd>{% endif %}
+    {% else %}
+    <dt>Stock</dt><dd class="dim">not tracked (consumable)</dd>
+    {% endif %}
+    {% if vendor %}<dt>Vendor</dt><dd><a href="{{ url_for('parts.vendor_show', vendor_id=vendor.id) }}">{{ vendor.name }}</a></dd>{% endif %}
+    {% if part.bin %}<dt>Bin</dt><dd class="mono">{{ part.bin }}</dd>{% endif %}
+    {% if part.barcode %}<dt>Barcode</dt><dd class="mono">{{ part.barcode }}</dd>{% endif %}
+    {% if part.datasheet_url %}<dt>Datasheet</dt><dd><a href="{{ part.datasheet_url }}" rel="noopener noreferrer" target="_blank">open</a></dd>{% endif %}
+  </dl>
+  {% if part.notes %}<p class="notes">{{ part.notes }}</p>{% endif %}
+</section>
+
+{% if part.track_stock %}
+<section class="panel">
+  <h2>Lots</h2>
+  <div class="scroll">
+  <table class="grid">
+    <thead><tr><th>Lot</th><th>Date code</th><th class="num">Left</th>{% if costs %}<th class="num">Cost</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for lot, rem in lots %}
+    <tr{% if rem <= 0 %} class="inactive"{% endif %}>
+      <td><span class="mono">#{{ lot.id }}</span> <span class="dim">{{ lot.received_at | localdt('%Y-%m-%d') }}</span></td>
+      <td><span class="mono">{{ lot.date_code or '—' }}</span>{% if lot.vendor_lot or lot.vendor_id in vendors %}<div class="dim">{{ vendors[lot.vendor_id].name if lot.vendor_id in vendors }}{{ ' · ' if lot.vendor_lot and lot.vendor_id in vendors }}{{ lot.vendor_lot or '' }}</div>{% endif %}</td>
+      <td class="num">{{ rem | qty }}</td>
+      {% if costs %}<td class="num">{{ lot.unit_cost | unit_cost }}</td>{% endif %}
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="dim">Nothing received yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {% if forms %}
+  <details class="form"{% if not lots %} open{% endif %}>
+    <summary>Receive (no PO)</summary>
+    <form method="post" action="{{ url_for('parts.receive', part_id=part.id) }}" novalidate>
+      {{ forms.receive.csrf_token }}
+      <div class="row">{{ field(forms.receive.qty, inputmode="decimal") }}{% if forms.receive.unit_cost %}{{ field(forms.receive.unit_cost, inputmode="decimal") }}{% endif %}{{ field(forms.receive.vendor_id) }}</div>
+      <div class="row">{{ field(forms.receive.date_code) }}{{ field(forms.receive.vendor_lot) }}{{ field(forms.receive.note) }}</div>
+      {% if not forms.receive.unit_cost %}<p class="dim">Costed at the part's default cost.</p>{% endif %}
+      <button class="btn primary" type="submit">Receive</button>
+    </form>
+  </details>
+  {% if lots %}
+  <details class="form">
+    <summary>Adjust</summary>
+    <form method="post" action="{{ url_for('parts.adjust', part_id=part.id) }}" novalidate>
+      {{ forms.adjust.csrf_token }}
+      <div class="row two">{{ field(forms.adjust.direction) }}{{ field(forms.adjust.qty, inputmode="decimal") }}</div>
+      <div class="row two">{{ field(forms.adjust.lot_id) }}{{ field(forms.adjust.note) }}</div>
+      <p class="dim">Missing comes out of the oldest lot first; found goes into the newest, unless you pick a lot.</p>
+      <button class="btn" type="submit">Adjust</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>Scrap</summary>
+    <form method="post" action="{{ url_for('parts.scrap', part_id=part.id) }}" novalidate>
+      {{ forms.scrap.csrf_token }}
+      <div class="row">{{ field(forms.scrap.qty, inputmode="decimal") }}{{ field(forms.scrap.lot_id) }}{{ field(forms.scrap.note) }}</div>
+      <button class="btn danger" type="submit">Scrap</button>
+    </form>
+  </details>
+  {% endif %}
+  {% endif %}
+</section>
+
+<section class="panel" id="ledger">
+  <h2>Ledger</h2>
+  <ul class="list">
+    {% for m, who in moves %}
+    <li>
+      <span class="dim">{{ m.at | localdt }}</span> <span class="badge">{{ m.reason.replace('_', ' ') }}</span>
+      <span class="mono {{ 'plus' if m.qty > 0 else 'minus' }}">{{ '+' if m.qty > 0 }}{{ m.qty | qty }}</span>
+      <span class="dim">lot #{{ m.lot_id }}{% if who %} · {{ who }}{% endif %}</span>
+      {% if m.note %}<div class="notes">{{ m.note }}</div>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">No moves yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

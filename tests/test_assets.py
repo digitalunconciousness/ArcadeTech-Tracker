@@ -163,7 +163,7 @@ def test_transfer_refuses_another_customers_site(app, signed_in):
     assert resp.status_code == 200 and b"different customer" in resp.data
 
 
-def test_g_link_and_labels(app, signed_in):
+def test_g_link_and_no_label_pages(app, signed_in):
     client = signed_in("tech")
     aid = asset(client, customer(client))
     tag = tag_of(app, aid)
@@ -171,17 +171,10 @@ def test_g_link_and_labels(app, signed_in):
     assert resp.status_code == 302 and resp.location == f"/assets/{aid}"
     assert client.get("/g/s-0000-nope").status_code == 404
     assert app.test_client().get(f"/g/{tag}").location.startswith("/login")
-
+    # no QR labels on customer machines (owner, 2026-10-08)
+    assert client.get("/labels").status_code == 404
     page = client.get(f"/assets/{aid}").get_data(as_text=True)
-    url = f"https://shop.example.test/g/{tag}"
-    assert "<svg" in page and f'data-copy="{url}"' in page
-
-    labels = client.get("/labels").get_data(as_text=True)
-    assert f'data-copy="{url}"' in labels and f'data-copy="{tag}"' in labels
-    assert "Mark printed" in labels
-    client.post(f"/assets/{aid}/printed", data={"back": "/labels"})
-    assert db_query(app, "SELECT label_printed_at IS NOT NULL FROM asset WHERE id = :i", i=aid)[0][0]
-    assert "undo" in client.get("/labels").get_data(as_text=True)
+    assert "<svg" not in page and tag in page
 
 
 def test_viewer_cannot_change_assets(app, signed_in):
@@ -189,6 +182,6 @@ def test_viewer_cannot_change_assets(app, signed_in):
     aid = asset(owner, customer(owner))
     viewer = signed_in("viewer")
     assert viewer.get(f"/assets/{aid}").status_code == 200
-    for path in (f"/assets/{aid}/status", f"/assets/{aid}/note", f"/assets/{aid}/printed",
+    for path in (f"/assets/{aid}/status", f"/assets/{aid}/note",
                  f"/assets/{aid}/transfer", f"/assets/{aid}/edit"):
         assert viewer.post(path, data={}).status_code == 403, path

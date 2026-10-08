@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Vendors{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Vendors</h1>
+    {% if can_edit %}<a class="btn primary" href="{{ url_for('parts.vendor_new') }}">Add vendor</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for v in vendors %}
+    <li{% if not v.active %} class="inactive"{% endif %}>
+      <a href="{{ url_for('parts.vendor_show', vendor_id=v.id) }}"><strong>{{ v.name }}</strong></a>
+      {% if v.resale_cert_on_file %}<span class="badge ok">resale cert</span>{% endif %}
+      {% if not v.active %}<span class="badge danger">inactive</span>{% endif %}
+      {% if v.account_ref %}<div class="dim">acct {{ v.account_ref }}</div>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">No vendors yet.</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('parts.vendors', all=None if show_all else 1) }}">{{ 'Hide inactive' if show_all else 'Show inactive too' }}</a></p>
+</section>
+{% endblock %}

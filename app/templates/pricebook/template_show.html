@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ tpl.name }}{% endblock %}
+{% block content %}
+{% include "pricebook/_tabs.html" %}
+<section class="panel">
+  <div class="head">
+    <h1>{{ tpl.name }}</h1>
+    {% if can_edit %}<a class="btn" href="{{ url_for('pricebook.template_edit', template_id=tpl.id) }}">Edit</a>{% endif %}
+  </div>
+  {% if not tpl.active %}<p><span class="badge danger">inactive</span></p>{% endif %}
+  {% if tpl.description %}<p class="notes">{{ tpl.description }}</p>{% endif %}
+  <div class="scroll">
+  <table class="grid">
+    <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Each</th><th class="num">Line</th>{% if can_edit %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for line, s, p, price, cost in lines %}
+    <tr>
+      <td>{% if s %}<span class="mono">{{ s.code }}</span> {{ s.name }}{% if not s.active %} <span class="badge danger">off</span>{% endif %}
+          {% else %}<a class="mono" href="{{ url_for('parts.show', part_id=p.id) }}">{{ p.sku }}</a> {{ p.name }}{% endif %}
+          {% if line.note %}<div class="dim">{{ line.note }}</div>{% endif %}</td>
+      <td class="num">{{ line.qty | qty }}{% if s %} {{ s.unit }}{% endif %}</td>
+      <td class="num">{{ price | money if price is not none else '—' }}</td>
+      <td class="num">{{ (line.qty * price) | money if price is not none else '—' }}</td>
+      {% if can_edit %}<td><form class="inline-form" method="post" action="{{ url_for('pricebook.template_line_delete', template_id=tpl.id, line_id=line.id) }}">{{ delete_form.csrf_token }}<button class="btn danger small" type="submit" aria-label="Remove line">✕</button></form></td>{% endif %}
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="dim">No lines yet.</td></tr>
+    {% endfor %}
+    {% if lines %}
+    <tr class="total"><td colspan="3">At today's prices{% if hours %} · {{ hours | qty }} h labor{% endif %}</td><td class="num"><strong>{{ total | money }}</strong></td>{% if can_edit %}<td></td>{% endif %}</tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+  {% if unpriced %}<p class="dim">— : not priced yet, so not in the total.</p>{% endif %}
+  {% if tpl.est_hours is not none %}<p class="dim">Estimated time: {{ tpl.est_hours | qty }} h.</p>{% endif %}
+  {% if costs and lines %}<p class="dim">Parts cost {{ costs.parts | money }}{% if costs.margin is not none %} · parts margin {{ costs.margin | pct }}{% endif %}{% if costs.missing %} · some parts have no cost{% endif %}</p>{% endif %}
+</section>
+{% if form %}
+<section class="panel">
+  <h2>Add a line</h2>
+  <form method="post" action="{{ url_for('pricebook.template_line_add', template_id=tpl.id) }}" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.item) }}
+    <div class="row two">{{ field(form.qty, inputmode="decimal") }}{{ field(form.note) }}</div>
+    <button class="btn" type="submit">Add</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

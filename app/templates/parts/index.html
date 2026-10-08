@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Parts{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Parts</h1>
+    <div class="actions">
+      {% if can_edit %}<a class="btn primary" href="{{ url_for('parts.new') }}">Add part</a>
+      <a class="btn" href="{{ url_for('parts.count') }}">Count sheet</a>{% endif %}
+      <a class="btn" href="{{ url_for('parts.vendors') }}">Vendors</a>
+    </div>
+  </div>
+  <form method="get" action="{{ url_for('parts.index') }}" class="filters">
+    <label class="field"><span>SKU, name, MPN, equivalent, bin</span>
+      <input type="search" name="q" value="{{ q }}"></label>
+    <label class="check"><input type="checkbox" name="low" value="1" {% if low %}checked{% endif %}> <span>Low only</span></label>
+    <label class="check"><input type="checkbox" name="all" value="1" {% if show_all %}checked{% endif %}> <span>Inactive too</span></label>
+    <button class="btn" type="submit">Filter</button>
+  </form>
+  <div class="scroll">
+  <table class="grid">
+    <thead><tr><th>SKU</th><th>Name</th><th>Bin</th><th class="num">On hand</th><th class="num">Price</th></tr></thead>
+    <tbody>
+    {% for p, on_hand, is_low, price in rows %}
+    <tr{% if not p.active %} class="inactive"{% endif %}>
+      <td><a class="mono" href="{{ url_for('parts.show', part_id=p.id) }}">{{ p.sku }}</a></td>
+      <td>{{ p.name }}{% if p.equivalents %} <span class="dim">≈ {{ p.equivalents | join(', ') }}</span>{% endif %}</td>
+      <td>{{ p.bin or '' }}</td>
+      <td class="num">{% if p.track_stock %}{{ on_hand | qty }}{% if is_low %} <span class="badge warn">low</span>{% endif %}{% else %}<span class="dim">n/a</span>{% endif %}</td>
+      <td class="num">{{ price | money if price is not none else '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="dim">{{ 'Nothing matches.' if q or low else 'No parts yet.' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}
