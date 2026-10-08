@@ -50,6 +50,11 @@ push/PR → owner deploys (⏸).
 - [x] Diff, tests, privacy output → OK → PR #1 (privacy check clean with 17 patterns)
 - [ ] ⏸ Exit: both owners log in with 2FA from phones over the tunnel; `deploy.sh`
       round-trips; the restore drill passes
+      - [x] owner signed in with 2FA over the tunnel (2026-10-08)
+      - [x] `deploy.sh` round-trip: dump → pull → hash-checked install → migrate → restart →
+            healthy (2026-10-08)
+      - [x] restore drill PASS (5 tables, 7 triggers); backup + drill timers enabled (2026-10-08)
+      - [ ] ⏸ partner signed in with 2FA
 
 ## Phase 1: Customers & assets (branch `phase/1-customers-assets`)
 
@@ -146,6 +151,7 @@ push/PR → owner deploys (⏸).
 | 2026-10-08 | Users table named `app_user` | `user` is reserved; `SELECT * FROM user` returns the current role in psql |
 | 2026-10-08 | `audit_log` exempt from created_at/updated_at/created_by (`at`, `user_id` instead) | Append-only; never updated |
 | 2026-10-08 | Green CI is not a merge requirement; `ci.yml` is manual-only (`workflow_dispatch`) | Owner. Actions won't start jobs on this account (runner never assigned); the local pytest + privacy check before each push is the gate |
+| 2026-10-08 | Tunnel is locally managed (`cloudflared tunnel create`, `/etc/cloudflared/config.yml`), cloudflared in the shop LXC | Owner's setup; loopback peer keeps per-client rate limits. RUNBOOK step 7 matches |
 
 ## Notes
 
@@ -193,3 +199,10 @@ push/PR → owner deploys (⏸).
   The empty shop databases were recreated UTF8 (`TEMPLATE template0 ENCODING 'UTF8'
   LOCALE 'C.UTF-8'`); `create_roles.psql` now does that explicitly, and migrations refuse
   a non-UTF8 database with a one-line error.
+- First deploy (2026-10-08) surfaced, all fixed in PRs #2 and #3: the role SQL never
+  committed; the SQL_ASCII database; a 2FA QR without the spec quiet zone (Google
+  Authenticator couldn't scan it); `flask db heads/current` failing outside `upgrade`
+  (`import sqlhelpers`), which also broke `deploy.sh` preflight and could have made its
+  rollback text say `downgrade base`. Each now has a test.
+- The shop LXC lacks the en_US.UTF-8 locale that `pct enter` passes in, so perl (pg_dump's
+  wrapper) warns; harmless. RUNBOOK step 3 has the optional `locale-gen`.
