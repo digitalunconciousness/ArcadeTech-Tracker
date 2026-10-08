@@ -1,0 +1,38 @@
+-- Roles and databases for shop-hub. Run once as a superuser on the Postgres host (prod:
+-- see deploy/RUNBOOK.md; dev: scripts/devdb.sh init does it). Idempotent. Named .psql,
+-- not .sql: *.sql is git-ignored so dumps can't be committed.
+--
+--   runuser -u postgres -- psql -X -v owner_password=... -v app_password=... -f create_roles.psql
+--
+--   shop_owner  LOGIN, owns database shop and every object in it; migrations and
+--               deploy.sh's pre-migration pg_dump connect as this. Only an owner can
+--               DISABLE TRIGGER, which is why the app never connects as it.
+--   shop_app    NOLOGIN group: the privileges the migrations grant (DML, no DDL).
+--   shop        LOGIN, member of shop_app: the app, backups.
+--   shop_restore_test  scratch database for scripts/restore_drill.sh, owned by shop_owner.
+\set ON_ERROR_STOP on
+-- Databases are created UTF8 explicitly: a cluster initialised without a UTF-8 locale
+-- (common in a minimal LXC) defaults to SQL_ASCII, which stores unvalidated bytes and
+-- makes psycopg return bytes instead of text. If the host lacks the C.UTF-8 locale,
+-- use LOCALE 'C' (still UTF8, ASCII-only case rules).
+
+SELECT 'CREATE ROLE shop_app NOLOGIN'
+ WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'shop_app') \gexec
+SELECT format('CREATE ROLE shop_owner LOGIN PASSWORD %L', :'owner_password')
+ WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'shop_owner') \gexec
+SELECT format('CREATE ROLE shop LOGIN PASSWORD %L IN ROLE shop_app', :'app_password')
+ WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'shop') \gexec
+
+SELECT 'CREATE DATABASE shop OWNER shop_owner TEMPLATE template0 ENCODING ''UTF8'' LOCALE ''C.UTF-8'''
+ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'shop') \gexec
+SELECT 'CREATE DATABASE shop_restore_test OWNER shop_owner TEMPLATE template0 ENCODING ''UTF8'' LOCALE ''C.UTF-8'''
+ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'shop_restore_test') \gexec
+
+REVOKE ALL ON DATABASE shop FROM PUBLIC;
+GRANT CONNECT ON DATABASE shop TO shop_owner, shop_app;
+REVOKE ALL ON DATABASE shop_restore_test FROM PUBLIC;
+GRANT CONNECT ON DATABASE shop_restore_test TO shop_owner;
+
+\connect shop
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO shop_app;

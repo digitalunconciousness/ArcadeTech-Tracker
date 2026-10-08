@@ -50,3 +50,25 @@ def test_models_match_migrations(app):
     with app.app_context(), db.engine.connect() as conn:
         diff = compare_metadata(MigrationContext.configure(conn), db.metadata)
     assert diff == []
+
+
+def test_migrations_refuse_a_non_utf8_database(app, tdb, monkeypatch, capfd):
+    """A cluster initialised without a UTF-8 locale gives SQL_ASCII databases; psycopg
+    then returns bytes and SQLAlchemy dies with a TypeError. Refuse it, clearly."""
+    import pytest
+    from psycopg import sql
+
+    name = f"{tdb.name}_ascii"
+    with tdb.admin("postgres") as c:
+        c.execute(sql.SQL(
+            "CREATE DATABASE {} OWNER {} TEMPLATE template0 ENCODING 'SQL_ASCII' LOCALE 'C'"
+        ).format(sql.Identifier(name), sql.Identifier(tdb.owner)))
+    monkeypatch.setenv("MIGRATE_DATABASE_URL", tdb.url("owner", database=name))
+    try:
+        # Flask-Migrate turns the RuntimeError into a logged one-line error and exit 1.
+        with app.app_context(), pytest.raises(SystemExit) as exc:
+            upgrade()
+        assert exc.value.code == 1
+        assert "has encoding SQL_ASCII; shop-hub needs UTF8" in capfd.readouterr().err
+    finally:
+        tdb.drop_database(name)

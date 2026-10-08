@@ -20,7 +20,14 @@ def provisioning_uri(secret, username, issuer):
 
 
 def qr_svg(uri):
-    return segno.make(uri, error="m").svg_inline(scale=5, dark="#000", light="#fff", border=2)
+    # Border 4: the quiet zone the QR spec requires; scanners (Google Authenticator in
+    # particular) often fail with less.
+    return segno.make(uri, error="m").svg_inline(scale=6, dark="#000", light="#fff", border=4)
+
+
+def grouped(secret):
+    """The key in blocks of four, for typing into an authenticator by hand."""
+    return " ".join(secret[i:i + 4] for i in range(0, len(secret), 4))
 
 
 def matching_step(secret, code, last_step=None, now=None):

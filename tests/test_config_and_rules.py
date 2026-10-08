@@ -111,3 +111,16 @@ def test_weasyprint_renders(tmp_path):
 
     pdf = HTML(string="<h1>Claim ticket</h1><p>Synthetic.</p>").write_pdf()
     assert pdf[:5] == b"%PDF-" and len(pdf) > 500
+
+
+def test_nothing_the_app_or_deploy_needs_is_git_ignored():
+    """deploy/sql/create_roles.sql once existed only on disk: *.sql is git-ignored (dumps),
+    so it never reached the repo and the runbook broke on a fresh clone."""
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "--",
+         "app", "deploy", "migrations", "scripts", "tests", ".github"],
+        cwd=ROOT, capture_output=True, text=True, check=True,
+    ).stdout.split()
+    assert [p for p in out if "__pycache__" not in p] == []

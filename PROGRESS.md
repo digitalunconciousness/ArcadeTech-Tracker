@@ -20,7 +20,7 @@ push/PR → owner deploys (⏸).
 - [x] `ArcadeTech-Tracker` stays **public** (owner, 2026-10-07); LICENSE: all rights reserved
 - [x] Prod Postgres: **17.9** (Debian 13 package, `17.9-0+deb13u1`). Debian 13's own
       `postgresql-client` is 17, so the shop LXC needs no PGDG repo for pg_dump
-- [ ] ⏸ Debian 13 LXC template's Python version (expect 3.13; the runbook checks it in Phase 0)
+- [x] Debian 13 LXC: Python **3.13.5**, pg_dump 17.11 (owner, 2026-10-08, on the shop LXC)
 - [x] Dev Postgres: rootless podman (owner installed 6.1.2), `postgres:17`, on 127.0.0.1:5433;
       `scripts/devdb.sh` (Phase 0) also drives docker for cloud sessions
 - [x] uv venv at `~/.venvs/shop-hub` (Python 3.13.15), empty until Phase 0 pins
@@ -43,7 +43,7 @@ push/PR → owner deploys (⏸).
 - [x] Float-near-money grep test; no-external-assets test (+ no inline script/style for the CSP)
 - [x] `scripts/create_owner.py` (prompts; nothing on argv) + `scripts/reset_2fa.py`
 - [x] `deploy/`: RUNBOOK.md, deploy.sh with `--check`, shop-hub.service, listen.conf.example,
-      cloudflared ingress example, `sql/create_roles.sql`
+      cloudflared ingress example, `sql/create_roles.psql`
 - [x] `scripts/backup.sh` (pg_dump -Fc + files; 14 daily / 12 monthly / 7 yearly) + timer
 - [x] `scripts/restore_drill.sh` + monthly timer
 - [x] GitHub Actions with a postgres service container (manual-only since 2026-10-08; see Decisions)
@@ -182,3 +182,14 @@ push/PR → owner deploys (⏸).
   can't read other repos. Pin to SHAs with `git ls-remote --tags` on the workstation.
 - The VM's pg_dump is 16; backups were tested through `docker run postgres:17` wrappers
   (`SHOP_PG_BIN`); CI does the same.
+- First deploy attempt: `deploy/sql/create_roles.sql` was never committed (`*.sql` is
+  git-ignored to keep dumps out), so the runbook's copy step failed on a fresh clone.
+  Renamed to `create_roles.psql`; a test now fails if anything under app/, deploy/,
+  migrations/, scripts/, tests/ or .github/ exists on disk but is git-ignored. The runbook
+  uses `runuser -u postgres` (Debian LXCs have no sudo) and reads the passwords with
+  `read -rs` instead of putting them on the command line.
+- The prod Postgres cluster was initialised without a UTF-8 locale, so `CREATE DATABASE
+  shop` came out SQL_ASCII (psycopg then returns bytes and SQLAlchemy fails to connect).
+  The empty shop databases were recreated UTF8 (`TEMPLATE template0 ENCODING 'UTF8'
+  LOCALE 'C.UTF-8'`); `create_roles.psql` now does that explicitly, and migrations refuse
+  a non-UTF8 database with a one-line error.

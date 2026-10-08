@@ -26,6 +26,27 @@ def migration_url():
     return os.environ.get("MIGRATE_DATABASE_URL") or current_app.config["SQLALCHEMY_DATABASE_URI"]
 
 
+def require_utf8(url):
+    """Refuse a database that isn't UTF8 before SQLAlchemy touches it. On SQL_ASCII,
+    psycopg returns bytes for text and SQLAlchemy dies with a TypeError during connect;
+    worse, Postgres would store customer text unvalidated. Checked with a raw psycopg
+    connection, because the SQLAlchemy one can't even be opened."""
+    import psycopg
+    from sqlalchemy.engine import make_url
+
+    libpq = make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
+    with psycopg.connect(libpq, connect_timeout=10) as conn:
+        encoding = conn.info.parameter_status("server_encoding")
+        database = conn.info.dbname
+    if encoding != "UTF8":
+        raise RuntimeError(
+            f"database {database!r} has encoding {encoding}; shop-hub needs UTF8. It was "
+            "probably created on a cluster without a UTF-8 locale. If it's empty, drop it and "
+            "recreate it with: CREATE DATABASE ... TEMPLATE template0 ENCODING 'UTF8' "
+            "LOCALE 'C.UTF-8' (see deploy/sql/create_roles.psql)."
+        )
+
+
 def run_migrations_offline():
     context.configure(
         url=migration_url(), target_metadata=target_metadata, literal_binds=True,
@@ -41,6 +62,7 @@ def run_migrations_online():
             directives[:] = []
             logger.info("No changes in schema detected.")
 
+    require_utf8(migration_url())
     engine = create_engine(migration_url(), poolclass=pool.NullPool)
     with engine.connect() as connection:
         context.configure(

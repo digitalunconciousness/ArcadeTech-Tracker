@@ -2,7 +2,7 @@
 append-only: changing what a helper emits changes what old revisions do. Add a new helper
 instead.
 
-Roles (deploy/sql/create_roles.sql):
+Roles (deploy/sql/create_roles.psql):
   shop_owner  owns every object and runs migrations. Only an owner can DISABLE TRIGGER,
               so the app can't switch off the audit or immutability triggers.
   shop_app    group role, NOLOGIN. Gets exactly the privileges granted here.

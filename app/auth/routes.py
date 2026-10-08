@@ -170,5 +170,5 @@ def totp_setup():
     uri = totp.provisioning_uri(user.totp_secret, user.username, issuer)
     return render_template(
         "auth/totp_setup.html", enabled=False, form=form, qr=totp.qr_svg(uri),
-        secret=user.totp_secret,
+        secret=totp.grouped(user.totp_secret), otpauth_uri=uri,
     )

@@ -170,9 +170,9 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .dim { color: var(--dim); }
 .mono { font-family: var(--mono); }
 .glow { color: var(--magenta); }
-.key { word-break: break-all; letter-spacing: 0.1em; }
+.key { word-spacing: 0.4em; letter-spacing: 0.08em; font-size: 1.1rem; }
 /* above the scanlines: a phone camera reads this */
 .qr { position: relative; z-index: 11; background: #fff; padding: 0.5rem; display: inline-block; border-radius: var(--radius); }
-.qr svg { display: block; width: 12rem; height: auto; }
+.qr svg { display: block; width: 16rem; max-width: 100%; height: auto; }
 .steps { padding-left: 1.2rem; }
 .inline { margin-top: 1rem; }
