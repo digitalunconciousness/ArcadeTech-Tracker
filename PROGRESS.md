@@ -188,3 +188,8 @@ push/PR → owner deploys (⏸).
   migrations/, scripts/, tests/ or .github/ exists on disk but is git-ignored. The runbook
   uses `runuser -u postgres` (Debian LXCs have no sudo) and reads the passwords with
   `read -rs` instead of putting them on the command line.
+- The prod Postgres cluster was initialised without a UTF-8 locale, so `CREATE DATABASE
+  shop` came out SQL_ASCII (psycopg then returns bytes and SQLAlchemy fails to connect).
+  The empty shop databases were recreated UTF8 (`TEMPLATE template0 ENCODING 'UTF8'
+  LOCALE 'C.UTF-8'`); `create_roles.psql` now does that explicitly, and migrations refuse
+  a non-UTF8 database with a one-line error.
