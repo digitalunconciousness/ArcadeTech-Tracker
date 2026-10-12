@@ -88,17 +88,22 @@ push/PR → owner deploys (⏸).
   - [x] WOs, jobs (3C, intake), lines, timer, part issue / reserve / customer-supplied
   - [x] Manual readings; service report with as-found → as-left, spec and pass
   - [x] Photos (EXIF stripped), claim ticket and service report PDFs, work board
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR
-  - [ ] ⏸ Owner deploys (migration 0007) and writes the claim and warranty terms in Settings
+  - [x] Diff, tests, privacy output → OK → PR #7 (merged)
+  - [x] ⏸ Owner deployed (migration 0007)
+  - [ ] ⏸ Claim-ticket and warranty terms written in Settings (printed on those documents;
+        blank until then)
 - **3b: estimates and links** (branch `phase/3b-estimates`, on top of 3a)
   - [x] Estimates: lines, NTE, deposit, revisions, approval via `/d/<token>` on a phone
         (finger signature canvas → PNG + typed name; time, IP, UA logged); convert to a WO
   - [x] Appointments + .ics feed (`/d/cal/<token>.ics`)
-  - [ ] ⏸ Cloudflare Access bypass for `/d/*` in place (RUNBOOK §7, app 3): `/d/x` must
-        show the app's own "isn't available" page, not the Access PIN page
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR
-  - [ ] ⏸ Owner deploys (migration 0008), writes the estimate terms in Settings
-- [ ] ⏸ Exit: estimate approved on a phone through a link; converts; timer runs; report prints
+  - [x] ⏸ Cloudflare Access bypass for `/d/*` in place (RUNBOOK §7, app 3): `/d/x` shows the
+        app's own "isn't available" page (owner, 2026-10-09)
+  - [x] Diff, tests, privacy output → OK → PR #8 (merged)
+  - [x] ⏸ Owner deployed (migration 0008) and wrote the estimate terms (links can't be sent
+        without them)
+  - [x] PR #9: log CSRF rejections with their reason and explain them to the user
+- [x] ⏸ Exit: estimate approved on a phone through a link; converts; timer runs; report prints
+      (passed, owner, reported 2026-10-12)
 
 ## Phase 4: Billing (branch `phase/4-billing`)
 
@@ -193,6 +198,7 @@ push/PR → owner deploys (⏸).
 | 2026-10-08 | Converting: jobs, labor, fees, sublets and discounts carry over; quoted stocked parts become reservations at the quoted price (issued when used; shortfalls flagged to order); actual-time labor starts at 0 | Parts are issued when used, not when quoted |
 | 2026-10-08 | Change orders: a revision of a converted estimate, once approved, raises the WO's NTE and takes it out of waiting_approval | The plan's over-NTE flow |
 | 2026-10-08 | Calendar feeds: one live per user, token hashed, made on the Account page; events for appointments the user is on, from 60 days back | Owner: name + address in Google is fine |
+| 2026-10-12 | Plain `http://` can't hold a session: the cookie is `Secure`, so a browser drops it and the login form's CSRF check fails ("session token is missing"). Cloudflare's Always Use HTTPS redirect covers it; **no app-side redirect** | Owner. Found when login failed on an `http://` address; works on `https://` |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -302,3 +308,14 @@ push/PR → owner deploys (⏸).
   report. It caught two real problems, both fixed: the signature pad cleared itself on
   every `resize` (phones fire one when the address bar hides) and a refresh after approving
   re-posted the form (now redirects). Tests: 237 passed.
+
+### Session 3 (2026-10-12): Phase 3 close-out
+
+- Phase 3 exit passed on the owner's phone. Login over `http://` failed with "The CSRF session
+  token is missing": the session cookie is `Secure`, so plain http can't keep one. Works on
+  https; Cloudflare's Always Use HTTPS redirect is the fix, no app change.
+- Intermittent "CSRF token missing" on a second photo upload: not reproduced (repeated uploads,
+  Back-then-upload, a 6 MB photo, 40 uploads with parallel page and image requests; an
+  over-limit photo gives a plain 413, not CSRF). PR #9 logs the reason and the cookie state on
+  every rejection (`journalctl -u shop-hub | grep "csrf rejected"`); the first recurrence on
+  https will say whether it's a lost session or a form without its token.
