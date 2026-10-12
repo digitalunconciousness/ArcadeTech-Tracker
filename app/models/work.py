@@ -164,6 +164,8 @@ class WoLine(StandardColumns, db.Model):
                         "warranty_days = 0 AND stock_lot_id IS NULL)",
                         name="customer_supplied_part"),
         CheckConstraint("stock_lot_id IS NULL OR kind = 'part'", name="lot_only_on_parts"),
+        CheckConstraint("NOT awaiting OR customer_supplied", name="awaiting_customer_part"),
+        CheckConstraint("part_link_id IS NULL OR customer_supplied", name="link_on_customer_part"),
         ForeignKeyConstraint(["stock_lot_id", "part_id"], ["stock_lot.id", "stock_lot.part_id"],
                              name="fk_wo_line_lot_same_part"),
         # Time on the job feeds one actual-time labor line.
@@ -193,6 +195,11 @@ class WoLine(StandardColumns, db.Model):
     # What a fixed price covers, one item per line; printed under the line.
     scope: Mapped[str | None] = mapped_column(Text)
     invoice_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("invoice.id"), index=True)
+    # A part the customer is buying: where they buy it, and whether it's still on its way
+    # (awaiting lines keep the WO waiting on parts and aren't offered for billing).
+    part_link_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("part_link.id"),
+                                                     index=True)
+    awaiting: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
 
 
 class TimeEntry(StandardColumns, db.Model):

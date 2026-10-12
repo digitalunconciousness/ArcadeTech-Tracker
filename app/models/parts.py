@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -133,3 +134,33 @@ class StockMove(StandardColumns, db.Model):
     # The job a part was issued to or returned from: recall tracing ("which jobs got
     # caps from that lot?"). Jobs are never deleted, so this always resolves.
     wo_job_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("wo_job.id"), index=True)
+
+
+class PartLink(StandardColumns, db.Model):
+    """A saved web page where a part can be bought: the shop's own list, built as parts are
+    looked up, never crawled. The server never fetches the URL; the title comes from the
+    phone's share or is typed. Only http(s) URLs, so a link printed on a customer document
+    can't run script."""
+
+    __tablename__ = "part_link"
+    __audited__ = ()
+    __table_args__ = (
+        CheckConstraint("url ~ '^https?://[^[:space:]]+$'", name="url_http"),
+        CheckConstraint("price_seen IS NULL OR price_seen >= 0", name="price_nonnegative"),
+        CheckConstraint("price_seen IS NULL OR price_seen_on IS NOT NULL", name="price_dated"),
+        UniqueConstraint("url", name="uq_part_link_url"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    url: Mapped[str] = mapped_column(String(2000), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    # The site's host without "www."; matched against vendors' websites.
+    domain: Mapped[str] = mapped_column(String(253), nullable=False)
+    vendor_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("vendor.id"), index=True)
+    # Set when this is where we buy one of our own stocked parts.
+    part_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("part.id"), index=True)
+    fits: Mapped[str | None] = mapped_column(String(200))
+    notes: Mapped[str | None] = mapped_column(Text)
+    price_seen: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    price_seen_on: Mapped[date | None] = mapped_column(Date)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())

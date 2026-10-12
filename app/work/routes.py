@@ -32,11 +32,13 @@ from app.models import (
     AppointmentUser,
     Asset,
     Attachment,
+    CommLog,
     Customer,
     Estimate,
     Invoice,
     ManualReading,
     Part,
+    PartLink,
     Reservation,
     Service,
     Site,
@@ -48,6 +50,8 @@ from app.models import (
     WorkOrder,
     WorkOrderTech,
 )
+from app.partlinks import service as links
+from app.partlinks.forms import AddLinkForm, SendLinksForm
 from app.parts import stock
 from app.parts.stock import StockError
 from app.timeutil import from_local_naive, to_local_naive, utcnow
@@ -427,8 +431,11 @@ def job(job_id):
                                                          Attachment.kind == "photo")
                                 .order_by(Attachment.id)).all()
     edit = current_user.role in EDIT_ROLES
+    part_links = {link.id: link for link in db.session.scalars(select(PartLink).where(
+        PartLink.id.in_([x.part_link_id for x in lines if x.part_link_id])))}
     return render_template(
         "work/job.html", job=job, wo=wo, customer=customer, asset=asset, lines=lines,
+        part_links=part_links,
         totals=service.totals(lines), has_customer_part=has_customer_part, lots=lots,
         users=users, entries=entries, my_timer=mine, reservations=reservations,
         readings=readings, photos=photos, costs=sees_costs(),
@@ -653,6 +660,72 @@ def reservation(res_id, action):
         else:
             attempt(lambda: service.release_reservation(res), "Released.")
     return back_to_job(job.id, "#parts")
+
+
+# --- parts the customer is buying -----------------------------------------------------------
+
+@bp.route("/work/jobs/<int:job_id>/part-links", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def add_part_link(job_id):
+    job, wo = load_job(job_id)
+    form = AddLinkForm()
+    if form.validate_on_submit() and form.part_link_id.data.isdigit():
+        link = get_or_404(PartLink, int(form.part_link_id.data))
+        if attempt(lambda: service.add_part_link(job, link, qty=form.qty.data,
+                                                 wait=form.wait.data),
+                   f"Added “{link.title}”: waiting for the customer's part."):
+            return back_to_job(job.id, "#customer-parts")
+    else:
+        flash_errors(form)
+    return redirect(url_for("partlinks.pick", **{"for": f"wo:{job.id}"}))
+
+
+@bp.route("/work/lines/<int:line_id>/arrived", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def arrived(line_id):
+    line = get_or_404(WoLine, line_id)
+    job, wo = load_job(line.wo_job_id)
+    holder = {}
+    if EmptyForm().validate_on_submit() and \
+            attempt(lambda: holder.update(moved=service.mark_arrived(line)), "Marked arrived."):
+        if holder["moved"]:
+            flash(f"Nothing else is on its way: {wo.number} is back In progress.", "ok")
+    return back_to_job(job.id, "#customer-parts")
+
+
+def link_lines(wo):
+    """The customer's-part lines on this WO that came from a saved link, with the link."""
+    return db.session.execute(
+        select(WoLine, PartLink).join(PartLink, PartLink.id == WoLine.part_link_id)
+        .join(WoJob, WoJob.id == WoLine.wo_job_id)
+        .where(WoJob.work_order_id == wo.id, WoJob.status != "cancelled")
+        .order_by(WoLine.awaiting.desc(), WoLine.id)).all()
+
+
+@bp.route("/work/<int:wo_id>/send-links", methods=["GET", "POST"])
+@requires_role(*EDIT_ROLES)
+def send_links(wo_id):
+    """The parts the customer is buying, as a text: shared from the phone, and logged on
+    the customer's comm log so there's a record of what was sent."""
+    wo, customer = load_wo(wo_id)
+    rows = link_lines(wo)
+    if not rows:
+        flash("No parts on this work order came from a saved link.", "error")
+        return redirect(url_for("work.show", wo_id=wo.id))
+    form = SendLinksForm()
+    if request.method == "GET":
+        form.message.data = links.message((link.title, link.url) for line, link in rows
+                                          if line.awaiting) or \
+            links.message((link.title, link.url) for line, link in rows)
+    if form.validate_on_submit():
+        db.session.add(CommLog(customer_id=customer.id, kind=form.how.data,
+                               summary=f"Parts links for {wo.number}:\n{form.message.data}"))
+        db.session.commit()
+        flash(f"Logged on {customer.display_name}'s record.", "ok")
+        return redirect(url_for("work.show", wo_id=wo.id))
+    flash_errors(form)
+    return render_template("work/send_links.html", wo=wo, customer=customer, rows=rows,
+                           form=form)
 
 
 # --- readings and photos -------------------------------------------------------------------

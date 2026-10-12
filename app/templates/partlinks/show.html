@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ link.title }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>{{ link.title }}</h1>
+    {% if can_edit %}<a class="btn" href="{{ url_for('partlinks.edit', link_id=link.id) }}">Edit</a>{% endif %}
+  </div>
+  {% if not link.active %}<p><span class="badge danger">switched off</span> <span class="dim">Kept for the record; not offered when adding links.</span></p>{% endif %}
+  <div class="actions">
+    <a class="btn primary" href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">Open</a>
+    <button class="btn" type="button" data-copy="{{ link.url }}">Copy</button>
+    <button class="btn" type="button" data-share="{{ link.url }}" data-share-title="{{ link.title }}">Share</button>
+  </div>
+  <dl class="facts">
+    <dt>Address</dt><dd class="mono break">{{ link.url }}</dd>
+    <dt>Site</dt><dd>{% if vendor %}<a href="{{ url_for('parts.vendor_show', vendor_id=vendor.id) }}">{{ vendor.name }}</a> <span class="dim">{{ link.domain }}</span>{% else %}{{ link.domain }}{% endif %}</dd>
+    {% if link.fits %}<dt>Fits</dt><dd>{{ link.fits }}</dd>{% endif %}
+    {% if link.price_seen is not none %}<dt>Price seen</dt><dd>{{ link.price_seen | money }} <span class="dim">on {{ link.price_seen_on }}</span></dd>{% endif %}
+    {% if part %}<dt>Our part</dt><dd><a href="{{ url_for('parts.show', part_id=part.id) }}"><span class="mono">{{ part.sku }}</span></a> {{ part.name }}</dd>{% endif %}
+    <dt>Saved</dt><dd>{{ link.created_at | localdt('%Y-%m-%d') }}</dd>
+  </dl>
+  {% if link.notes %}<p class="notes">{{ link.notes }}</p>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>Where it went</h2>
+  {% if not (usage.estimates or usage.work or usage.sent) %}<p class="dim">Not on any estimate or work order yet, and never sent.</p>{% endif %}
+  {% if usage.sent %}
+  <h3>Sent</h3>
+  <ul class="list">{% for entry, c in usage.sent %}<li>{{ entry.at | localdt }} · <a href="{{ url_for('customers.show', customer_id=c.id) }}">{{ c.display_name }}</a> <span class="dim">{{ entry.kind }}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if usage.estimates %}
+  <h3>Estimates</h3>
+  <ul class="list">{% for row, est, c in usage.estimates %}<li><a href="{{ url_for('estimates.show', est_id=est.id) }}"><span class="mono tag">{{ est.number }}{% if est.revision > 1 %} r{{ est.revision }}{% endif %}</span></a> {{ c.display_name }} <span class="dim">× {{ row.qty | qty }} · {{ est.status }}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if usage.work %}
+  <h3>Work orders</h3>
+  <ul class="list">{% for line, wo, c in usage.work %}<li><a href="{{ url_for('work.job', job_id=line.wo_job_id) }}"><span class="mono tag">{{ wo.number }}</span></a> {{ c.display_name }} <span class="dim">× {{ line.qty | qty }} · {{ 'on its way' if line.awaiting else 'arrived' }}</span></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endblock %}

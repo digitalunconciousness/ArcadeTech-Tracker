@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Send parts links · {{ wo.number }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Send parts links</h1>
+    <a class="btn" href="{{ url_for('work.show', wo_id=wo.id) }}">Back</a>
+  </div>
+  <p><span class="mono tag">{{ wo.number }}</span> · {{ customer.display_name }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p>
+  <form method="post" novalidate data-share-submit>
+    {{ form.csrf_token }}
+    {{ field(form.message) }}
+    {{ field(form.how) }}
+    <p class="dim small">Share opens your phone's share sheet (pick Messages or email). Once it's sent, this goes on {{ customer.display_name }}'s comm log, so there's a record of what you sent.</p>
+    <button class="btn primary" type="submit">Share and log it</button>
+  </form>
+</section>
+<section class="panel">
+  <h2>On this work order</h2>
+  <ul class="list">
+    {% for line, link in rows %}
+    <li{% if not line.awaiting %} class="inactive"{% endif %}><a href="{{ url_for('partlinks.show', link_id=link.id) }}">{{ link.title }}</a> × {{ line.qty | qty }} <span class="dim">{{ link.domain }} · {{ 'on its way' if line.awaiting else 'here' }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

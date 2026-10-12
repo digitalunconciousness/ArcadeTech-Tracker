@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Parts links{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Parts links</h1>
+    {% if can_edit %}<a class="btn primary" href="{{ url_for('partlinks.new') }}">Save a link</a>{% endif %}
+  </div>
+  <form method="get" action="{{ url_for('partlinks.index') }}">
+    {% if show_all %}<input type="hidden" name="all" value="1">{% endif %}
+    <label class="field"><span>Search, or paste a web address</span>
+      <input type="search" name="q" value="{{ q }}" autofocus enterkeyhint="search"></label>
+  </form>
+  {% if url and not link %}
+  <p>Not saved yet. {% if can_edit %}<a class="btn primary" href="{{ url_for('partlinks.new', url=url) }}">Save it</a>{% endif %}</p>
+  {% endif %}
+  <ul class="list links">
+    {% for link, vendor in rows %}
+    <li{% if not link.active %} class="inactive"{% endif %}>{% include "partlinks/_row.html" %}</li>
+    {% else %}
+    {% if not url %}<li class="dim">{% if q %}Nothing matches “{{ q }}”.{% else %}No links saved yet. In Chrome on your phone, Share → {{ shop.business_name }} saves the page you're on.{% endif %}</li>{% endif %}
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('partlinks.index', q=q or None, all=None if show_all else 1) }}">{{ 'Hide switched-off links' if show_all else 'Show switched-off links too' }}</a></p>
+</section>
+{% endblock %}

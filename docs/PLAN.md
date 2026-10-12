@@ -274,6 +274,15 @@ As built in Phase 4b: `payment.kind` is receipt | reversal | refund (`received_o
 - **`reservation`**
   - `part_id`, `wo_job_id`, `qty`, `status` (reserved | issued | released)
   - Available = on hand − reserved.
+- **`part_link`** (Phase 5a, as built): a saved page where a part can be bought, built up as
+  parts are looked up, never crawled.
+  - `url` (unique; http(s) only; tracking tags stripped), `title`, `domain`, `vendor_id`
+    (matched by domain), `part_id?` (where we buy our own stock), `fits`, `notes`,
+    `price_seen` + `price_seen_on`, `active`
+  - Saved from Android's share sheet (the app's manifest has a share target) or pasted
+  - **`estimate_part_link`**: "Parts you'll buy" on an estimate job, title, URL and price
+    copied; frozen with the estimate. Converting makes them customer's-part WO lines with
+    `awaiting` set until they arrive
 - **`vendor`**
   - `name`, `website`, `account_ref`, `contact`
   - `resale_cert_on_file`: you gave them your Oklahoma permit, so parts for resale come in untaxed
@@ -509,7 +518,7 @@ Each phase runs: design note → your OK → code + tests → diff, tests and pr
 | **2 Price book & parts** | shop-hub | Services, job templates, labor policy, parts, lots, the stock ledger, counts, vendors, markup tiers (bin labels deferred) | Stock on hand = sum of moves, under test; a count adjustment leaves an audit row |
 | **3 Work** | shop-hub | Estimates (approval, signature, revisions, NTE, deposit), WOs, jobs (3C, intake), lines, timer, part issue / reserve / customer-supplied, manual readings, photos, claim ticket and service report PDFs, `/d/` links, appointments with .ics | ⏸ An estimate is approved on a phone through a link; it converts; the timer runs; the service report prints |
 | **4 Billing** | shop-hub | Tax jurisdictions, invoice issue (snapshot, number, frozen PDF, warranty dates), payments and allocations, deposits, credit memos, voids, reversals, statements, receipts, immutability triggers | Editing an issued invoice line fails *in the database*; a partial + final payment closes the invoice; numbers stay gapless across a forced rollback |
-| **5 Purchasing** | shop-hub | Shopping list, POs, lines tied to jobs, shipments + tracking links, receive → lot + reservation + WO status, vendor RMAs | Receiving a line tied to a job reserves it and moves that WO out of `waiting_parts` |
+| **5 Purchasing** | shop-hub | 5a: saved parts links (Android share target), "Parts you'll buy" on estimates, customer's parts awaited on WOs. 5b: shopping list, POs, lines tied to jobs, shipments + tracking links, receive → lot + reservation + WO status (vendor RMAs deferred) | Receiving a line tied to a job reserves it and moves that WO out of `waiting_parts` |
 | **6 Dashboard & books** | shop-hub | Dashboard, reports, expenses, mileage, partner ledger, sales-tax filings, year-end package, 1099 reconciliation | Figures in the year-end package reconcile to the dashboard to the cent on synthetic data |
 | **7 GATBOX link (hub side)** | shop-hub | Devices + tokens, vendored contract v1 with the checksum test, health (`capabilities: ["jobs"]`), roster of active assets (with `model_key`), ingest (sessions, readings, orders → a new job, session tags), open jobs per asset, phase tagging on the job page | Posting the contract examples twice gives created, then duplicate; an unknown slug is rejected |
 | **8 GATBOX multi-hub** | Gatbox (public) | `hubs.d`, per-hub caches and routing, the conflict flag, picker grouped by hub, `model_key` → manuals, capability-gated JOB card with AS-FOUND / AS-LEFT | ⏸ The same Pi, in one session each: a barcade trace lands in the tracker, a customer trace lands on the shop job, and neither shows up in the other |

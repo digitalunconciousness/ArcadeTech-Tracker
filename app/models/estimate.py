@@ -151,6 +151,37 @@ class EstimateLine(StandardColumns, db.Model):
     scope: Mapped[str | None] = mapped_column(Text)
 
 
+class EstimatePartLink(StandardColumns, db.Model):
+    """A part the customer buys themselves ("Parts you'll buy"): printed with its link,
+    never in our total. Title, URL and price are copied from the saved link, so editing
+    the link later can't change what the customer saw. Frozen with the estimate."""
+
+    __tablename__ = "estimate_part_link"
+    __audited__ = ()
+    __table_args__ = (
+        CheckConstraint("url ~ '^https?://[^[:space:]]+$'", name="url_http"),
+        CheckConstraint("qty > 0", name="qty_positive"),
+        CheckConstraint("price_seen IS NULL OR price_seen >= 0", name="price_nonnegative"),
+        CheckConstraint("price_seen IS NULL OR price_seen_on IS NOT NULL", name="price_dated"),
+        ForeignKeyConstraint(["estimate_job_id", "estimate_id"],
+                             ["estimate_job.id", "estimate_job.estimate_id"],
+                             name="fk_estimate_part_link_job_same_estimate"),
+        Index("ix_estimate_part_link_estimate_job_id", "estimate_job_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    estimate_id: Mapped[int] = mapped_column(Integer, ForeignKey("estimate.id"), nullable=False,
+                                             index=True)
+    estimate_job_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    part_link_id: Mapped[int] = mapped_column(Integer, ForeignKey("part_link.id"), nullable=False,
+                                              index=True)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    url: Mapped[str] = mapped_column(String(2000), nullable=False)
+    qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, server_default=text("1"))
+    price_seen: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    price_seen_on: Mapped[date | None] = mapped_column(Date)
+
+
 class DocLink(StandardColumns, db.Model):
     """A customer link, /d/<token>. Only the token's sha256 is stored, so the database
     can't open a link; "Send link" mints a new token each time. One document per link: an

@@ -104,3 +104,4 @@ class DeclineForm(FlaskForm):
 class ConvertForm(FlaskForm):
     kind = SelectField("Kind of work", choices=list(WO_KINDS.items()))
     techs = MultiCheckboxField("Techs", coerce=int)
+    wait = BooleanField("Wait on the parts they're buying", default=True)

@@ -51,6 +51,8 @@ EXPECTED_GRANTS = {
     "payment_allocation": {"SELECT", "INSERT"},
     "credit_memo": {"SELECT", "INSERT", "UPDATE"},
     "credit_memo_line": {"SELECT", "INSERT"},
+    "part_link": {"SELECT", "INSERT", "UPDATE"},
+    "estimate_part_link": {"SELECT", "INSERT", "UPDATE", "DELETE"},
 }
 
 AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "service",
@@ -59,7 +61,7 @@ AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "
            "reservation", "manual_reading", "attachment", "estimate", "estimate_job",
            "estimate_line", "appointment", "appointment_user", "calendar_feed",
            "tax_jurisdiction", "invoice", "invoice_line", "payment", "payment_allocation",
-           "credit_memo", "credit_memo_line"}
+           "credit_memo", "credit_memo_line", "part_link", "estimate_part_link"}
 
 
 def q(app, sql, **params):
@@ -140,7 +142,8 @@ def test_app_role_sequence_privileges(app):
                   "time_entry", "reservation", "manual_reading", "attachment", "estimate",
                   "estimate_job", "estimate_line", "doc_link", "appointment", "appointment_user",
                   "calendar_feed", "tax_jurisdiction", "invoice", "invoice_line", "payment",
-                  "payment_allocation", "credit_memo", "credit_memo_line")
+                  "payment_allocation", "credit_memo", "credit_memo_line", "part_link",
+                  "estimate_part_link")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)

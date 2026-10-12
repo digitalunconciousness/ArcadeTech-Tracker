@@ -84,3 +84,7 @@ ul.scope li { margin: 0; }
 .small { font-size: 8.5pt; }
 .pay { margin-top: 10pt; page-break-inside: avoid; }
 @media print { .notice { border: 1pt solid #000; padding: 4pt; } }
+
+/* Parts the customer buys: links stay black on paper, underlined so they read as links. */
+table.buy a { color: inherit; text-decoration: underline; }
+.buy-note { margin-top: 6pt; }
