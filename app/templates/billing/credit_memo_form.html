@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}Credit memo for {{ inv.number }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('billing.show', invoice_id=inv.id) }}"><span class="mono">{{ inv.number }}</span></a> · {{ customer.display_name }}</p>
+  <h1>Issue a credit memo</h1>
+  <p class="dim">Up to {{ creditable | money }} can still be credited on {{ inv.number }}. The credit pays down what's owed on it; anything beyond that is credit on the customer's account (apply it later or refund it).{% if inv.tax_status == 'collected' %} Tax on taxable lines comes back at the invoice's rate.{% endif %}</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.reason) }}
+    {% for row in form.lines %}
+    <div class="row">{{ field(row.form.description) }}{{ field(row.form.amount, inputmode="decimal") }}</div>
+    {{ check(row.form.taxable) }}
+    {% endfor %}
+    <p class="actions"><button class="btn primary" type="submit" data-confirm="Issue this credit memo? It gets the next CM number and can't be changed afterwards.">Issue credit memo</button></p>
+  </form>
+</section>
+{% endblock %}

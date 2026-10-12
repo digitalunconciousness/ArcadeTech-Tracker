@@ -42,7 +42,7 @@ from app.work import service as work
 
 TERMS_DAYS = {"due_on_receipt": 0, "net_15": 15, "net_30": 30}
 assert set(TERMS_DAYS) == set(PAYMENT_TERMS)
-# Phase 4b shortens a paid invoice's links to 90 days after payment (owner, 2026-10-12).
+# Once paid, an invoice's links run out 90 days on (payments.PAID_LINK_DAYS).
 INVOICE_LINK_DAYS = 365
 ZERO = Decimal("0.00")
 
@@ -212,9 +212,11 @@ def _lock(model, row_id):
 
 
 def issue(wo, line_ids, *, issue_date, jurisdiction_id=None, customer_note=None,
-          internal_note=None, backdate_reason=None):
-    """Issue an invoice for these work-order lines on issue_date. Returns the invoice."""
-    from app.billing import docs
+          internal_note=None, backdate_reason=None, apply_credit=False):
+    """Issue an invoice for these work-order lines on issue_date. With apply_credit, the
+    customer's credit on account (a deposit first) goes on it at once, and the PDF shows
+    it paid. Returns the invoice."""
+    from app.billing import docs, payments
     from app.work import docs as work_docs
 
     wo = _lock(WorkOrder, wo.id)   # one issue at a time per work order
@@ -255,14 +257,21 @@ def issue(wo, line_ids, *, issue_date, jurisdiction_id=None, customer_note=None,
         x.invoice_id = inv.id
     db.session.flush()
 
+    credit = ZERO
+    if apply_credit:   # locked first, so what the PDF says is what gets applied
+        payments.lock_customer(customer.id)
+        credit = min(draft.total, payments.credit_available(customer.id))
     number = issue_number("INV", on=issue_date)
     with db.session.no_autoflush:   # the number and the issued status land together
         inv.number, inv.status, inv.issued_at = number, "issued", utcnow()
         inv.balance = inv.total - inv.amount_paid
-        inv.pdf_sha256 = files.store_pdf(docs.invoice_pdf(inv, lines, customer))
+        inv.pdf_sha256 = files.store_pdf(docs.invoice_pdf(inv, lines, customer,
+                                                          applied=credit))
         if wo.kind != "counter":
             inv.report_sha256 = files.store_pdf(work_docs.service_report(wo, customer))
     db.session.flush()   # invoice_frozen() checks the subtotals and tax here
+    if credit:
+        payments.apply_credit(inv, limit=credit)
     return inv
 
 
@@ -272,8 +281,9 @@ def void(inv, *, reason, user_id):
     inv = _lock(Invoice, inv.id)
     if inv.status == "void":
         raise InvoiceError(f"{inv.number} is already void.")
-    if inv.status != "issued" or inv.amount_paid:
-        raise InvoiceError(f"{inv.number} has payments applied: it can't be voided.")
+    if inv.status != "issued" or inv.amount_paid or inv.amount_credited:
+        raise InvoiceError(f"{inv.number} has payments or credits applied: it can't be voided. "
+                           "Issue a credit memo, or reverse the payment first.")
     inv.status, inv.voided_at, inv.voided_by, inv.void_reason = "void", utcnow(), user_id, reason
     inv.balance = ZERO
     db.session.flush()

@@ -4,6 +4,7 @@
 <section class="panel">
   <div class="head">
     <h1>Invoices</h1>
+    <a class="btn" href="{{ url_for('billing.payment_list') }}">Payments</a>
   </div>
   {% if not show_all %}<p class="lead">Owed to you: <strong>{{ owed | money }}</strong></p>{% endif %}
   <table class="grid">

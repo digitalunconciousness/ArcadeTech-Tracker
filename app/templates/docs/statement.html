@@ -1,0 +1,36 @@
+{% extends "docs/_doc.html" %}
+{% block title %}Statement{% endblock %}
+{% block doctype %}Statement{% endblock %}
+{% block docno %}{{ today }}{% endblock %}
+{% block docmeta %}{{ customer.display_name }}{% endblock %}
+{% block content %}
+<div class="cols">
+  <div>
+    <h3>For</h3>
+    <p>{{ customer.display_name }}{% for line in customer.address_lines %}<br>{{ line }}{% endfor %}</p>
+  </div>
+</div>
+<table>
+  <thead><tr><th>Invoice</th><th>Issued</th><th>Due</th><th class="num">Total</th><th class="num">Owed</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr><td>{{ r.invoice.number }}</td><td>{{ r.invoice.issue_date }}</td><td>{{ r.invoice.due_date }}{% if r.late %} <span class="muted">({{ r.late }} d late)</span>{% endif %}</td><td class="num">{{ r.invoice.total | money }}</td><td class="num">{{ r.invoice.balance | money }}</td></tr>
+  {% else %}
+  <tr><td colspan="5" class="muted">Nothing owed.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<table class="totals">
+  <tbody>
+    {% for label, amount in buckets.items() if amount %}<tr><td>{{ label }}</td><td class="num">{{ amount | money }}</td></tr>{% endfor %}
+    {% if credit %}<tr><td>Credit on your account</td><td class="num">-{{ credit | money }}</td></tr>{% endif %}
+    <tr><td><strong>{{ 'Amount due' if due >= 0 else 'Credit balance' }}</strong></td><td class="num"><strong>{{ (due if due >= 0 else -due) | money }}</strong></td></tr>
+  </tbody>
+</table>
+{% if shop.payment_instructions and due > 0 %}
+<section class="pay">
+  <h3>How to pay</h3>
+  <p class="pre">{{ shop.payment_instructions }}</p>
+</section>
+{% endif %}
+{% endblock %}

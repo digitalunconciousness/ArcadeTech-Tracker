@@ -5,6 +5,12 @@
   <link rel="stylesheet" href="{{ url_for('public.accent_css') }}">
 {% endblock %}
 {% block after %}
+{% if received %}
+<section class="no-print">
+  <h3>Payments received</h3>
+  <ul>{% for alloc, p in received %}<li>{{ p.received_on }} · {{ alloc.amount | money }} · <a href="{{ url_for('public.invoice_receipt', token=token, payment_id=p.id) }}">receipt</a></li>{% endfor %}</ul>
+</section>
+{% endif %}
 <p class="no-print">
   <a class="button" href="{{ url_for('public.invoice_pdf', token=token) }}">Download the PDF</a>
   {% if inv.report_sha256 %}<a class="button" href="{{ url_for('public.invoice_report', token=token) }}">Service report</a>{% endif %}

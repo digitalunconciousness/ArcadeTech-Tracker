@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Identity,
+    Index,
     Integer,
     Numeric,
     String,
@@ -106,8 +107,14 @@ class Invoice(StandardColumns, db.Model):
         CheckConstraint("tax_status <> 'exempt' OR exempt_cert_no IS NOT NULL",
                         name="exempt_has_certificate"),
         CheckConstraint("amount_paid >= 0", name="paid_nonnegative"),
-        CheckConstraint("status IN ('draft', 'void') OR balance = total - amount_paid",
-                        name="balance_adds_up"),
+        CheckConstraint("amount_credited >= 0", name="credited_nonnegative"),
+        CheckConstraint("status IN ('draft', 'void') OR balance = total - amount_paid - "
+                        "amount_credited", name="balance_adds_up"),
+        CheckConstraint("balance >= 0", name="balance_nonnegative"),
+        # Status follows the money (the allocation trigger sets it; this says it can't lie).
+        CheckConstraint("status NOT IN ('issued', 'partially_paid', 'paid') OR status = CASE "
+                        "WHEN balance = 0 THEN 'paid' WHEN amount_paid + amount_credited > 0 "
+                        "THEN 'partially_paid' ELSE 'issued' END", name="status_follows_money"),
         CheckConstraint("status <> 'void' OR balance = 0", name="void_owes_nothing"),
         CheckConstraint("(status = 'void') = (voided_at IS NOT NULL) AND "
                         "(voided_at IS NULL) = (void_reason IS NULL)", name="void_complete"),
@@ -144,6 +151,10 @@ class Invoice(StandardColumns, db.Model):
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, server_default=text("0"))
     amount_paid: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
                                                  server_default=text("0"))
+    # Credit memos applied to it (amount_paid is payments). Both are sums the database
+    # keeps from payment_allocation.
+    amount_credited: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
+                                                     server_default=text("0"))
     balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
                                              server_default=text("0"))
     terms_snapshot: Mapped[str | None] = mapped_column(Text)
@@ -206,3 +217,138 @@ class InvoiceLine(StandardColumns, db.Model):
     # Where it came from. No foreign key: after a void, the work-order line may be edited
     # or removed, and this frozen row can't follow it (stock_move.wo_job_id is the same).
     wo_line_id: Mapped[int | None] = mapped_column(Integer, index=True)
+
+
+PAYMENT_METHODS = {"cash": "Cash", "check": "Check", "zelle": "Zelle", "venmo": "Venmo",
+                   "cashapp": "Cash App", "paypal": "PayPal", "bank_transfer": "Bank transfer",
+                   "other": "Other"}
+# receipt: money in. reversal: a receipt undone (bounced check, entered by mistake), the
+# exact negative of it. refund: money paid back out of a customer's unapplied credit.
+PAYMENT_KINDS = {"receipt": "Payment", "reversal": "Reversal", "refund": "Refund"}
+
+
+class Payment(StandardColumns, db.Model):
+    """Money in or out. Append-only: a mistake or a bounced check is a reversal row and a
+    refund is its own row; nothing is ever edited. What a receipt doesn't pay on an
+    invoice is the customer's credit (a deposit, an overpayment). A trigger checks each
+    row against what it reverses or refunds."""
+
+    __tablename__ = "payment"
+    __audited__ = ()
+    __table_args__ = (
+        CheckConstraint(_in("kind", PAYMENT_KINDS), name="kind"),
+        CheckConstraint(_in("method", PAYMENT_METHODS), name="method"),
+        CheckConstraint("(kind = 'receipt') = (amount > 0)", name="sign_by_kind"),
+        CheckConstraint("(kind = 'reversal') = (reverses_payment_id IS NOT NULL)",
+                        name="reversal_names_payment"),
+        CheckConstraint("(kind = 'refund') = (num_nonnulls(refund_of_payment_id, "
+                        "refund_of_credit_memo_id) = 1)", name="refund_names_one_source"),
+        CheckConstraint("kind = 'receipt' OR estimate_id IS NULL", name="deposit_on_receipts"),
+        CheckConstraint("kind = 'receipt' OR note IS NOT NULL", name="reason_for_reversal_refund"),
+        Index("uq_payment_reversed_once", "reverses_payment_id", unique=True,
+              postgresql_where=text("reverses_payment_id IS NOT NULL")),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    customer_id: Mapped[int] = mapped_column(Integer, ForeignKey("customer.id"), nullable=False,
+                                             index=True)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    received_on: Mapped[date] = mapped_column(Date, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(80))
+    note: Mapped[str | None] = mapped_column(String(300))
+    reverses_payment_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("payment.id"))
+    refund_of_payment_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("payment.id"))
+    refund_of_credit_memo_id: Mapped[int | None] = mapped_column(Integer,
+                                                                 ForeignKey("credit_memo.id"))
+    # A deposit taken on an estimate: unapplied until that work is invoiced.
+    estimate_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("estimate.id"),
+                                                    index=True)
+
+
+class CreditMemo(StandardColumns, db.Model):
+    """A credit against an issued invoice (CM-2026-0001), with a reason. Issued in one
+    transaction like an invoice, then frozen by a trigger. It pays down the invoice's
+    balance; any rest is the customer's credit."""
+
+    __tablename__ = "credit_memo"
+    __audited__ = ()
+    __table_args__ = (
+        UniqueConstraint("number"),
+        CheckConstraint("number ~ '^CM-[0-9]{4}-[0-9]{4,}$'", name="number_format"),
+        CheckConstraint("status IN ('draft', 'issued')", name="status"),
+        CheckConstraint("(status = 'draft') = (number IS NULL)", name="number_iff_issued"),
+        CheckConstraint("status = 'draft' OR (issued_at IS NOT NULL AND issue_date IS NOT NULL "
+                        "AND pdf_sha256 IS NOT NULL)", name="issued_complete"),
+        CheckConstraint("subtotal_taxable >= 0 AND subtotal_nontaxable >= 0 AND tax >= 0",
+                        name="amounts_nonnegative"),
+        CheckConstraint("total = subtotal_taxable + subtotal_nontaxable + tax",
+                        name="total_adds_up"),
+        CheckConstraint("tax_rate IS NOT NULL OR tax = 0", name="tax_needs_rate"),
+        CheckConstraint("pdf_sha256 ~ '^[0-9a-f]{64}$'", name="pdf_sha256_hex"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    number: Mapped[str | None] = mapped_column(String(20))
+    customer_id: Mapped[int] = mapped_column(Integer, ForeignKey("customer.id"), nullable=False,
+                                             index=True)
+    invoice_id: Mapped[int] = mapped_column(Integer, ForeignKey("invoice.id"), nullable=False,
+                                            index=True)
+    status: Mapped[str] = mapped_column(String(8), nullable=False, server_default=text("'draft'"))
+    issue_date: Mapped[date | None] = mapped_column(Date)
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason: Mapped[str] = mapped_column(String(300), nullable=False)
+    subtotal_taxable: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
+                                                      server_default=text("0"))
+    subtotal_nontaxable: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
+                                                         server_default=text("0"))
+    tax: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, server_default=text("0"))
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, server_default=text("0"))
+    # The invoice's frozen rate, when the invoice collected tax: the credit gives it back.
+    tax_rate: Mapped[Decimal | None] = mapped_column(TAX_RATE)
+    pdf_sha256: Mapped[str | None] = mapped_column(String(64))
+
+
+class CreditMemoLine(StandardColumns, db.Model):
+    __tablename__ = "credit_memo_line"
+    __audited__ = ()
+    __table_args__ = (
+        UniqueConstraint("credit_memo_id", "position", name="uq_credit_memo_line_position"),
+        CheckConstraint("qty > 0", name="qty_positive"),
+        CheckConstraint("unit_price > 0", name="price_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    credit_memo_id: Mapped[int] = mapped_column(Integer, ForeignKey("credit_memo.id"),
+                                                nullable=False, index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    description: Mapped[str] = mapped_column(String(200), nullable=False)
+    qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    line_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), Computed(
+        "round(qty * unit_price, 2)", persisted=True))
+    taxable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+
+
+class PaymentAllocation(StandardColumns, db.Model):
+    """Money applied to an invoice, from a receipt, a credit memo, or (negative) a
+    reversal undoing a receipt's. Append-only. A trigger checks each against the invoice's
+    balance and what's left of its source, and keeps the invoice's paid, credited, balance
+    and status equal to the sums; the invoice's own trigger refuses anything else."""
+
+    __tablename__ = "payment_allocation"
+    __audited__ = ()
+    __table_args__ = (
+        CheckConstraint("num_nonnulls(payment_id, credit_memo_id) = 1", name="one_source"),
+        CheckConstraint("amount <> 0", name="amount_nonzero"),
+        CheckConstraint("credit_memo_id IS NULL OR amount > 0", name="credit_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    invoice_id: Mapped[int] = mapped_column(Integer, ForeignKey("invoice.id"), nullable=False,
+                                            index=True)
+    payment_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("payment.id"), index=True)
+    credit_memo_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("credit_memo.id"),
+                                                       index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)

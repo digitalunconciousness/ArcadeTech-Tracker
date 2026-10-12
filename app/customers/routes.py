@@ -84,7 +84,18 @@ def show(customer_id):
                                select(Invoice).where(Invoice.customer_id == customer_id,
                                                      Invoice.status != "draft")
                                .order_by(Invoice.id.desc()).limit(50)).all()
-                           if current_user.role in COST_ROLES else [])
+                           if current_user.role in COST_ROLES else [],
+                           account=account(customer) if current_user.role in COST_ROLES
+                           else None)
+
+
+def account(customer):
+    """What the customer owes and has on account (owners and viewers)."""
+    from app.billing import payments
+
+    sources = payments.credit_sources(customer.id)
+    return {"owed": sum((i.balance for i in payments.open_invoices(customer.id)), 0),
+            "credit": sum((s.left for s in sources), 0), "sources": sources}
 
 
 @bp.route("/customers/<int:customer_id>/edit", methods=["GET", "POST"])

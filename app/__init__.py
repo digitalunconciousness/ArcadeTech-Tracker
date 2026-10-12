@@ -19,7 +19,7 @@ PUBLIC_ENDPOINTS = frozenset({
     # customer links and calendar feeds (/d/...): token-only, see app/public/routes.py
     "public.estimate", "public.approve", "public.decline", "public.estimate_pdf",
     "public.signature", "public.accent_css", "public.calendar_feed", "public.invoice_pdf",
-    "public.invoice_report",
+    "public.invoice_report", "public.invoice_receipt",
 })
 # Reachable by an owner who hasn't enrolled 2FA yet.
 ENROLLMENT_ENDPOINTS = frozenset({"auth.totp_setup", "auth.logout", "static"})

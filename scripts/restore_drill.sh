@@ -9,7 +9,7 @@
 #
 # Checks: checksums; the dump restores in one transaction; every table's row count
 # equals what the dump holds; every trigger came back; the file store archive reads;
-# and (from Phase 4) every issued invoice PDF re-hashes to its pdf_sha256.
+# and (from Phase 4) every issued invoice and credit memo PDF re-hashes to its sha256.
 # Prints PASS or FAIL; exits non-zero on FAIL.
 set -euo pipefail
 
@@ -54,10 +54,12 @@ echo "  triggers ok ($got)"
 tar -tf files.tar > /dev/null || fail "files.tar unreadable"
 echo "  file store archive ok ($(tar -tf files.tar | grep -vc '/$' || true) files)"
 
-# Every issued invoice PDF, and the service report frozen with it, must still be the
-# exact file the customer got: in the archive, and hashing to what the database says.
+# Every issued invoice PDF, the service report frozen with it, and every credit memo PDF
+# must still be the exact file the customer got: in the archive, and hashing to what the
+# database says.
 hashes=$(psql_q "SELECT pdf_sha256 FROM invoice WHERE pdf_sha256 IS NOT NULL
-                 UNION SELECT report_sha256 FROM invoice WHERE report_sha256 IS NOT NULL")
+                 UNION SELECT report_sha256 FROM invoice WHERE report_sha256 IS NOT NULL
+                 UNION SELECT pdf_sha256 FROM credit_memo WHERE pdf_sha256 IS NOT NULL")
 if [ -z "$hashes" ]; then
   echo "  pdf re-hash: no issued invoices yet"
 else

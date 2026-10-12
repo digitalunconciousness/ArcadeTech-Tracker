@@ -57,14 +57,15 @@
     {% if inv.tax_status == 'not_collected' %}<tr><td class="muted">Sales tax not collected.</td><td></td></tr>{% endif %}
     {% if inv.tax_status == 'exempt' %}<tr><td class="muted">Tax exempt: certificate {{ inv.exempt_cert_no }}.</td><td></td></tr>{% endif %}
     <tr><td><strong>Total</strong></td><td class="num"><strong>{{ inv.total | money }}</strong></td></tr>
-    {% if inv.amount_paid %}<tr><td>Paid</td><td class="num">{{ inv.amount_paid | money }}</td></tr>{% endif %}
-    {% if inv.status != 'void' %}<tr><td><strong>Balance due</strong></td><td class="num"><strong>{{ inv.balance | money }}</strong></td></tr>{% endif %}
+    {% if paid %}<tr><td>Paid</td><td class="num">{{ paid | money }}</td></tr>{% endif %}
+    {% if credited %}<tr><td>Credited</td><td class="num">{{ credited | money }}</td></tr>{% endif %}
+    {% if inv.status != 'void' %}<tr><td><strong>{{ 'Balance due' if balance_due else 'Paid in full' }}</strong></td><td class="num"><strong>{{ balance_due | money }}</strong></td></tr>{% endif %}
   </tbody>
 </table>
 
 {% if inv.customer_note %}<p class="pre">{{ inv.customer_note }}</p>{% endif %}
 {% block payment %}
-{% if shop.payment_instructions and inv.status != 'void' %}
+{% if shop.payment_instructions and inv.status != 'void' and balance_due %}
 <section class="pay">
   <h3>How to pay</h3>
   <p class="pre">{{ shop.payment_instructions }}</p>

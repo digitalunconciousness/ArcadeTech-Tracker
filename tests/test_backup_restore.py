@@ -128,15 +128,19 @@ def test_retention(app, pg_tools, tmp_path):
 
 
 def test_drill_rehashes_issued_invoice_pdfs(app, tdb, signed_in, pg_tools, tmp_path):
-    """The drill proves every issued invoice PDF (and the service report frozen with it)
-    is still the exact file the customer got, even when the archive's checksums agree."""
+    """The drill proves every issued invoice PDF (with the service report frozen with it)
+    and credit memo PDF is still the exact file the customer got, even when the archive's
+    checksums agree."""
     from test_billing import billable, issue, issued_id
 
     from conftest import db_query
 
     owner = signed_in("owner")
-    issued_id(issue(owner, app, billable(owner, app)["wo"]))
-    shas = db_query(app, "SELECT pdf_sha256, report_sha256 FROM invoice")[0]
+    inv = issued_id(issue(owner, app, billable(owner, app)["wo"]))
+    owner.post(f"/invoices/{inv}/credit-memo", data={
+        "reason": "Part returned", "lines-0-description": "Caps", "lines-0-amount": "3.90"})
+    shas = list(db_query(app, "SELECT pdf_sha256, report_sha256 FROM invoice")[0]) + \
+        [db_query(app, "SELECT pdf_sha256 FROM credit_memo")[0][0]]
     store, files_dir = Path(app.config["SHOP_FILES_DIR"]), tmp_path / "files"
     for sha in shas:
         (files_dir / sha[:2]).mkdir(parents=True, exist_ok=True)
@@ -151,7 +155,7 @@ def test_drill_rehashes_issued_invoice_pdfs(app, tdb, signed_in, pg_tools, tmp_p
         return _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": url})
 
     ok = drill("good")
-    assert ok.returncode == 0 and "pdf re-hash ok (2 files)" in ok.stdout, ok.stdout + ok.stderr
+    assert ok.returncode == 0 and "pdf re-hash ok (3 files)" in ok.stdout, ok.stdout + ok.stderr
     invoice_pdf = files_dir / shas[0][:2] / f"{shas[0]}.pdf"
     invoice_pdf.write_bytes(b"%PDF-1.7 altered after issue")
     changed = drill("changed")

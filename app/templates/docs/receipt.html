@@ -1,0 +1,34 @@
+{% extends "docs/_doc.html" %}
+{% block title %}Receipt{% endblock %}
+{% block doctype %}{{ 'Receipt' if payment.kind == 'receipt' else kinds[payment.kind] }}{% endblock %}
+{% block docno %}Payment #{{ payment.id }}{% endblock %}
+{% block docmeta %}{{ payment.received_on }}{% endblock %}
+{% block content %}
+<div class="cols">
+  <div>
+    <h3>{{ 'Received from' if payment.kind == 'receipt' else 'Customer' }}</h3>
+    <p>{{ customer.display_name }}{% for line in customer.address_lines %}<br>{{ line }}{% endfor %}</p>
+  </div>
+  <div>
+    <h3>{{ 'Payment' if payment.kind == 'receipt' else kinds[payment.kind] }}</h3>
+    <dl class="kv">
+      <dt>Amount</dt><dd><strong>{{ (payment.amount if payment.kind == 'receipt' else -payment.amount) | money }}</strong></dd>
+      <dt>Method</dt><dd>{{ methods[payment.method] }}{% if payment.reference %} · {{ payment.reference }}{% endif %}</dd>
+      <dt>Date</dt><dd>{{ payment.received_on }}</dd>
+    </dl>
+  </div>
+</div>
+{% if payment.kind != 'receipt' and payment.note %}<p class="pre">{{ payment.note }}</p>{% endif %}
+{% if rows %}
+<table>
+  <thead><tr><th>Invoice</th><th class="num">{{ 'Paid on it' if payment.kind == 'receipt' else 'Taken back' }}</th><th class="num">Still owed after</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr><td>{{ r.invoice.number }} <span class="muted">({{ r.invoice.issue_date }}, {{ r.invoice.total | money }})</span></td><td class="num">{{ r.amount | money }}</td><td class="num">{{ r.balance_after | money }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% if left %}<p>{{ left | money }} of this payment is credit on your account, for the next invoice.</p>{% endif %}
+<p class="muted">Thank you.</p>
+{% endblock %}

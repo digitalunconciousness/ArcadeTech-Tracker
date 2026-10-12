@@ -126,16 +126,22 @@ push/PR → owner deploys (⏸).
   - [x] DB tests: issued lines/invoices can't be updated or deleted (app role and schema
         owner); gapless across a rolled-back issue; tax half-up at the frozen rate; Postgres
         checks subtotals and tax at the moment of issue
-  - [ ] Diff, tests, privacy output → ⏸ OK (incl. the fixed-price design) → PR
+  - [x] Diff, tests, privacy output → OK (incl. the fixed-price design) → PR #10 (merged)
   - [ ] ⏸ Owner deploys (migration 0009); writes "How customers pay you" in Settings → Business
-- **4b: money in**
-  - [ ] Payments, allocations, deposits, credit memos, reversals, receipts, statements
-  - [ ] DB tests: partial / over / reversed payments; balance kept by a trigger, checked
-        against allocations (randomized)
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
-- [ ] ⏸ Exit: editing an issued invoice line fails in the database (4a); a partial + final
-      payment closes the invoice (4b); numbers gapless across a forced rollback (4a). Then
-      enter the partner's first real invoice with its true issue date
+- **4b: money in** (branch `phase/4b-payments`)
+  - [x] Payments (receipts, reversals, refunds), applied to invoices or left as credit on
+        account; deposits on estimates, applied when the job is invoiced
+  - [x] Credit memos (`CM` numbers, frozen PDF, tax back at the invoice's rate), receipts,
+        statements with aging, the customer's account on their page, receipts on the link
+  - [x] Triggers: `payment_guard`, `payment_reversal_complete` (deferred), `allocation_guard`,
+        `allocation_apply`, `credit_memo_frozen`, `credit_memo_line_frozen`; `invoice_frozen`
+        now checks paid and credited against what's applied
+  - [x] DB tests: partial, over and reversed payments; refunds; credit memos; balances kept by
+        trigger and checked against allocations after every step of a randomized run
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0010)
+- [ ] ⏸ Exit: editing an issued invoice line fails in the database (4a, tested); a partial +
+      final payment closes the invoice (4b, tested); numbers gapless across a forced rollback
+      (4a, tested). Then enter the partner's first real invoice with its true issue date
 
 ## Phase 5: Purchasing (branch `phase/5-purchasing`)
 
@@ -234,6 +240,13 @@ push/PR → owner deploys (⏸).
 | 2026-10-12 | `invoice_line.wo_line_id` has no foreign key | After a void the WO line may change or go; the frozen copy can't follow (like `stock_move.wo_job_id`) |
 | 2026-10-12 | Tax rates frozen on the invoice as text in `tax_jurisdiction` jsonb; tax rounds once per invoice, half-up | JSON numbers would be floats; the plan's rounding rule |
 | 2026-10-12 | Invoice links last 365 days (4b: 90 days after the invoice is paid) | Owner (design note): a customer may pay late |
+| 2026-10-12 | Payments are append-only, three kinds: receipt (money in), reversal (a receipt undone: the whole amount, once, taking back everything it paid; checked at commit by a deferred trigger), refund (credit paid back out of one receipt or credit memo, never more than is left of it). A receipt partly refunded can't be reversed | Plan: "a bounced check or a refund is a new row; the original is never edited" |
+| 2026-10-12 | One `payment_allocation` table for money applied to invoices from receipts, credit memos and (negative) reversals. A trigger sets each invoice's paid, credited, balance and status from it; `invoice_frozen()` refuses any other values; a CHECK ties status to the money | The plan's balance trigger; nothing stored can drift from what's applied |
+| 2026-10-12 | Money for one customer moves one transaction at a time (the triggers and the service lock the customer row first) | Two payments at once can't both spend the same credit |
+| 2026-10-12 | Credit on account = what receipts and credit memos haven't paid on invoices or had refunded. A deposit is a receipt tied to an estimate. Issuing an invoice applies credit on account by default, deposits for that job first, and the frozen PDF shows it paid | The plan's deposits, "offered pre-ticked" |
+| 2026-10-12 | Credit memos go against an issued invoice, with a reason; all credits on an invoice ≤ what it billed (trigger); tax comes back at the invoice's frozen rate when it collected tax; the credit pays down the balance and any rest is credit on account. Frozen PDF, like invoices | Plan; the restore drill re-hashes credit memo PDFs too |
+| 2026-10-12 | Receipts and statements are drawn when asked, from append-only rows; a receipt's "still owed after" counts allocations up to its own, so it never changes | Nothing they show can change, so freezing them adds nothing |
+| 2026-10-12 | Not in 4b: write-offs (the status is reserved), a bank-deposit date on payments (Phase 6 reconciliation), statement links for customers | Smallest useful 4b; say so if any is needed sooner |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -369,3 +382,15 @@ push/PR → owner deploys (⏸).
 - Phone pass (iPhone 13 viewport): issue page, invoice page, link, customer page and PDF; no
   page scrolls sideways. A too-wide table now scrolls inside its panel (the job page's Cost
   column was already running past it).
+
+### Session 3, Phase 4b (2026-10-12, same cloud session)
+
+- PR #10 (4a) merged. 4b on `phase/4b-payments` from main: migration 0010 (payment,
+  payment_allocation, credit_memo, credit_memo_line, invoice.amount_credited; six new
+  trigger functions and a replaced `invoice_frozen`), `app/billing/payments.py`, payment and
+  credit memo pages, receipt / credit memo / statement documents, the account panel on the
+  customer page, the deposit on the estimate page, receipts on the invoice link.
+- 274 tests green, none skipped. The randomized test runs 60 random money operations for
+  each of three seeds and checks every invariant after each.
+- Phone pass: invoice with a payment, credit memo form and page, customer account, a payment
+  split over open invoices, the payment page and list; no page scrolls sideways.
