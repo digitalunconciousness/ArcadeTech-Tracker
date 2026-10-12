@@ -1,0 +1,9 @@
+{# One saved link in a list: name, where, open/copy/share. `link`, `vendor`. #}
+<a href="{{ url_for('partlinks.show', link_id=link.id) }}"><strong>{{ link.title }}</strong></a>
+{% if not link.active %}<span class="badge danger">off</span>{% endif %}
+<div class="dim">{{ vendor.name if vendor else link.domain }}{% if link.fits %} · fits {{ link.fits }}{% endif %}{% if link.price_seen is not none %} · {{ link.price_seen | money }} <span class="small">({{ link.price_seen_on }})</span>{% endif %}</div>
+<div class="actions">
+  <a class="btn small" href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">Open</a>
+  <button class="btn small" type="button" data-copy="{{ link.url }}">Copy</button>
+  <button class="btn small" type="button" data-share="{{ link.url }}" data-share-title="{{ link.title }}">Share</button>
+</div>

@@ -26,8 +26,9 @@ from app.models.estimate import (
     Estimate,
     EstimateJob,
     EstimateLine,
+    EstimatePartLink,
 )
-from app.models.parts import MOVE_REASONS, Part, StockLot, StockMove, Vendor
+from app.models.parts import MOVE_REASONS, Part, PartLink, StockLot, StockMove, Vendor
 from app.models.pricebook import (
     SERVICE_KINDS,
     SERVICE_UNITS,
@@ -75,4 +76,5 @@ __all__ = [
     "APPROVAL_METHODS", "ESTIMATE_STATUSES",
     "Appointment", "AppointmentUser", "CalendarFeed", "DocLink", "Estimate", "EstimateJob",
     "EstimateLine",
+    "EstimatePartLink", "PartLink",
 ]

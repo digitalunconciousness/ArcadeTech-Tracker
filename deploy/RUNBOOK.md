@@ -239,6 +239,15 @@ shows the Access PIN page, app 3 is missing. What the errors mean: Cloudflare **
 (`systemctl status cloudflared`); **502/503** = the connector runs but nothing answers on
 127.0.0.1:8080 (`systemctl status shop-hub`, `curl -s http://127.0.0.1:8080/healthz`).
 
+**Installing the app on Android (Phase 5a).** Signed in, in Chrome: ⋮ → **Install app**
+(or Add to home screen → Install). Then Share in Chrome lists the app, and sharing a parts
+page opens Save a link. The page asks for its manifest with Access's cookie
+(`crossorigin="use-credentials"`). If Chrome offers only a plain shortcut, or the app
+doesn't show in the share sheet, Access is blocking the manifest or its icons: add app 4,
+`<SHOP_HOSTNAME>` with paths `manifest.webmanifest` and `static/icons/*`, policy
+**Bypass**, Everyone. They hold the business name and two pictures, nothing else. Then
+uninstall and install again.
+
 ## 8. Backups and the restore drill ⏸
 
 ```

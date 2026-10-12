@@ -52,7 +52,7 @@
     <tbody>
     {% for x, days in warranty[job.id] if x.kind == 'part' %}
     <tr>
-      <td>{{ x.description }}{% if x.customer_supplied %} <span class="muted">(supplied by the customer)</span>{% endif %}</td>
+      <td>{{ x.description }}{% if x.awaiting %} <span class="muted">(the customer's; not here yet)</span>{% elif x.customer_supplied %} <span class="muted">(supplied by the customer)</span>{% endif %}</td>
       <td class="num">{{ x.qty | qty }}</td>
       <td class="mono">{{ lots.get(x.stock_lot_id) or '' }}</td>
       <td class="num">{{ days ~ ' days' if days else 'none' }}</td>

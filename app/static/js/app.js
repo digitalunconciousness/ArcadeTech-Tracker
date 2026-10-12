@@ -48,3 +48,19 @@ function tick() {
 }
 tick();
 setInterval(tick, 15000);
+
+// Share-then-submit forms: <form data-share-submit> with a <textarea name="message">.
+// The phone's share sheet opens with the message; the form (which logs it) submits once
+// the share went through. No share sheet (a desktop): copy it, then submit.
+document.addEventListener('submit', async (event) => {
+  const form = event.target.closest('form[data-share-submit]');
+  if (!form || event.defaultPrevented) return;
+  event.preventDefault();
+  const text = form.querySelector('textarea[name=message]').value;
+  if (navigator.share) {
+    try { await navigator.share({ text }); } catch (err) { return; /* cancelled */ }
+  } else {
+    try { await navigator.clipboard.writeText(text); } catch (err) { window.prompt('Copy this:', text); }
+  }
+  form.submit();
+});

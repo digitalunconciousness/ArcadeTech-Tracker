@@ -16,6 +16,8 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 # 2FA); every view outside this set must carry @requires_role (a test checks).
 PUBLIC_ENDPOINTS = frozenset({
     "auth.login", "auth.login_totp", "health.healthz", "static",
+    # the web app manifest (installing the app puts it in Android's share sheet)
+    "partlinks.manifest",
     # customer links and calendar feeds (/d/...): token-only, see app/public/routes.py
     "public.estimate", "public.approve", "public.decline", "public.estimate_pdf",
     "public.signature", "public.accent_css", "public.calendar_feed", "public.invoice_pdf",
@@ -53,6 +55,7 @@ def create_app(overrides=None):
     from app.dashboard.routes import bp as dashboard_bp
     from app.estimates.routes import bp as estimates_bp
     from app.health.routes import bp as health_bp
+    from app.partlinks.routes import bp as partlinks_bp
     from app.parts.routes import bp as parts_bp
     from app.pricebook.routes import bp as pricebook_bp
     from app.public.routes import bp as public_bp
@@ -61,7 +64,8 @@ def create_app(overrides=None):
     from app.work.routes import bp as work_bp
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
-               pricebook_bp, parts_bp, work_bp, estimates_bp, billing_bp, public_bp):
+               pricebook_bp, parts_bp, partlinks_bp, work_bp, estimates_bp, billing_bp,
+               public_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)

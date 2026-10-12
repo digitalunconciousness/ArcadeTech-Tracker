@@ -62,6 +62,7 @@
         <div class="dim small">
           {{ line.kind }}{% if line.labor_mode %} · {{ labor_modes[line.labor_mode] | lower }}{% endif %}{% if line.tech_user_id and line.tech_user_id in users %} · {{ users[line.tech_user_id].display_name }}{% endif %}{% if line.stock_lot_id %} · lot #{{ line.stock_lot_id }}{% if lots.get(line.stock_lot_id) %} dc {{ lots[line.stock_lot_id] }}{% endif %}{% endif %}{% if line.taxable %} · taxable{% endif %} · warranty {{ warranty(line) }} d
           {% if line.customer_supplied %}<span class="badge">customer's</span>{% endif %}
+          {% if line.awaiting %}<span class="badge warn">on its way</span>{% endif %}
           {% if not line.billable %}<span class="badge warn">not billed</span>{% endif %}
           {% if line.invoice_id %}{% if can_see_costs %}<a class="badge ok" href="{{ url_for('billing.show', invoice_id=line.invoice_id) }}" title="Billed">{{ invoices[line.invoice_id] }}</a>{% else %}<span class="badge ok">billed</span>{% endif %}{% endif %}
         </div>
@@ -148,6 +149,42 @@
   </details>
   {% endif %}
 </section>
+
+{% set buying = lines | selectattr('customer_supplied') | selectattr('part_link_id') | list %}
+{% set waiting = lines | selectattr('awaiting') | list %}
+{% if buying or waiting or forms %}
+<section class="panel" id="customer-parts">
+  <h2>Parts the customer is buying</h2>
+  <ul class="list">
+    {% for line in (waiting + buying) | unique(attribute='id') %}
+    {% set link = part_links.get(line.part_link_id) %}
+    <li{% if not line.awaiting %} class="inactive"{% endif %}>
+      <strong>{{ line.description }}</strong> × {{ line.qty | qty }}
+      {% if line.awaiting %}<span class="badge warn">on its way</span>{% else %}<span class="badge ok">here</span>{% endif %}
+      {% if link %}<div class="dim">{{ link.domain }}</div>{% endif %}
+      <div class="actions">
+        {% if link %}<a class="btn small" href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">Open</a>
+        <button class="btn small" type="button" data-share="{{ link.url }}" data-share-title="{{ link.title }}">Share</button>{% endif %}
+        {% if can_edit and line.awaiting %}
+        <form class="inline-form" method="post" action="{{ url_for('work.arrived', line_id=line.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn small primary" type="submit">Arrived</button>
+        </form>
+        {% endif %}
+      </div>
+    </li>
+    {% else %}
+    <li class="dim">None. Add one the customer will buy from a saved link; the work order can wait on it.</li>
+    {% endfor %}
+  </ul>
+  {% if forms %}
+  <div class="actions">
+    <a class="btn" href="{{ url_for('partlinks.pick', **{'for': 'wo:' ~ job.id}) }}">Add a part they'll buy</a>
+    {% if buying %}<a class="btn" href="{{ url_for('work.send_links', wo_id=wo.id) }}">Send links to the customer</a>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
 
 <section class="panel" id="parts">
   <h2>Set aside for this job</h2>

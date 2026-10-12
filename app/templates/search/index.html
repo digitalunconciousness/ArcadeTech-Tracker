@@ -4,7 +4,7 @@
 <section class="panel">
   <h1>Search</h1>
   <form method="get" action="{{ url_for('search.index') }}" class="row two">
-    <label class="field"><span>Name, phone, email, WO number, tracking no., tag, serial, model, site, part, vendor</span>
+    <label class="field"><span>Name, phone, email, WO number, tracking no., tag, serial, model, site, part, parts link, vendor</span>
       <input type="search" name="q" value="{{ q }}" autofocus></label>
   </form>
   {% if q and q|length < 2 %}<p class="dim">Type at least two characters.</p>
@@ -32,6 +32,10 @@
   {% if results.parts %}
   <h2>Parts</h2>
   <ul class="list">{% for p in results.parts %}<li{% if not p.active %} class="inactive"{% endif %}><a href="{{ url_for('parts.show', part_id=p.id) }}"><span class="mono">{{ p.sku }}</span></a> {{ p.name }} <span class="dim">{{ p.mpn or '' }}{% if p.equivalents %} · ≈ {{ p.equivalents | join(', ') }}{% endif %}{% if p.bin %} · bin {{ p.bin }}{% endif %}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if results.links %}
+  <h2>Parts links</h2>
+  <ul class="list">{% for link in results.links %}<li{% if not link.active %} class="inactive"{% endif %}><a href="{{ url_for('partlinks.show', link_id=link.id) }}">{{ link.title }}</a> <span class="dim">{{ link.domain }}{% if link.fits %} · fits {{ link.fits }}{% endif %}</span></li>{% endfor %}</ul>
   {% endif %}
   {% if results.vendors %}
   <h2>Vendors</h2>

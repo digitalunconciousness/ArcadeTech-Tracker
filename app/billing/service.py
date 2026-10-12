@@ -69,7 +69,8 @@ def job_label(job, asset, wo):
 def unbilled(wo):
     """[(job, asset, [lines])]: what can still go on an invoice. A line qualifies when
     it's billable, not on a live invoice, on a job that isn't cancelled, and has a
-    quantity (actual-time labor with no time yet waits)."""
+    quantity (actual-time labor with no time yet waits). A customer's part still on its
+    way waits too."""
     jobs = db.session.execute(
         select(WoJob, Asset).outerjoin(Asset, Asset.id == WoJob.asset_id)
         .where(WoJob.work_order_id == wo.id, WoJob.status != "cancelled")
@@ -77,7 +78,8 @@ def unbilled(wo):
     lines = work.job_lines([j.id for j, _ in jobs])
     out = []
     for job, asset in jobs:
-        ready = [x for x in lines[job.id] if x.billable and x.invoice_id is None and x.qty > 0]
+        ready = [x for x in lines[job.id]
+                 if x.billable and x.invoice_id is None and x.qty > 0 and not x.awaiting]
         if ready:
             out.append((job, asset, ready))
     return out

@@ -39,6 +39,22 @@
     {% endfor %}
     </tbody>
   </table>
+  {% set buys = part_links.get(job.id, []) %}
+  {% if buys %}
+  <h3>Parts you'll buy</h3>
+  <table class="buy">
+    <thead><tr><th>Part</th><th class="num">Qty</th><th class="num">About, each</th></tr></thead>
+    <tbody>
+    {% for r in buys %}
+    <tr>
+      <td><a href="{{ r.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ r.title }}</a><div class="muted small">{{ r.url | site }}</div></td>
+      <td class="num">{{ r.qty | qty }}</td>
+      <td class="num">{% if r.price_seen is not none %}{{ r.price_seen | money }}<div class="muted small">seen {{ r.price_seen_on }}</div>{% else %}<span class="muted">—</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </section>
 {% endfor %}
 
@@ -51,6 +67,10 @@
   </tbody>
 </table>
 
+{% if part_links %}
+<p class="buy-note">You buy the parts listed under “Parts you'll buy” from the seller and pay them directly; they aren't in our total.
+{%- if buy_totals[0] %} At the prices we saw they come to about {{ buy_totals[0] | money }}{% if buy_totals[1] %}, plus {{ buy_totals[1] }} without a price{% endif %}.{% endif %} Prices change, so check before you order.</p>
+{% endif %}
 {% if est.notes %}<p class="pre">{{ est.notes }}</p>{% endif %}
 {% if terms %}<div class="terms pre">{{ terms }}</div>{% endif %}
 

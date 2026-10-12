@@ -138,18 +138,39 @@ push/PR → owner deploys (⏸).
         now checks paid and credited against what's applied
   - [x] DB tests: partial, over and reversed payments; refunds; credit memos; balances kept by
         trigger and checked against allocations after every step of a randomized run
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0010)
+  - [x] Diff, tests, privacy output → OK → PR #11 (merged)
+  - [ ] ⏸ Owner deploys (migration 0010)
 - [ ] ⏸ Exit: editing an issued invoice line fails in the database (4a, tested); a partial +
       final payment closes the invoice (4b, tested); numbers gapless across a forced rollback
       (4a, tested). Then enter the partner's first real invoice with its true issue date
 
-## Phase 5: Purchasing (branch `phase/5-purchasing`)
+## Phase 5: Purchasing and parts links
 
-- [ ] Design note → ⏸ OK
-- [ ] Shopping list, POs, lines tied to jobs, shipments, vendor RMAs
-- [ ] Carrier tracking URL templates in settings (each verified by web search when seeded)
-- [ ] Receive → lot + receive move + reservation + WO out of `waiting_parts` (tested)
-- [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
+- [x] Design note → OK (owner, 2026-10-12, all nine decisions as recommended): two PRs, 5a
+      parts links then 5b purchasing; vendor RMAs deferred (see Decisions)
+- **5a: parts links** (branch `phase/5a-links`)
+  - [x] Saved parts links (`part_link`): paste or share a page, vendor matched by domain,
+        tracking tags stripped, http(s) only (app and a CHECK), never fetched by the server;
+        search by every word; where each link went (estimates, WOs, sends)
+  - [x] Android: web manifest with a share target (`/links/new`), icons, installable from
+        Chrome's menu; the manifest is fetched with Access's cookie
+  - [x] "Parts you'll buy" on estimates (`estimate_part_link`: title, URL and price copied,
+        frozen with the estimate by `estimate_child_frozen()`, in the approval hash), on the
+        PDF and the customer's page, outside our total
+  - [x] Convert → customer's-part lines awaiting arrival (`wo_line.awaiting`,
+        `part_link_id`); the WO waits on them; Arrived puts it back In progress once
+        nothing else is on its way; awaiting lines aren't offered for billing
+  - [x] Send links from a WO: the phone's share sheet, then a comm-log entry
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0011)
+  - [ ] ⏸ Exit: share a page from Chrome into the app on the phone and save it; add it to an
+        estimate; the customer's page shows it tappable; after approve and convert the WO
+        waits on it, and Arrived clears it
+- **5b: purchasing** (branch `phase/5b-purchasing`)
+  - [ ] Shopping list (reorder suggestions, Order for this job), POs (number at ordered),
+        lines tied to jobs, receipts (append-only), shipments
+  - [ ] Carrier tracking URL templates in settings (each verified by web search when seeded)
+  - [ ] Receive → lot + receive move + reservation + WO out of `waiting_parts` (tested)
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
 
 ## Phase 6: Dashboard & books (branch `phase/6-dashboard-books`)
 
@@ -247,6 +268,14 @@ push/PR → owner deploys (⏸).
 | 2026-10-12 | Credit memos go against an issued invoice, with a reason; all credits on an invoice ≤ what it billed (trigger); tax comes back at the invoice's frozen rate when it collected tax; the credit pays down the balance and any rest is credit on account. Frozen PDF, like invoices | Plan; the restore drill re-hashes credit memo PDFs too |
 | 2026-10-12 | Receipts and statements are drawn when asked, from append-only rows; a receipt's "still owed after" counts allocations up to its own, so it never changes | Nothing they show can change, so freezing them adds nothing |
 | 2026-10-12 | Not in 4b: write-offs (the status is reserved), a bank-deposit date on payments (Phase 6 reconciliation), statement links for customers | Smallest useful 4b; say so if any is needed sooner |
+| 2026-10-12 | Phase 5 in two PRs: 5a parts links (customer buys), 5b purchasing. Vendor RMAs deferred: a scrap move with a note until a part actually goes back | Owner (decisions 1 and 8) |
+| 2026-10-12 | No crawling of parts sites, and the server never fetches a saved URL; the title comes from Android's share sheet or is typed. Only http(s) links (app and CHECK); utm_*, fbclid, gclid and similar are stripped; one row per URL | Store terms, stale prices and upkeep; no SSRF; a `javascript:` link printed on a customer page would run there |
+| 2026-10-12 | "Parts you'll buy" print with the price seen and its date, and an "about" total outside ours ("Prices change, so check before you order") | Owner (decision 2) |
+| 2026-10-12 | An estimate's parts-you'll-buy rows copy the link's title, URL and price; frozen with the estimate; in the approval hash only when there are any (older estimates keep the hash they were sent with) | What the customer approved can't change under them |
+| 2026-10-12 | Converting turns them into customer's-part lines awaiting arrival (`wo_line.awaiting`); the WO starts on Waiting on parts (a box on the convert form, ticked). Arrived moves a waiting WO back to In progress when nothing else is on its way; the only status the app changes by itself | Owner (decision 3) |
+| 2026-10-12 | Send links from a WO: the share sheet first, then a comm-log entry carrying the URLs, so each link's page lists who it was sent to | Owner (decision 4); the comm log is already append-only |
+| 2026-10-12 | Purchasing roles (5b): owners order and see costs; techs Order for this job, see what's on order and its tracking, receive, and use the link library; viewers read | Owner (decision 9) |
+| 2026-10-12 | 5b: PO number at "mark ordered"; every PO line a catalog part (quick-add); lot cost = the line's unit cost, shipping and tax paid stay on the PO (Phase 6 books them); Order for this job reserves at once | Owner (decisions 5, 6, 7) |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -394,3 +423,18 @@ push/PR → owner deploys (⏸).
   each of three seeds and checks every invariant after each.
 - Phone pass: invoice with a payment, credit memo form and page, customer account, a payment
   split over open invoices, the payment page and list; no page scrolls sideways.
+
+### Session 3, Phase 5a (2026-10-12, same cloud session)
+
+- PR #11 (4b) merged; the owner is deploying 0009/0010. Phase 5 design OK'd (all nine
+  decisions as recommended); 5a on `phase/5a-links`.
+- The VM had been recycled: the dev container's layer was gone and Docker Hub answered 429,
+  so `postgres:17` came from `mirror.gcr.io` (tagged locally); the data directory survived.
+- Migration 0011: `part_link`, `estimate_part_link`, `wo_line.part_link_id` and `awaiting`
+  (CHECKs: only a customer's part); `estimate_child_frozen()` attached to the new estimate
+  table. Round-tripped; autogenerate finds no drift. Downgrade refuses while a WO waits on a
+  customer's part.
+- The package is `app/partlinks/` (`app/links.py` already holds the customer-link tokens).
+- 296 tests green, none skipped. Phone pass (Pixel 7 viewport): share target → save, search,
+  pick for an estimate and a WO, the customer's estimate page, send links, Arrived; no page
+  scrolls sideways, no console errors.

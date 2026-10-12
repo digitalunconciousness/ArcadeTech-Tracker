@@ -11,6 +11,7 @@ from app.models import (
     Customer,
     Estimate,
     Part,
+    PartLink,
     Site,
     Vendor,
     WoJob,
@@ -80,6 +81,11 @@ def index():
             select(Estimate, Customer).join(Customer, Customer.id == Estimate.customer_id)
             .where(or_(Estimate.number.ilike(pat), Estimate.summary.ilike(pat)))
             .order_by(Estimate.id.desc()).limit(LIMIT)).all()
+
+        results["links"] = db.session.scalars(
+            select(PartLink).where(or_(PartLink.title.ilike(pat), PartLink.fits.ilike(pat),
+                                       PartLink.domain.ilike(pat)))
+            .order_by(PartLink.active.desc(), func.lower(PartLink.title)).limit(LIMIT)).all()
 
         results["vendors"] = db.session.scalars(
             select(Vendor).where(or_(Vendor.name.ilike(pat), Vendor.account_ref.ilike(pat)))

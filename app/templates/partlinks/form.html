@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ link.title if link else 'Save a link' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>{{ link.title if link else 'Save a link' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.url, inputmode="url", autofocus=not form.url.data) }}
+    {{ field(form.title, autofocus=form.url.data and not form.title.data) }}
+    {{ field(form.fits) }}
+    <div class="row two">{{ field(form.price_seen, inputmode="decimal") }}{{ field(form.price_seen_on) }}</div>
+    {{ field(form.notes) }}
+    {{ field(form.part_id) }}
+    {% if link %}{{ check(form.active) }}{% endif %}
+    <p class="dim small">The page isn't fetched: name it yourself. Tracking tags (utm_…, fbclid, gclid) are taken off the address.</p>
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('partlinks.show', link_id=link.id) if link else url_for('partlinks.index') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

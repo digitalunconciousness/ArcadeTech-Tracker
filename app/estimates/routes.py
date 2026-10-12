@@ -41,10 +41,13 @@ from app.models import (
     Estimate,
     EstimateJob,
     EstimateLine,
+    EstimatePartLink,
     JobTemplate,
     Part,
+    PartLink,
     Service,
 )
+from app.partlinks.forms import AddLinkForm
 from app.timeutil import utcnow
 from app.work import files
 from app.work.forms import AddJobForm
@@ -307,6 +310,34 @@ def line_delete(line_id):
     return redirect(url_for("estimates.show", est_id=est.id) + "#lines")
 
 
+# --- parts the customer buys --------------------------------------------------------------------
+
+@bp.route("/estimates/jobs/<int:job_id>/part-links", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def add_part_link(job_id):
+    job = get_or_404(EstimateJob, job_id)
+    est = db.session.get(Estimate, job.estimate_id)
+    form = AddLinkForm()
+    if form.validate_on_submit() and form.part_link_id.data.isdigit():
+        link = get_or_404(PartLink, int(form.part_link_id.data))
+        if attempt(lambda: service.add_part_link(est, job, link, qty=form.qty.data),
+                   f"Added “{link.title}” to the parts they'll buy."):
+            return redirect(url_for("estimates.show", est_id=est.id) + "#lines")
+    else:
+        flash_errors(form)
+    return redirect(url_for("partlinks.pick", **{"for": f"est:{job.id}"}))
+
+
+@bp.route("/estimates/part-links/<int:row_id>/delete", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def delete_part_link(row_id):
+    row = get_or_404(EstimatePartLink, row_id)
+    est = db.session.get(Estimate, row.estimate_id)
+    if EmptyForm().validate_on_submit():
+        attempt(lambda: service.delete_part_link(est, row), "Taken off the list.")
+    return redirect(url_for("estimates.show", est_id=est.id) + "#lines")
+
+
 # --- sending and deciding --------------------------------------------------------------------
 
 @bp.route("/estimates/<int:est_id>/send", methods=["POST"])
@@ -402,7 +433,8 @@ def convert(est_id):
     if form.validate_on_submit():
         def go():
             holder["wo"], holder["short"] = service.convert(est, kind=form.kind.data,
-                                                           tech_ids=form.techs.data)
+                                                           tech_ids=form.techs.data,
+                                                           wait=form.wait.data)
 
         if attempt(go):
             flash(f"Opened {holder['wo'].number} from {service.label(est)}.", "ok")

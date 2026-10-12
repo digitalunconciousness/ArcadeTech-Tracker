@@ -237,3 +237,9 @@ ul.scope { margin: 0.25rem 0 0; padding-left: 1.2rem; font-size: 0.9rem; color: 
 .panel { overflow-x: auto; }
 table.grid input[type=checkbox] { width: auto; padding: 0; }
 table.grid td.pick, table.grid th.pick { width: 1.8rem; padding-right: 0; }
+
+/* Parts links: a qty box, a tick and an Add button on one line under a saved link. */
+form.add-link { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
+form.add-link .field { margin-bottom: 0; }
+form.add-link .field.qty input { width: 5.5rem; }
+form.add-link .check { margin-bottom: 0.35rem; }

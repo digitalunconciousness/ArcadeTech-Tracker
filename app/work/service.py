@@ -243,13 +243,58 @@ def issue_part(job, part, qty, *, unit_price=None, billable=True, wo_number=""):
     return lines
 
 
-def add_customer_part(job, *, description, qty, part_id=None):
-    """A part the customer brought: no stock move, no charge, no warranty."""
+def add_customer_part(job, *, description, qty, part_id=None, part_link_id=None,
+                      awaiting=False):
+    """A part the customer brought, or is buying (`awaiting` until it arrives): no stock
+    move, no charge, no warranty."""
     line = WoLine(wo_job_id=job.id, kind="part", part_id=part_id, description=description,
-                  qty=qty, unit_price=0, warranty_days=0, customer_supplied=True)
+                  qty=qty, unit_price=0, warranty_days=0, customer_supplied=True,
+                  part_link_id=part_link_id, awaiting=awaiting)
     db.session.add(line)
     db.session.flush()
     return line
+
+
+# --- parts the customer is buying -----------------------------------------------------------
+
+def add_part_link(job, link, *, qty, wait=True):
+    """The customer is buying this part from a saved link: a customer's-part line awaiting
+    arrival. With `wait`, the WO goes to Waiting on parts."""
+    wo = db.session.get(WorkOrder, job.work_order_id)
+    if not is_open(wo):
+        raise WorkError(f"{wo.number} is {wo.status}.")
+    if not link.active:
+        raise WorkError(f"“{link.title}” is switched off.")
+    line = add_customer_part(job, description=link.title[:200], qty=qty, part_link_id=link.id,
+                             awaiting=True)
+    if wait and wo.status != "waiting_parts":
+        set_status(wo, "waiting_parts")
+    return line
+
+
+def awaiting_lines(wo):
+    """Parts still on their way from the customer, on jobs that aren't cancelled."""
+    return db.session.scalars(
+        select(WoLine).join(WoJob, WoJob.id == WoLine.wo_job_id)
+        .where(WoJob.work_order_id == wo.id, WoJob.status != "cancelled",
+               WoLine.awaiting.is_(True)).order_by(WoLine.id)).all()
+
+
+def mark_arrived(line):
+    """The customer's part is here. If the WO was waiting on parts and nothing else is
+    on its way, it goes back to In progress. Returns True when it did."""
+    if not line.awaiting:
+        raise WorkError("That part is already here.")
+    ensure_unbilled(line)
+    line.awaiting = False
+    db.session.flush()
+    wo = db.session.scalar(select(WorkOrder).join(WoJob, WoJob.work_order_id == WorkOrder.id)
+                           .where(WoJob.id == line.wo_job_id))
+    if wo.status == "waiting_parts" and not awaiting_lines(wo):
+        set_status(wo, "in_progress")
+        db.session.flush()
+        return True
+    return False
 
 
 def remove_line(line, part=None, wo_number=""):

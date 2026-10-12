@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Add a part they'll buy{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>{{ "Parts they'll buy" if kind == 'est' else "Part the customer is buying" }}</h1>
+    <a class="btn" href="{{ back }}">Back</a>
+  </div>
+  <form method="get" action="{{ url_for('partlinks.pick') }}">
+    <input type="hidden" name="for" value="{{ target }}">
+    <label class="field"><span>Search saved links, or paste a web address</span>
+      <input type="search" name="q" value="{{ q }}" autofocus enterkeyhint="search"></label>
+  </form>
+  {% if url and not link %}
+  <p>Not saved yet. <a class="btn primary" href="{{ url_for('partlinks.new', url=url, **{'for': target}) }}">Save it, then add it</a></p>
+  {% endif %}
+  <ul class="list links">
+    {% for link, vendor in rows %}
+    <li{% if not link.active %} class="inactive"{% endif %}>
+      {% include "partlinks/_row.html" %}
+      {% if link.active %}
+      <form method="post" action="{{ action }}" class="inline add-link">
+        {{ form.csrf_token }}
+        <input type="hidden" name="part_link_id" value="{{ link.id }}">
+        <label class="field qty"><span>Qty</span><input name="qty" value="1" inputmode="decimal" required></label>
+        {% if kind == 'wo' %}<label class="check"><input type="checkbox" name="wait" value="y" checked> <span>Wait on it</span></label>{% endif %}
+        <button class="btn primary" type="submit">Add</button>
+      </form>
+      {% endif %}
+    </li>
+    {% else %}
+    {% if q and not url %}<li class="dim">Nothing matches “{{ q }}”. Paste the web address to save it.</li>{% endif %}
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

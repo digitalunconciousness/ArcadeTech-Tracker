@@ -1,6 +1,7 @@
 """Jinja filters for money, unit costs and quantities. Decimal in, text out."""
 
 from decimal import ROUND_HALF_UP, Decimal
+from urllib.parse import urlsplit
 
 from app.pricing import round_money
 
@@ -60,5 +61,14 @@ def scope_items(value):
     return [item for item in items if item]
 
 
+def site(url):
+    """'https://www.example.com/p/1' -> 'example.com': where a link goes, for print."""
+    try:
+        host = (urlsplit(url or "").hostname or "").lower()
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
 FILTERS = {"money": money, "unit_cost": unit_cost, "qty": qty, "pct": pct, "plain": plain,
-           "scope_items": scope_items, "rate_pct": rate_pct}
+           "scope_items": scope_items, "rate_pct": rate_pct, "site": site}

@@ -21,6 +21,7 @@ from app.models import (
     Estimate,
     EstimateJob,
     EstimateLine,
+    EstimatePartLink,
     JobTemplateLine,
     Part,
     Reservation,
@@ -178,9 +179,54 @@ def delete_job(est, job):
     ensure_editable(est)
     for line in db.session.scalars(select(EstimateLine).where(EstimateLine.estimate_job_id == job.id)):
         db.session.delete(line)
+    for row in db.session.scalars(select(EstimatePartLink)
+                                  .where(EstimatePartLink.estimate_job_id == job.id)):
+        db.session.delete(row)
     db.session.flush()
     db.session.delete(job)
     db.session.flush()
+
+
+# --- parts the customer buys ------------------------------------------------------------------
+
+def add_part_link(est, job, link, *, qty):
+    """A part the customer buys themselves, printed with its link and never in our total.
+    The link's title, address and price are copied as they are now."""
+    ensure_editable(est)
+    if job.estimate_id != est.id:
+        raise EstimateError("That job is on another estimate.")
+    if not link.active:
+        raise EstimateError(f"“{link.title}” is switched off.")
+    row = EstimatePartLink(estimate_id=est.id, estimate_job_id=job.id, part_link_id=link.id,
+                           title=link.title, url=link.url, qty=qty, price_seen=link.price_seen,
+                           price_seen_on=link.price_seen_on)
+    db.session.add(row)
+    db.session.flush()
+    return row
+
+
+def delete_part_link(est, row):
+    ensure_editable(est)
+    db.session.delete(row)
+    db.session.flush()
+
+
+def part_links(est):
+    """{estimate job id: [EstimatePartLink]}, in the order added."""
+    out = {}
+    for row in db.session.scalars(select(EstimatePartLink)
+                                  .where(EstimatePartLink.estimate_id == est.id)
+                                  .order_by(EstimatePartLink.id)):
+        out.setdefault(row.estimate_job_id, []).append(row)
+    return out
+
+
+def buy_totals(rows):
+    """What the customer's own parts come to, at the prices we saw: (about, how many have
+    no price)."""
+    priced = [r for r in rows if r.price_seen is not None]
+    about = sum((round_money(r.qty * r.price_seen) for r in priced), Decimal("0.00"))
+    return about, len(rows) - len(priced)
 
 
 # --- reading ----------------------------------------------------------------------------------
@@ -224,6 +270,10 @@ def content_hash(est):
                   [[x.id, x.kind, x.description, str(x.qty), str(x.unit_price), x.labor_mode,
                     x.taxable, x.warranty_days, x.scope] for x in lines[j.id]]] for j, _ in jobs],
     }
+    buys = part_links(est)
+    if buys:  # only when there are any, so older estimates keep the hash they were sent with
+        doc["buy"] = [[r.id, r.estimate_job_id, r.title, r.url, str(r.qty), str(r.price_seen),
+                       str(r.price_seen_on)] for rows in buys.values() for r in rows]
     return hashlib.sha256(json.dumps(doc, sort_keys=True).encode()).hexdigest()
 
 
@@ -343,6 +393,7 @@ def revise(est):
     db.session.add(new)
     db.session.flush()
     jobs, lines = jobs_and_lines(est)
+    buys = part_links(est)
     for job, _ in jobs:
         copy = EstimateJob(estimate_id=new.id, asset_id=job.asset_id, complaint=job.complaint)
         db.session.add(copy)
@@ -353,6 +404,11 @@ def revise(est):
                 part_id=x.part_id, description=x.description, qty=x.qty, labor_mode=x.labor_mode,
                 unit_price=x.unit_price, unit_cost=x.unit_cost, taxable=x.taxable,
                 warranty_days=x.warranty_days, scope=x.scope))
+        for r in buys.get(job.id, []):
+            db.session.add(EstimatePartLink(
+                estimate_id=new.id, estimate_job_id=copy.id, part_link_id=r.part_link_id,
+                title=r.title, url=r.url, qty=r.qty, price_seen=r.price_seen,
+                price_seen_on=r.price_seen_on))
     if est.approved_at is None:
         est.status = "superseded"
         revoke_links(est)
@@ -360,10 +416,12 @@ def revise(est):
     return new
 
 
-def convert(est, *, kind, tech_ids=()):
+def convert(est, *, kind, tech_ids=(), wait=True):
     """The approved estimate becomes a work order: its jobs and its labor, fee, sublet and
     discount lines carry over; quoted stocked parts are set aside for the job at the quoted
-    price (issued when used). Returns (work_order, parts short of stock)."""
+    price (issued when used); parts the customer buys become customer's-part lines awaiting
+    arrival, and with `wait` the WO starts on Waiting on parts. Returns (work_order, parts
+    short of stock)."""
     est = _lock(est)
     if est.status != "approved" or est.work_order_id is not None:
         raise EstimateError(f"{label(est)} is {est.status}: only an approved estimate converts.")
@@ -375,8 +433,12 @@ def convert(est, *, kind, tech_ids=()):
                                 tech_ids=tech_ids)
     short = []
     jobs, lines = jobs_and_lines(est)
+    buys = part_links(est)
     for ejob, _ in jobs:
         job = work.add_job(wo, ejob.asset_id, ejob.complaint)
+        for r in buys.get(ejob.id, []):
+            work.add_customer_part(job, description=r.title, qty=r.qty,
+                                   part_link_id=r.part_link_id, awaiting=True)
         for x in lines[ejob.id]:
             part = db.session.get(Part, x.part_id) if x.part_id else None
             if part is not None and part.track_stock:
@@ -396,6 +458,8 @@ def convert(est, *, kind, tech_ids=()):
                 warranty_days=x.warranty_days, scope=x.scope))
         db.session.flush()
         work.sync_actual_labor(job)
+    if wait and buys:
+        work.set_status(wo, "waiting_parts")
     est.status, est.work_order_id = "converted", wo.id
     db.session.flush()
     return wo, short
