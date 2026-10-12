@@ -11,7 +11,7 @@ from app.extensions import db
 from app.formatting import qty as fmt_qty
 from app.formatting import unit_cost as fmt_cost
 from app.forms_common import QTY_MAX
-from app.models import Part, StockLot, StockMove, User, Vendor
+from app.models import Part, PartLink, StockLot, StockMove, User, Vendor
 from app.parts import stock
 from app.parts.forms import (
     PRICING_FIELDS,
@@ -73,6 +73,15 @@ def write_stock(action, ok):
         return False
     flash(ok, "ok")
     return True
+
+
+def release_waiting():
+    """New stock can cover what a WO waiting on parts set aside."""
+    from app.purchasing.service import release_waiting as release
+    moved = release()
+    db.session.commit()
+    for wo in moved:
+        flash(f"Nothing left that {wo.number} was waiting on: it's back In progress.", "ok")
 
 
 # --- parts --------------------------------------------------------------------------------
@@ -197,9 +206,14 @@ def show(part_id):
         forms["adjust"].lot_id.choices = lot_choices(lots, "Oldest first / newest lot")
         forms["scrap"] = ScrapForm()
         forms["scrap"].lot_id.choices = lot_choices([x for x in lots if x[1] > 0], "Oldest first")
+    from app.purchasing import service as buying
+    buy_links = db.session.scalars(select(PartLink).where(PartLink.part_id == part.id,
+                                                          PartLink.active.is_(True))
+                                   .order_by(PartLink.title)).all()
     return render_template("parts/show.html", part=part, lots=lots, on_hand=on_hand,
                            moves=moves, price=price, costs=costs, vendor=vendor,
-                           vendors=vendors, forms=forms)
+                           vendors=vendors, forms=forms, buy_links=buy_links,
+                           on_order=buying.on_order_for_part(part.id))
 
 
 @bp.route("/parts/<int:part_id>/receive", methods=["POST"])
@@ -216,10 +230,11 @@ def receive(part_id):
             flash("Unit cost needed." if sees_costs() else
                   f"{part.sku} has no default cost yet; an owner receives it.", "error")
         else:
-            write_stock(lambda: stock.receive(
-                part, form.qty.data, cost, vendor_id=form.vendor_id.data,
-                date_code=form.date_code.data, vendor_lot=form.vendor_lot.data,
-                note=form.note.data), f"Received {fmt_qty(form.qty.data)} {part.unit}.")
+            if write_stock(lambda: stock.receive(
+                    part, form.qty.data, cost, vendor_id=form.vendor_id.data,
+                    date_code=form.date_code.data, vendor_lot=form.vendor_lot.data,
+                    note=form.note.data), f"Received {fmt_qty(form.qty.data)} {part.unit}."):
+                release_waiting()
     else:
         flash_errors(form)
     return redirect(url_for("parts.show", part_id=part.id))

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Orders{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Orders</h1>
+    <a class="btn" href="{{ url_for('purchasing.index') }}">Shopping list</a>
+  </div>
+  <ul class="list">
+    {% for po, v in rows %}
+    <li{% if po.status in ('cancelled', 'received', 'closed') %} class="inactive"{% endif %}>
+      <a href="{{ url_for('purchasing.order', po_id=po.id) }}"><span class="mono tag">{{ label(po) }}</span></a> {{ v.name }}
+      <span class="dim">{% if po.ordered_on %}{{ po.ordered_on }} · {% endif %}{{ po_statuses[po.status] | lower }}{% if po.vendor_order_ref %} · their # {{ po.vendor_order_ref }}{% endif %}</span>
+    </li>
+    {% else %}
+    <li class="dim">No orders{% if not show_all %} open{% endif %}.</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('purchasing.orders', all=None if show_all else 1) }}">{{ 'Open ones only' if show_all else 'Show received and cancelled too' }}</a></p>
+</section>
+{% endblock %}

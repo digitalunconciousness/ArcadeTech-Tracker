@@ -53,6 +53,11 @@ EXPECTED_GRANTS = {
     "credit_memo_line": {"SELECT", "INSERT"},
     "part_link": {"SELECT", "INSERT", "UPDATE"},
     "estimate_part_link": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "carrier": {"SELECT", "INSERT", "UPDATE"},
+    "purchase_order": {"SELECT", "INSERT", "UPDATE"},
+    "shipment": {"SELECT", "INSERT", "UPDATE"},
+    "po_line": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "po_receipt": {"SELECT", "INSERT"},
 }
 
 AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "service",
@@ -61,7 +66,8 @@ AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "
            "reservation", "manual_reading", "attachment", "estimate", "estimate_job",
            "estimate_line", "appointment", "appointment_user", "calendar_feed",
            "tax_jurisdiction", "invoice", "invoice_line", "payment", "payment_allocation",
-           "credit_memo", "credit_memo_line", "part_link", "estimate_part_link"}
+           "credit_memo", "credit_memo_line", "part_link", "estimate_part_link", "carrier",
+           "purchase_order", "po_line", "po_receipt", "shipment"}
 
 
 def q(app, sql, **params):
@@ -143,7 +149,8 @@ def test_app_role_sequence_privileges(app):
                   "estimate_job", "estimate_line", "doc_link", "appointment", "appointment_user",
                   "calendar_feed", "tax_jurisdiction", "invoice", "invoice_line", "payment",
                   "payment_allocation", "credit_memo", "credit_memo_line", "part_link",
-                  "estimate_part_link")
+                  "estimate_part_link", "carrier", "purchase_order", "po_line", "po_receipt",
+                  "shipment")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)
@@ -156,7 +163,7 @@ def test_app_role_sequence_privileges(app):
                                 "invoice_line_frozen", "wo_line_billed_guard", "payment_guard",
                                 "payment_reversal_complete", "allocation_guard",
                                 "allocation_apply", "credit_memo_frozen",
-                                "credit_memo_line_frozen"])
+                                "credit_memo_line_frozen", "po_line_guard"])
 def test_trigger_functions_not_public(app, fn):
     rows = q(app, "SELECT has_function_privilege('shop_app', :f, 'EXECUTE')", f=f"{fn}()")
     assert rows == [(False,)]

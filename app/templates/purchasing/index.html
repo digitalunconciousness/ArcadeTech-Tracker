@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Buying{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Buying</h1>
+    <a class="btn" href="{{ url_for('purchasing.orders') }}">All orders</a>
+  </div>
+  <h2>Running low</h2>
+  <ul class="list">
+    {% for s in suggestions %}
+    <li>
+      <a href="{{ url_for('parts.show', part_id=s.part.id) }}"><span class="mono">{{ s.part.sku }}</span></a> {{ s.part.name }}
+      <div class="dim small">{{ s.on_hand | qty }} on hand{% if s.reserved %} · {{ s.reserved | qty }} set aside{% endif %}{% if s.on_order %} · {{ s.on_order | qty }} coming{% endif %}{% if s.part.reorder_point is not none %} · reorder at {{ s.part.reorder_point | qty }}{% endif %}</div>
+      {% if s.short_for %}<div class="small"><span class="badge warn">short</span> for {{ s.short_for | join(', ') }}</div>{% endif %}
+      {% if can_edit %}
+      <form method="post" action="{{ url_for('purchasing.suggest', part_id=s.part.id) }}" class="add-link" novalidate>
+        {{ suggest.csrf_token }}
+        <label class="field qty"><span>Qty</span><input name="qty" value="{{ s.qty | plain }}" inputmode="decimal" required></label>
+        <button class="btn" type="submit">Put on the list</button>
+      </form>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="dim">Nothing's below its reorder point, and everything set aside is covered.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="panel" id="list">
+  <h2>Shopping list</h2>
+  {% for vendor, rows in groups.items() %}
+  <h3>{{ vendor or 'No vendor yet' }}</h3>
+  <ul class="list">
+    {% for line, part, wo in rows %}
+    <li>
+      <span class="mono">{{ part.sku }}</span> {{ part.name }} × {{ line.qty | qty }}
+      <div class="dim small">{% if wo %}for <a href="{{ url_for('work.show', wo_id=wo.id) }}">{{ wo.number }}</a>{% else %}for stock{% endif %}{% if costs %} · {{ line.unit_cost | unit_cost }} each{% endif %}{% if line.note %} · {{ line.note }}{% endif %}</div>
+      {% if can_edit %}<div class="actions">
+        <a class="btn small" href="{{ url_for('purchasing.line_edit', line_id=line.id) }}">Edit</a>
+        <form class="inline-form" method="post" action="{{ url_for('purchasing.line_remove', line_id=line.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Take {{ part.sku }} off the list?{{ ' What was set aside for the job is released.' if line.reservation_id }}">Remove</button></form>
+      </div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="dim">The list is empty.</p>
+  {% endfor %}
+  {% if buys and any_vendor %}
+  <form method="post" action="{{ url_for('purchasing.create_pos') }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn primary" type="submit">Make draft POs, one per vendor</button>
+  </form>
+  {% endif %}
+  {% if can_edit %}
+  <details class="form">
+    <summary>Put a part on the list</summary>
+    <form method="post" action="{{ url_for('purchasing.add_line') }}" novalidate>
+      {{ add.csrf_token }}
+      {{ field(add.part_id) }}
+      <div class="row two">{{ field(add.qty, inputmode="decimal") }}{{ field(add.vendor_id) }}</div>
+      {{ field(add.note) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <p class="dim">For one job, use “Order for this job” on the job instead: the WO then waits on it.</p>
+  </details>
+  {% endif %}
+</section>
+
+{% if drafts %}
+<section class="panel">
+  <h2>Drafts</h2>
+  <ul class="list">{% for po, v in drafts %}<li><a href="{{ url_for('purchasing.order', po_id=po.id) }}">Draft PO #{{ po.id }}</a> · {{ v.name }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>On order</h2>
+  <ul class="list">
+    {% for po, v in orders %}
+    <li><a href="{{ url_for('purchasing.order', po_id=po.id) }}"><span class="mono tag">{{ po.number }}</span></a> {{ v.name }} <span class="dim">{{ po.ordered_on }} · {{ po_statuses[po.status] | lower }}</span></li>
+    {% else %}
+    <li class="dim">Nothing on order.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

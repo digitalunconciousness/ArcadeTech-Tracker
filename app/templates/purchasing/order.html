@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ label }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1 class="mono tag">{{ label }}</h1>
+    <span class="badge {{ 'ok' if po.status == 'received' else 'danger' if po.status == 'cancelled' else 'warn' if po.status in ('ordered', 'partially_received') else '' }}">{{ po_statuses[po.status] | lower }}</span>
+  </div>
+  <p class="lead"><a href="{{ url_for('parts.vendor_show', vendor_id=vendor.id) }}">{{ vendor.name }}</a>{% if vendor.website %} <span class="dim small">{{ vendor.website | site }}</span>{% endif %}</p>
+  <dl class="facts">
+    {% if po.ordered_on %}<dt>Ordered</dt><dd>{{ po.ordered_on }}{% if po.ordered_by in users %} by {{ users[po.ordered_by].display_name }}{% endif %}</dd>{% endif %}
+    {% if po.vendor_order_ref %}<dt>Their order #</dt><dd class="mono">{{ po.vendor_order_ref }}</dd>{% endif %}
+    {% if costs and po.number %}<dt>Paid with</dt><dd>{{ users[po.paid_by_user_id].display_name ~ "'s own card" if po.paid_by_user_id in users else 'Business account' }}</dd>{% endif %}
+  </dl>
+  {% if po.notes %}<p class="notes">{{ po.notes }}</p>{% endif %}
+  <div class="actions">
+    {% if can_edit and po.status in ('ordered', 'partially_received') %}<a class="btn primary" href="{{ url_for('purchasing.receive', po_id=po.id) }}">Receive</a>{% endif %}
+    <a class="btn" href="{{ url_for('purchasing.index') }}">Shopping list</a>
+  </div>
+</section>
+
+<section class="panel" id="lines">
+  <h2>Lines</h2>
+  <table class="grid">
+    <thead><tr><th>Part</th><th class="num">Qty</th>{% if costs %}<th class="num">Amount</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for line, part, got, wo_number in lines %}
+    <tr{% if line.status == 'cancelled' %} class="inactive"{% endif %}>
+      <td><a href="{{ url_for('parts.show', part_id=part.id) }}"><span class="mono">{{ part.sku }}</span></a> {{ part.name }}
+        <div class="dim small">{{ line_statuses[line.status] | lower }}{% if got %} · {{ got | qty }} in{% endif %}{% if wo_number %} · for {{ wo_number }}{% endif %}{% if line.expected_on and line.status in ('ordered', 'backordered') %} · expected {{ line.expected_on }}{% endif %}{% if line.note %} · {{ line.note }}{% endif %}</div>
+        {% if buys %}<div class="actions">
+          {% if line.status in ('to_order', 'ordered', 'backordered') %}<a class="btn small" href="{{ url_for('purchasing.po_line_edit', po_id=po.id, line_id=line.id) }}">Edit</a>{% endif %}
+          {% if po.status == 'draft' %}
+          <form class="inline-form" method="post" action="{{ url_for('purchasing.line_back_to_list', line_id=line.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">Back to the list</button></form>
+          <form class="inline-form" method="post" action="{{ url_for('purchasing.line_remove', line_id=line.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Remove {{ part.sku }}?">Remove</button></form>
+          {% endif %}
+        </div>{% endif %}
+      </td>
+      <td class="num">{{ line.qty | qty }}{% if costs %}<div class="dim small">× {{ line.unit_cost | unit_cost }}</div>{% endif %}</td>
+      {% if costs %}<td class="num">{{ (line.qty * line.unit_cost) | money }}</td>{% endif %}
+    </tr>
+    {% endfor %}
+    {% if totals %}
+    <tr><td>Parts</td><td></td><td class="num">{{ totals.subtotal | money }}</td></tr>
+    <tr><td>Shipping</td><td></td><td class="num">{{ po.shipping | money }}</td></tr>
+    <tr><td>Sales tax paid</td><td></td><td class="num">{{ po.tax_paid | money }}</td></tr>
+    <tr class="total"><td>Total</td><td></td><td class="num"><strong>{{ totals.total | money }}</strong></td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+
+  {% if forms.ordered %}
+  <h3>Placed the order?</h3>
+  <form method="post" action="{{ url_for('purchasing.ordered', po_id=po.id) }}" novalidate>
+    {{ forms.ordered.csrf_token }}
+    <div class="row two">{{ field(forms.ordered.ordered_on) }}{{ field(forms.ordered.vendor_order_ref) }}</div>
+    {{ field(forms.ordered.paid_by_user_id) }}
+    <p class="dim small">Marking it ordered gives it its PO number.</p>
+    <button class="btn primary" type="submit">Mark ordered</button>
+  </form>
+  {% endif %}
+  {% if forms.amounts %}
+  <details class="form">
+    <summary>Shipping, tax paid, notes</summary>
+    <form method="post" action="{{ url_for('purchasing.amounts', po_id=po.id) }}" novalidate>
+      {{ forms.amounts.csrf_token }}
+      <div class="row two">{{ field(forms.amounts.shipping, inputmode="decimal") }}{{ field(forms.amounts.tax_paid, inputmode="decimal") }}</div>
+      {{ field(forms.amounts.notes) }}
+      <p class="dim small">From the vendor's receipt. They stay on the order (not spread into part costs).</p>
+      <button class="btn" type="submit">Save</button>
+    </form>
+  </details>
+  {% endif %}
+  {% if buys %}
+  <div class="actions">
+    {% if po.status in ('draft', 'ordered') %}
+    <form class="inline-form" method="post" action="{{ url_for('purchasing.finish', po_id=po.id, action='cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="{{ 'Drop this draft? Its lines go back on the list.' if po.status == 'draft' else 'Cancel this order?' }}">{{ 'Drop draft' if po.status == 'draft' else 'Cancel order' }}</button></form>
+    {% endif %}
+    {% if po.status in ('ordered', 'partially_received') %}
+    <form class="inline-form" method="post" action="{{ url_for('purchasing.finish', po_id=po.id, action='close') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit" data-confirm="Close it? Whatever hasn't come in is given up on.">Close short</button></form>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+
+{% if po.number %}
+<section class="panel" id="shipments">
+  <h2>Tracking</h2>
+  {% set ship_form = forms.ship %}
+  {% set action = url_for('purchasing.po_shipment', po_id=po.id) %}
+  {% include "purchasing/_shipments.html" %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Receive {{ label }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Receive</h1>
+    <a class="btn" href="{{ url_for('purchasing.order', po_id=po.id) }}">Back</a>
+  </div>
+  <p><span class="mono tag">{{ label }}</span> · {{ vendor.name }}</p>
+  <p class="dim">Count what's in the box. Each line is filled with what's still due: change it to what actually came, or clear it if none did. Date codes matter for caps.</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <ul class="list">
+      {% for line, part, got, wo_number in lines %}
+      <li>
+        <strong class="mono">{{ part.sku }}</strong> {{ part.name }}
+        <div class="dim small">ordered {{ line.qty | qty }}{% if got %} · {{ got | qty }} in already{% endif %}{% if wo_number %} · for {{ wo_number }}{% endif %}{% if not part.track_stock %} · not stocked{% endif %}</div>
+        <div class="row">
+          <label class="field qty"><span>Came in</span><input name="qty-{{ line.id }}" value="{{ (line.qty - got) | plain if line.qty > got else '' }}" inputmode="decimal"></label>
+          {% if part.track_stock %}
+          <label class="field"><span>Date code</span><input name="dc-{{ line.id }}" maxlength="20" autocomplete="off"></label>
+          <label class="field"><span>Vendor lot</span><input name="lot-{{ line.id }}" maxlength="40" autocomplete="off"></label>
+          {% endif %}
+        </div>
+      </li>
+      {% else %}
+      <li class="dim">Nothing left to receive on this order.</li>
+      {% endfor %}
+    </ul>
+    {% if lines %}<button class="btn primary" type="submit">Receive</button>{% endif %}
+  </form>
+</section>
+{% endblock %}

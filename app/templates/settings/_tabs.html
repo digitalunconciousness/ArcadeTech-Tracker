@@ -3,4 +3,5 @@
   <a href="{{ url_for('settings.users') }}" {% if request.endpoint.startswith('settings.user') %}class="active"{% endif %}>Users</a>
   <a href="{{ url_for('settings.pricing') }}" {% if request.endpoint in ('settings.pricing', 'settings.tier_add') %}class="active"{% endif %}>Pricing</a>
   <a href="{{ url_for('settings.tax') }}" {% if request.endpoint.startswith('settings.tax') or request.endpoint.startswith('settings.jurisdiction') %}class="active"{% endif %}>Tax</a>
+  <a href="{{ url_for('settings.carriers') }}" {% if request.endpoint.startswith('settings.carrier') %}class="active"{% endif %}>Carriers</a>
 </nav>

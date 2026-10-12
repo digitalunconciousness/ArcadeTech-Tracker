@@ -59,13 +59,14 @@ def create_app(overrides=None):
     from app.parts.routes import bp as parts_bp
     from app.pricebook.routes import bp as pricebook_bp
     from app.public.routes import bp as public_bp
+    from app.purchasing.routes import bp as purchasing_bp
     from app.search.routes import bp as search_bp
     from app.settings.routes import bp as settings_bp
     from app.work.routes import bp as work_bp
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
-               pricebook_bp, parts_bp, partlinks_bp, work_bp, estimates_bp, billing_bp,
-               public_bp):
+               pricebook_bp, parts_bp, partlinks_bp, purchasing_bp, work_bp, estimates_bp,
+               billing_bp, public_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)

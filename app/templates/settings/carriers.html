@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}Carriers{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Carriers</h1>
+  <p class="dim">Where a tracking number's link goes. <span class="mono">{number}</span> marks the spot. These were looked up on 2026-10-12; if a carrier's link stops working, fix it here. The pattern guesses the carrier from a tracking number (spaces taken out, upper case); the first match in order wins.</p>
+  <ul class="list">
+    {% for c in carriers %}
+    <li{% if not c.active %} class="inactive"{% endif %}>
+      <a href="{{ url_for('settings.carrier_edit', carrier_id=c.id) }}"><strong>{{ c.name }}</strong></a> <span class="dim mono">{{ c.code }}</span>
+      {% if not c.active %}<span class="badge danger">off</span>{% endif %}
+      <div class="dim small mono break">{{ c.url_template }}</div>
+      {% if c.number_pattern %}<div class="dim small mono break">{{ c.number_pattern }}</div>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">No carriers.</li>
+    {% endfor %}
+  </ul>
+</section>
+<section class="panel">
+  <details class="form">
+    <summary>Add a carrier</summary>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      <div class="row two">{{ field(form.code) }}{{ field(form.name) }}</div>
+      {{ field(form.url_template, inputmode="url") }}
+      {{ field(form.number_pattern) }}
+      <div class="row two">{{ field(form.position, inputmode="numeric") }}<div>{{ check(form.active) }}</div></div>
+      <button class="btn primary" type="submit">Add</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

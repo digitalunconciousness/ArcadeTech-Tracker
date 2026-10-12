@@ -1,0 +1,29 @@
+{% from "_forms.html" import field %}
+{# Shipments with tracking links. `shipments` [(shipment, carrier, url)], `ship_form` or none, `action`. #}
+<ul class="list">
+  {% for s, c, url in shipments %}
+  <li{% if s.status in ('delivered', 'returned') %} class="inactive"{% endif %}>
+    {% if url %}<a href="{{ url }}" rel="noopener noreferrer nofollow" target="_blank" class="mono">{{ s.tracking_number }}</a>{% else %}<span class="mono">{{ s.tracking_number }}</span>{% endif %}
+    <span class="badge {{ 'ok' if s.status == 'delivered' else 'danger' if s.status in ('exception', 'returned') else '' }}">{{ ship_statuses[s.status] | lower }}</span>
+    <div class="dim small">{{ c.name if c else 'carrier unknown' }} · {{ directions[s.direction] | lower }}{% if s.eta and s.status != 'delivered' %} · expected {{ s.eta }}{% endif %}{% if s.delivered_on %} · delivered {{ s.delivered_on }}{% endif %}{% if s.note %} · {{ s.note }}{% endif %}</div>
+    {% if can_edit %}<div class="actions"><a class="btn small" href="{{ url_for('purchasing.shipment_edit', shipment_id=s.id) }}">Update</a></div>{% endif %}
+  </li>
+  {% else %}
+  <li class="dim">No tracking yet.</li>
+  {% endfor %}
+</ul>
+{% if ship_form %}
+<details class="form">
+  <summary>Add tracking</summary>
+  <form method="post" action="{{ action }}" novalidate>
+    {{ ship_form.csrf_token }}
+    {% if ship_form.direction.choices | length > 1 %}{{ field(ship_form.direction) }}{% endif %}
+    <div class="row two">{{ field(ship_form.tracking_number, autocomplete="off") }}{{ field(ship_form.carrier_id) }}</div>
+    <div class="row two">{{ field(ship_form.shipped_on) }}{{ field(ship_form.eta) }}</div>
+    {% if can_see_costs %}{{ field(ship_form.cost, inputmode="decimal") }}{% endif %}
+    {{ field(ship_form.note) }}
+    <p class="dim small">Delivered isn't received: count the box with Receive to put it in stock.</p>
+    <button class="btn" type="submit">Add</button>
+  </form>
+</details>
+{% endif %}

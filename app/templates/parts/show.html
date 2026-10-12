@@ -33,6 +33,14 @@
     {% if part.datasheet_url %}<dt>Datasheet</dt><dd><a href="{{ part.datasheet_url }}" rel="noopener noreferrer" target="_blank">open</a></dd>{% endif %}
   </dl>
   {% if part.notes %}<p class="notes">{{ part.notes }}</p>{% endif %}
+  {% if buy_links %}
+  <h3>Buy it here</h3>
+  <ul class="list">{% for link in buy_links %}<li><a href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ link.title }}</a> <span class="dim small">{{ link.domain }}{% if link.price_seen is not none %} · {{ link.price_seen | money }} on {{ link.price_seen_on }}{% endif %}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if on_order %}
+  <h3>On order</h3>
+  <ul class="list">{% for line, po, got in on_order %}<li>{{ line.qty | qty }}{% if got %} ({{ got | qty }} in){% endif %} · {% if po and po.number %}<a href="{{ url_for('purchasing.order', po_id=po.id) }}">{{ po.number }}</a>{% elif po %}<a href="{{ url_for('purchasing.order', po_id=po.id) }}">draft PO</a>{% else %}<a href="{{ url_for('purchasing.index') }}#list">on the shopping list</a>{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
 </section>
 
 {% if part.track_stock %}

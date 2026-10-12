@@ -211,6 +211,12 @@ def test_convert_waits_on_the_customers_parts_until_they_arrive(app, signed_in):
     invoice_page = text(owner.get(f"/work/{wo_id}/invoice"))
     assert "K7000 cap kit" not in invoice_page
     resp = owner.post(f"/work/lines/{line[0]}/arrived", follow_redirects=True)
+    # the 10 caps quoted on the estimate are set aside but not in stock: still waiting
+    assert "back In progress" not in text(resp)
+    assert "CAP-470-25 × 10 set aside, not in stock" in text(owner.get(f"/work/{wo_id}"))
+    assert db_query(app, "SELECT status FROM work_order") == [("waiting_parts",)]
+    resp = owner.post(f"/parts/{pid}/receive", data={"qty": "10", "unit_cost": "0.40",
+                                                     "vendor_id": "None"}, follow_redirects=True)
     assert "back In progress" in text(resp)
     assert db_query(app, "SELECT status FROM work_order") == [("in_progress",)]
     assert db_query(app, "SELECT awaiting FROM wo_line WHERE id = :i", i=line[0]) == [(False,)]
