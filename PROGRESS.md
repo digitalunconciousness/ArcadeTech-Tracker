@@ -127,7 +127,8 @@ push/PR → owner deploys (⏸).
         owner); gapless across a rolled-back issue; tax half-up at the frozen rate; Postgres
         checks subtotals and tax at the moment of issue
   - [x] Diff, tests, privacy output → OK (incl. the fixed-price design) → PR #10 (merged)
-  - [ ] ⏸ Owner deploys (migration 0009); writes "How customers pay you" in Settings → Business
+  - [x] ⏸ Owner deployed (migration 0009; confirmed by the 5a exit, which needs 0011)
+  - [ ] ⏸ Owner writes "How customers pay you" in Settings → Business
 - **4b: money in** (branch `phase/4b-payments`)
   - [x] Payments (receipts, reversals, refunds), applied to invoices or left as credit on
         account; deposits on estimates, applied when the job is invoiced
@@ -139,7 +140,7 @@ push/PR → owner deploys (⏸).
   - [x] DB tests: partial, over and reversed payments; refunds; credit memos; balances kept by
         trigger and checked against allocations after every step of a randomized run
   - [x] Diff, tests, privacy output → OK → PR #11 (merged)
-  - [ ] ⏸ Owner deploys (migration 0010)
+  - [x] ⏸ Owner deployed (migration 0010; confirmed by the 5a exit)
 - [ ] ⏸ Exit: editing an issued invoice line fails in the database (4a, tested); a partial +
       final payment closes the invoice (4b, tested); numbers gapless across a forced rollback
       (4a, tested). Then enter the partner's first real invoice with its true issue date
@@ -162,8 +163,8 @@ push/PR → owner deploys (⏸).
         nothing else is on its way; awaiting lines aren't offered for billing
   - [x] Send links from a WO: the phone's share sheet, then a comm-log entry
   - [x] Diff, tests, privacy output → OK → PR #12 (merged)
-  - [ ] ⏸ Owner deploys (migration 0011)
-  - [ ] ⏸ Exit: share a page from Chrome into the app on the phone and save it; add it to an
+  - [x] ⏸ Owner deployed (migration 0011)
+  - [x] ⏸ Exit (passed, owner, reported 2026-10-12): share a page from Chrome into the app on the phone and save it; add it to an
         estimate; the customer's page shows it tappable; after approve and convert the WO
         waits on it, and Arrived clears it
 - **5b: purchasing** (branch `phase/5b-purchasing`)
