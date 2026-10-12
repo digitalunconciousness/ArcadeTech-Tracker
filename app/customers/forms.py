@@ -59,6 +59,8 @@ class SiteForm(AddressFields, FlaskForm):
     access_notes = TextAreaField(
         "Access: hours, who lets you in (never alarm codes)", filters=[blank_to_none],
         validators=[Optional(), Length(max=2000)])
+    tax_jurisdiction_id = SelectField("Sales tax jurisdiction (where the work is delivered)",
+                                      coerce=opt_int, validate_choice=True)
     active = BooleanField("Active", default=True)
 
 

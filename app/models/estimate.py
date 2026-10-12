@@ -111,16 +111,18 @@ class EstimateJob(StandardColumns, db.Model):
 
 
 class EstimateLine(StandardColumns, db.Model):
-    """A quoted line. Labor is flat (the quoted hours are billed) or actual (an estimate of
-    hours; the timer decides). Parts carry their book price and, for margins, the part's
-    default cost."""
+    """A quoted line. Labor is flat (the quoted hours are billed), actual (an estimate of
+    hours; the timer decides) or fixed (one price for the job, its scope as text). Parts
+    carry their book price and, for margins, the part's default cost."""
 
     __tablename__ = "estimate_line"
     __audited__ = ()
     __table_args__ = (
         CheckConstraint(_in("kind", ("labor", "part", "fee", "sublet", "discount")), name="kind"),
         CheckConstraint("(kind = 'labor') = (labor_mode IS NOT NULL)", name="labor_mode_iff_labor"),
-        CheckConstraint("labor_mode IS NULL OR labor_mode IN ('actual', 'flat')", name="labor_mode"),
+        CheckConstraint("labor_mode IS NULL OR labor_mode IN ('actual', 'flat', 'fixed')",
+                        name="labor_mode"),
+        CheckConstraint("labor_mode IS DISTINCT FROM 'fixed' OR qty = 1", name="fixed_qty_one"),
         CheckConstraint("kind <> 'part' OR part_id IS NOT NULL", name="part_line_has_part"),
         CheckConstraint("qty > 0", name="qty_positive"),
         CheckConstraint("unit_price >= 0", name="price_nonnegative"),
@@ -146,23 +148,25 @@ class EstimateLine(StandardColumns, db.Model):
     unit_cost: Mapped[Decimal | None] = mapped_column(UNIT_COST)
     taxable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
     warranty_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    scope: Mapped[str | None] = mapped_column(Text)
 
 
 class DocLink(StandardColumns, db.Model):
     """A customer link, /d/<token>. Only the token's sha256 is stored, so the database
-    can't open a link; "Send link" mints a new token each time. One document per link.
-    Not audited: every view updates it."""
+    can't open a link; "Send link" mints a new token each time. One document per link: an
+    estimate or an invoice. Not audited: every view updates it."""
 
     __tablename__ = "doc_link"
     __table_args__ = (
         UniqueConstraint("token_sha256"),
         CheckConstraint("token_sha256 ~ '^[0-9a-f]{64}$'", name="token_sha256_hex"),
         CheckConstraint("view_count >= 0", name="views_nonnegative"),
+        CheckConstraint("num_nonnulls(estimate_id, invoice_id) = 1", name="one_document"),
     )
 
     id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
-    estimate_id: Mapped[int] = mapped_column(Integer, ForeignKey("estimate.id"), nullable=False,
-                                             index=True)
+    estimate_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("estimate.id"), index=True)
+    invoice_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("invoice.id"), index=True)
     token_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

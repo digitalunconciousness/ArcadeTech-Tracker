@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Link for {{ inv.number }}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <p class="dim"><a href="{{ url_for('billing.show', invoice_id=inv.id) }}"><span class="mono">{{ inv.number }}</span></a> · {{ customer.display_name }}</p>
+  <h1>Send this link</h1>
+  <p class="mono key break">{{ url }}</p>
+  <p class="actions">
+    <button class="btn primary" type="button" data-share="{{ url }}" data-share-title="Invoice {{ inv.number }}">Share…</button>
+    <button class="btn" type="button" data-copy="{{ url }}">Copy</button>
+    <a class="btn" href="{{ url }}" target="_blank" rel="noopener noreferrer">Open</a>
+  </p>
+  <p class="dim">Text or email it from your phone. It opens this invoice only (with how to pay and the PDF), works for {{ days }} days or until you withdraw it, and isn't shown again: make a new one any time.</p>
+  <p><a class="btn" href="{{ url_for('billing.show', invoice_id=inv.id) }}">Back to the invoice</a></p>
+</section>
+{% endblock %}

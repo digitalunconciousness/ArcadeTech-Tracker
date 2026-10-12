@@ -1,7 +1,8 @@
 """Customer links and calendar feeds: /d/... The only pages anyone can open without
 signing in, so: token only (32 random bytes; the database keeps a hash), one document
-per link, read-only except approve and decline, rate-limited, never indexed. A bad,
-expired or withdrawn token gets the same 404, so a guess learns nothing."""
+per link (an estimate or an invoice), read-only except approving or declining an
+estimate, rate-limited, never indexed. A bad, expired or withdrawn token gets the same
+404, so a guess learns nothing."""
 
 from datetime import timedelta
 
@@ -17,11 +18,14 @@ from flask import (
 )
 from sqlalchemy import select
 
+from app.billing import docs as invoice_docs
+from app.billing import service as billing
 from app.calendar_ics import calendar
 from app.estimates import docs, service
 from app.estimates.forms import DeclineForm, SignForm
 from app.estimates.service import EstimateError
 from app.extensions import client_ip, db, limiter
+from app.links import live_link
 from app.models import (
     Appointment,
     AppointmentUser,
@@ -71,14 +75,51 @@ def page(link_est, token, form=None, status=200, error=None):
 @bp.route("/<token>")
 @limiter.limit(VIEW_LIMIT)
 def estimate(token):
-    found = service.find_link(token)
-    if found is None:
+    """The document behind a link: an estimate (to approve) or an invoice (to pay). The
+    endpoint keeps its first name; staff pages build every link with it."""
+    link = live_link(token)
+    if link is None:
         return gone()
-    link, _ = found
     link.view_count += 1
     link.last_viewed_at = utcnow()
     db.session.commit()
-    return page(found, token)
+    if link.invoice_id is not None:
+        return invoice_page(billing.find_link(token), token)
+    return page(service.find_link(token), token)
+
+
+def invoice_page(found, token):
+    _, inv = found
+    customer = db.session.get(Customer, inv.customer_id)
+    return render_template("public/invoice.html", token=token,
+                           doc_css=url_for("static", filename="css/doc.css"),
+                           **invoice_docs.context(inv, billing.lines_of(inv), customer))
+
+
+def frozen_pdf(sha256, filename):
+    path = files.path_for(sha256, ".pdf") if sha256 else None
+    if path is None or not path.exists():
+        return gone()
+    return send_file(path, mimetype="application/pdf", download_name=filename,
+                     as_attachment=False, max_age=0)
+
+
+@bp.route("/<token>/invoice.pdf")
+@limiter.limit(VIEW_LIMIT)
+def invoice_pdf(token):
+    found = billing.find_link(token)
+    if found is None:
+        return gone()
+    return frozen_pdf(found[1].pdf_sha256, f"{found[1].number}.pdf")
+
+
+@bp.route("/<token>/service-report.pdf")
+@limiter.limit(VIEW_LIMIT)
+def invoice_report(token):
+    found = billing.find_link(token)
+    if found is None:
+        return gone()
+    return frozen_pdf(found[1].report_sha256, f"{found[1].number}-service-report.pdf")
 
 
 @bp.route("/<token>/approve", methods=["POST"])

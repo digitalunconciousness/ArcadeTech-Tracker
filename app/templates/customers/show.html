@@ -102,6 +102,19 @@
   </ul>
 </section>
 
+{% if can_see_costs %}
+<section class="panel" id="invoices">
+  <h2>Invoices</h2>
+  <ul class="list">
+    {% for inv in invoices %}
+    <li{% if inv.status == 'void' %} class="inactive"{% endif %}><a href="{{ url_for('billing.show', invoice_id=inv.id) }}"><span class="mono tag">{{ inv.number }}</span></a> {{ inv.issue_date }} · {{ inv.total | money }} <span class="badge">{{ inv.status | replace('_', ' ') }}</span>{% if inv.status not in ('void', 'paid') %} <span class="dim">balance {{ inv.balance | money }}</span>{% endif %}</li>
+    {% else %}
+    <li class="dim">None yet. Invoices are issued from a work order.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section class="panel" id="work">
   <div class="head">
     <h2>Work orders</h2>

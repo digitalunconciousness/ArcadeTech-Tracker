@@ -125,3 +125,37 @@ def test_retention(app, pg_tools, tmp_path):
     assert len(kept) == 14 and kept[0] == "20260108T030000Z"
     assert len(list(monthly.iterdir())) == 12  # this month's run added, the oldest pruned
     assert not (monthly / "20250101T030000Z").exists()
+
+
+def test_drill_rehashes_issued_invoice_pdfs(app, tdb, signed_in, pg_tools, tmp_path):
+    """The drill proves every issued invoice PDF (and the service report frozen with it)
+    is still the exact file the customer got, even when the archive's checksums agree."""
+    from test_billing import billable, issue, issued_id
+
+    from conftest import db_query
+
+    owner = signed_in("owner")
+    issued_id(issue(owner, app, billable(owner, app)["wo"]))
+    shas = db_query(app, "SELECT pdf_sha256, report_sha256 FROM invoice")[0]
+    store, files_dir = Path(app.config["SHOP_FILES_DIR"]), tmp_path / "files"
+    for sha in shas:
+        (files_dir / sha[:2]).mkdir(parents=True, exist_ok=True)
+        shutil.copy(store / sha[:2] / f"{sha}.pdf", files_dir / sha[:2] / f"{sha}.pdf")
+    restore_db = f"{tdb.name}_rehash_restore"
+    tdb.create_database(restore_db)
+    url = tdb.url("owner", restore_db)
+
+    def drill(run):
+        env = _env(tmp_path, SHOP_BACKUP_DIR=str(tmp_path / run))
+        assert _run("backup.sh", env).returncode == 0
+        return _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": url})
+
+    ok = drill("good")
+    assert ok.returncode == 0 and "pdf re-hash ok (2 files)" in ok.stdout, ok.stdout + ok.stderr
+    invoice_pdf = files_dir / shas[0][:2] / f"{shas[0]}.pdf"
+    invoice_pdf.write_bytes(b"%PDF-1.7 altered after issue")
+    changed = drill("changed")
+    assert changed.returncode != 0 and f"{shas[0]}.pdf: hashes to" in changed.stderr
+    invoice_pdf.unlink()
+    missing = drill("missing")
+    assert missing.returncode != 0 and f"{shas[0]}.pdf: not in the archive" in missing.stderr

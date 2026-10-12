@@ -8,8 +8,14 @@
   <form method="post" novalidate>
     {{ form.csrf_token }}
     {{ field(form.description) }}
+    {% if line.labor_mode == 'fixed' %}
+    {{ form.qty(type="hidden") }}
+    {{ field(form.unit_price, inputmode="decimal") }}
+    {% else %}
     <div class="row two">{{ field(form.qty, inputmode="decimal") }}{{ field(form.unit_price, inputmode="decimal") }}</div>
     {% if line.kind == 'labor' %}{{ field(form.labor_mode) }}{% endif %}
+    {% endif %}
+    {{ field(form.scope) }}
     {% if line.kind == 'sublet' and form.unit_cost %}{{ field(form.unit_cost, inputmode="decimal") }}{% endif %}
     {{ check(form.taxable) }}
     <button class="btn primary" type="submit">Save</button>

@@ -101,6 +101,23 @@
 </section>
 {% endif %}
 
+{% if can_see_costs %}
+<section class="panel" id="invoices">
+  <div class="head">
+    <h2>Invoices</h2>
+    {% if is_owner and unbilled %}<a class="btn primary" href="{{ url_for('billing.issue', wo_id=wo.id) }}">Issue an invoice</a>{% endif %}
+  </div>
+  <ul class="list">
+    {% for inv in invoices %}
+    <li{% if inv.status == 'void' %} class="inactive"{% endif %}><a href="{{ url_for('billing.show', invoice_id=inv.id) }}"><span class="mono">{{ inv.number }}</span></a> {{ inv.issue_date }} · {{ inv.total | money }} <span class="badge">{{ inv.status | replace('_', ' ') }}</span>{% if inv.status not in ('void', 'paid') %} <span class="dim">balance {{ inv.balance | money }}</span>{% endif %}</li>
+    {% else %}
+    <li class="dim">Not billed yet.</li>
+    {% endfor %}
+  </ul>
+  {% if invoices and unbilled %}<p class="dim">Some lines aren't on an invoice yet.</p>{% endif %}
+</section>
+{% endif %}
+
 {% if can_edit %}
 <section class="panel">
   <h2>Status</h2>

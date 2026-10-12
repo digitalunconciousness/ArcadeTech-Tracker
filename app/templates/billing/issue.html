@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Bill {{ wo.number }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono">{{ wo.number }}</span></a> · {{ customer.display_name }}</p>
+  <h1>Issue an invoice</h1>
+  {% if not groups %}
+  <p class="dim">Nothing left to bill on this work order: every billable line is already on an invoice (or has no hours yet).</p>
+  <p><a class="btn" href="{{ url_for('work.show', wo_id=wo.id) }}">Back</a></p>
+  {% else %}
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <p class="dim">Tick what goes on this invoice. Leave a job unticked to bill it later (one cabinet now, the other when it's done). To change a price or wording, edit the line on the job first: after issue, nothing on the invoice can change.</p>
+    <table class="grid">
+      <thead><tr><th class="pick"></th><th>Item</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+      {% for job, asset, lines in groups %}
+      <tr class="total"><td colspan="3"><strong>{% if asset %}<span class="mono tag">{{ asset.tag }}</span> {{ asset.name }}{% else %}{{ job.complaint | truncate(80) }}{% endif %}</strong></td></tr>
+      {% for x in lines %}
+      <tr>
+        <td class="pick"><input type="checkbox" name="lines" value="{{ x.id }}" id="line-{{ x.id }}" {% if x.id in selected %}checked{% endif %}></td>
+        <td><label for="line-{{ x.id }}">{{ x.description }}</label>
+          {% if x.scope %}<ul class="scope">{% for item in x.scope | scope_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+          <div class="dim small">{{ x.kind }}{% if x.labor_mode == 'fixed' %} · fixed price{% elif x.kind == 'labor' %} · {{ x.qty | qty }} h{% else %} · {{ x.qty | qty }} × {{ x.unit_price | money }}{% endif %}{% if x.taxable %} · taxable{% endif %}{% if x.customer_supplied %} · customer's part{% endif %}</div></td>
+        <td class="num">{{ amount(x) | money }}</td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+
+    {% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
+    {% if draft %}
+    <dl class="facts">
+      <dt>Subtotal</dt><dd>{{ (draft.subtotal_taxable + draft.subtotal_nontaxable) | money }}{% if draft.subtotal_taxable %} <span class="dim">· {{ draft.subtotal_taxable | money }} taxable</span>{% endif %}</dd>
+      <dt>Sales tax</dt><dd>{% if draft.tax_status == 'not_collected' %}not collected <span class="dim">(Settings → Tax is off; the invoice says so)</span>{% elif draft.tax_status == 'exempt' %}exempt · certificate {{ draft.exempt_cert_no }}{% else %}{{ draft.tax | money }}{% if draft.jurisdiction %} <span class="dim">· {{ draft.jurisdiction.name }} {{ draft.jurisdiction.combined_rate | rate_pct }}</span>{% endif %}{% endif %}</dd>
+      <dt>Total</dt><dd><strong>{{ draft.total | money }}</strong></dd>
+      <dt>Terms</dt><dd>{{ payment_terms[customer.payment_terms] }} <span class="dim">(from the customer)</span></dd>
+    </dl>
+    {% endif %}
+
+    <div class="row two">{{ field(form.issue_date) }}{{ field(form.jurisdiction_id) }}</div>
+    {{ field(form.backdate_reason) }}
+    <p class="dim">An earlier date is for invoices billed before the app (the reason is kept). The number is still the next one in sequence.</p>
+    {{ field(form.customer_note) }}
+    {{ field(form.internal_note) }}
+    <p class="actions">
+      <button class="btn" type="submit" name="action" value="preview">Update totals</button>
+      <button class="btn primary" type="submit" name="action" value="issue" data-confirm="Issue this invoice? It gets the next number and can't be edited afterwards (only voided).">Issue invoice</button>
+    </p>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

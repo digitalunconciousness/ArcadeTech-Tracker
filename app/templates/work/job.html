@@ -58,12 +58,14 @@
     {% set c = line_cost(line) %}
     <tr{% if not line.billable %} class="inactive"{% endif %}>
       <td>{{ line.description }}
+        {% if line.scope %}<ul class="scope">{% for item in line.scope | scope_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
         <div class="dim small">
           {{ line.kind }}{% if line.labor_mode %} · {{ labor_modes[line.labor_mode] | lower }}{% endif %}{% if line.tech_user_id and line.tech_user_id in users %} · {{ users[line.tech_user_id].display_name }}{% endif %}{% if line.stock_lot_id %} · lot #{{ line.stock_lot_id }}{% if lots.get(line.stock_lot_id) %} dc {{ lots[line.stock_lot_id] }}{% endif %}{% endif %}{% if line.taxable %} · taxable{% endif %} · warranty {{ warranty(line) }} d
           {% if line.customer_supplied %}<span class="badge">customer's</span>{% endif %}
           {% if not line.billable %}<span class="badge warn">not billed</span>{% endif %}
+          {% if line.invoice_id %}{% if can_see_costs %}<a class="badge ok" href="{{ url_for('billing.show', invoice_id=line.invoice_id) }}" title="Billed">{{ invoices[line.invoice_id] }}</a>{% else %}<span class="badge ok">billed</span>{% endif %}{% endif %}
         </div>
-        {% if can_edit %}<div class="actions">
+        {% if can_edit and not line.invoice_id %}<div class="actions">
           <a class="btn small" href="{{ url_for('work.line_edit', line_id=line.id) }}">Edit</a>
           <form class="inline-form" method="post" action="{{ url_for('work.line_delete', line_id=line.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -71,7 +73,7 @@
           </form>
         </div>{% endif %}
       </td>
-      <td class="num">{{ line.qty | qty }} × {{ line.unit_price | money }}</td>
+      <td class="num">{% if line.labor_mode == 'fixed' %}fixed{% else %}{{ line.qty | qty }} × {{ line.unit_price | money }}{% endif %}</td>
       <td class="num">{{ amount(line) | money }}</td>
       {% if costs %}<td class="num">{{ c | money if c is not none else '' }}</td>{% endif %}
     </tr>
@@ -84,6 +86,9 @@
     </tbody>
   </table>
   {% if costs and totals.margin is not none %}<p class="dim">Parts and sublets margin {{ totals.margin | pct }}.</p>{% endif %}
+  {% if costs and fixed %}
+  <p class="dim">Fixed price {{ fixed.price | money }} · {{ fixed.hours | qty }} h logged{% if fixed.rate is not none %} → {{ fixed.rate | money }}/h so far{% endif %}.</p>
+  {% endif %}
 
   {% if forms %}
   <details class="form">
@@ -96,6 +101,18 @@
       <div class="row two">{{ field(forms.service.unit_price, inputmode="decimal") }}{{ field(forms.service.tech_user_id) }}</div>
       {{ field(forms.service.description) }}
       {{ check(forms.service.billable) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>Add a fixed price (one price for the job)</summary>
+    <form method="post" action="{{ url_for('work.line_fixed', job_id=job.id) }}" novalidate>
+      {{ forms.fixed.csrf_token }}
+      <div class="row two">{{ field(forms.fixed.description) }}{{ field(forms.fixed.unit_price, inputmode="decimal") }}</div>
+      {{ field(forms.fixed.scope) }}
+      {{ field(forms.fixed.tech_user_id) }}
+      {{ check(forms.fixed.billable) }}
+      <p class="dim">Labor only: parts we sell go on as parts, the customer's own as theirs. Keep the timer running anyway; it shows what the job really took.</p>
       <button class="btn" type="submit">Add</button>
     </form>
   </details>

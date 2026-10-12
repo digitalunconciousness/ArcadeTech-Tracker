@@ -1,0 +1,76 @@
+{% extends "docs/_doc.html" %}
+{% block title %}Invoice {{ inv.number }}{% endblock %}
+{% block doctype %}Invoice{% endblock %}
+{% block docno %}{{ inv.number }}{% endblock %}
+{% block docmeta %}{{ inv.issue_date }} · {{ terms_label | lower }}{% if inv.due_date != inv.issue_date %}, due {{ inv.due_date }}{% endif %}{% endblock %}
+{% block content %}
+{% if inv.status == 'void' %}<p class="notice">This invoice was voided on {{ inv.voided_at | localdt('%Y-%m-%d') }}. Nothing is owed on it.</p>{% endif %}
+<div class="cols">
+  <div>
+    <h3>Bill to</h3>
+    <p>{{ inv.bill_to.name }}{% for line in inv.bill_to.lines %}<br>{{ line }}{% endfor %}
+      {% if inv.bill_to.email %}<br>{{ inv.bill_to.email }}{% endif %}{% if inv.bill_to.phone %}<br>{{ inv.bill_to.phone }}{% endif %}</p>
+  </div>
+  {% if inv.ship_to %}
+  <div>
+    <h3>Work site</h3>
+    <p>{{ inv.ship_to.name }}{% for line in inv.ship_to.lines %}<br>{{ line }}{% endfor %}</p>
+  </div>
+  {% endif %}
+</div>
+
+{% set collected = inv.tax_status == 'collected' %}
+{% for label, group in groups %}
+<section class="job">
+  {% if label %}<h2>{{ label }}</h2>{% endif %}
+  <table>
+    <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Each</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {% for x in group %}
+    <tr>
+      <td>{{ x.description }}{% if collected and x.taxable %} <span class="muted">(T)</span>{% endif %}
+        {% if x.scope %}<ul class="scope">{% for item in x.scope | scope_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+        <div class="muted small">{% if x.customer_supplied %}Your part: no charge, no warranty{% elif x.warranty_until %}Warranty to {{ x.warranty_until }}{% endif %}</div></td>
+      {% if x.labor_mode == 'fixed' %}
+      <td class="num" colspan="2">Fixed price</td>
+      {% else %}
+      <td class="num">{{ x.qty | qty }}{% if x.kind == 'labor' %} h{% endif %}</td>
+      <td class="num">{{ x.unit_price | money }}</td>
+      {% endif %}
+      <td class="num">{{ x.line_total | money }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endfor %}
+
+<table class="totals">
+  <tbody>
+    {% if collected and inv.subtotal_taxable %}
+    <tr><td>Labor and other items</td><td class="num">{{ inv.subtotal_nontaxable | money }}</td></tr>
+    <tr><td>Taxable items (T)</td><td class="num">{{ inv.subtotal_taxable | money }}</td></tr>
+    <tr><td>Sales tax{% if inv.tax_jurisdiction %}, {{ inv.tax_jurisdiction.name }} {{ rate | rate_pct }}{% endif %}</td><td class="num">{{ inv.tax | money }}</td></tr>
+    {% else %}
+    <tr><td>Subtotal</td><td class="num">{{ (inv.subtotal_taxable + inv.subtotal_nontaxable) | money }}</td></tr>
+    {% endif %}
+    {% if inv.tax_status == 'not_collected' %}<tr><td class="muted">Sales tax not collected.</td><td></td></tr>{% endif %}
+    {% if inv.tax_status == 'exempt' %}<tr><td class="muted">Tax exempt: certificate {{ inv.exempt_cert_no }}.</td><td></td></tr>{% endif %}
+    <tr><td><strong>Total</strong></td><td class="num"><strong>{{ inv.total | money }}</strong></td></tr>
+    {% if inv.amount_paid %}<tr><td>Paid</td><td class="num">{{ inv.amount_paid | money }}</td></tr>{% endif %}
+    {% if inv.status != 'void' %}<tr><td><strong>Balance due</strong></td><td class="num"><strong>{{ inv.balance | money }}</strong></td></tr>{% endif %}
+  </tbody>
+</table>
+
+{% if inv.customer_note %}<p class="pre">{{ inv.customer_note }}</p>{% endif %}
+{% block payment %}
+{% if shop.payment_instructions and inv.status != 'void' %}
+<section class="pay">
+  <h3>How to pay</h3>
+  <p class="pre">{{ shop.payment_instructions }}</p>
+  <p class="muted">Put {{ inv.number }} in the memo.</p>
+</section>
+{% endif %}
+{% endblock %}
+{% if inv.terms_snapshot %}<div class="terms pre">{{ inv.terms_snapshot }}</div>{% endif %}
+{% endblock %}

@@ -1,6 +1,17 @@
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Integer, Numeric, String, Text, text, true
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    false,
+    text,
+    true,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.extensions import db
@@ -53,3 +64,13 @@ class ShopSetting(StandardColumns, db.Model):
     estimate_terms: Mapped[str | None] = mapped_column(Text)
     estimate_link_days: Mapped[int] = mapped_column(Integer, nullable=False,
                                                     server_default=text("30"))
+    # Off until the business has an Oklahoma sales tax permit (owner, 2026-10-12): invoices
+    # then say "Sales tax not collected" and taxable lines stay flagged for the CPA.
+    collect_sales_tax: Mapped[bool] = mapped_column(Boolean, nullable=False,
+                                                    server_default=false())
+    # The shop's own location: the rate for counter pickups, and the default.
+    default_tax_jurisdiction_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("tax_jurisdiction.id"))
+    # How customers pay (Zelle, Venmo…): on invoices and the invoice link. Written by the
+    # owner in Settings; never in the repo.
+    payment_instructions: Mapped[str | None] = mapped_column(Text)

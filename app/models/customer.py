@@ -126,6 +126,9 @@ class Site(StandardColumns, AddressColumns, db.Model):
     # Hours and who lets you in. Never alarm codes.
     access_notes: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
+    # Where on-site work is delivered, for sales tax (destination sourcing).
+    tax_jurisdiction_id: Mapped[int | None] = mapped_column(Integer,
+                                                            ForeignKey("tax_jurisdiction.id"))
 
 
 class CommLog(StandardColumns, db.Model):

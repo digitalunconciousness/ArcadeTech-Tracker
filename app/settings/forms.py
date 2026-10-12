@@ -56,6 +56,9 @@ class BusinessForm(FlaskForm):
         "without them)", filters=[blank_to_none], validators=[Optional(), Length(max=6000)])
     estimate_link_days = IntegerField("Estimates are good for (days)",
                                       validators=[InputRequired(), NumberRange(min=1, max=365)])
+    payment_instructions = TextAreaField(
+        "How customers pay you (Zelle, Venmo, checks payable to…; printed on invoices)",
+        filters=[blank_to_none], validators=[Optional(), Length(max=2000)])
 
 
 ROLE_CHOICES = [(role, label) for role, label in ROLE_LABELS.items()]
