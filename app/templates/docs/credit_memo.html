@@ -1,0 +1,34 @@
+{% extends "docs/_doc.html" %}
+{% block title %}Credit memo {{ cm.number }}{% endblock %}
+{% block doctype %}Credit memo{% endblock %}
+{% block docno %}{{ cm.number }}{% endblock %}
+{% block docmeta %}{{ cm.issue_date }} · against {{ inv.number }}{% endblock %}
+{% block content %}
+<div class="cols">
+  <div>
+    <h3>Credit to</h3>
+    <p>{{ inv.bill_to.name }}{% for line in inv.bill_to.lines %}<br>{{ line }}{% endfor %}</p>
+  </div>
+  <div>
+    <h3>Against</h3>
+    <p>Invoice {{ inv.number }} of {{ inv.issue_date }}, {{ inv.total | money }}</p>
+  </div>
+</div>
+<h3>Reason</h3>
+<p class="pre">{{ cm.reason }}</p>
+<table>
+  <thead><tr><th>Item</th><th class="num">Amount</th></tr></thead>
+  <tbody>
+  {% for x in lines %}
+  <tr><td>{{ x.description }}{% if cm.tax_rate is not none and x.taxable %} <span class="muted">(T)</span>{% endif %}</td><td class="num">{{ x.line_total | money }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<table class="totals">
+  <tbody>
+    {% if cm.tax %}<tr><td>Sales tax returned ({{ cm.tax_rate | rate_pct }})</td><td class="num">{{ cm.tax | money }}</td></tr>{% endif %}
+    <tr><td><strong>Total credit</strong></td><td class="num"><strong>{{ cm.total | money }}</strong></td></tr>
+  </tbody>
+</table>
+<p class="muted">This credit goes on invoice {{ inv.number }}. If it's more than was still owed there, the rest stays on your account for future work, or we refund it.</p>
+{% endblock %}

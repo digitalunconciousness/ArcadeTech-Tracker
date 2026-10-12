@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_forms.html" import field %}
+{% from "_forms.html" import field, check %}
 {% block title %}Bill {{ wo.number }}{% endblock %}
 {% block content %}
 <section class="panel">
@@ -36,11 +36,13 @@
       <dt>Subtotal</dt><dd>{{ (draft.subtotal_taxable + draft.subtotal_nontaxable) | money }}{% if draft.subtotal_taxable %} <span class="dim">· {{ draft.subtotal_taxable | money }} taxable</span>{% endif %}</dd>
       <dt>Sales tax</dt><dd>{% if draft.tax_status == 'not_collected' %}not collected <span class="dim">(Settings → Tax is off; the invoice says so)</span>{% elif draft.tax_status == 'exempt' %}exempt · certificate {{ draft.exempt_cert_no }}{% else %}{{ draft.tax | money }}{% if draft.jurisdiction %} <span class="dim">· {{ draft.jurisdiction.name }} {{ draft.jurisdiction.combined_rate | rate_pct }}</span>{% endif %}{% endif %}</dd>
       <dt>Total</dt><dd><strong>{{ draft.total | money }}</strong></dd>
+      {% if credit %}<dt>On account</dt><dd>{{ credit | money }} credit (deposits, overpayments){% if form.apply_credit.data %}: {{ [credit, draft.total] | min | money }} goes on this invoice{% endif %}</dd>{% endif %}
       <dt>Terms</dt><dd>{{ payment_terms[customer.payment_terms] }} <span class="dim">(from the customer)</span></dd>
     </dl>
     {% endif %}
 
     <div class="row two">{{ field(form.issue_date) }}{{ field(form.jurisdiction_id) }}</div>
+    {% if credit %}{{ check(form.apply_credit) }}{% endif %}
     {{ field(form.backdate_reason) }}
     <p class="dim">An earlier date is for invoices billed before the app (the reason is kept). The number is still the next one in sequence.</p>
     {{ field(form.customer_note) }}

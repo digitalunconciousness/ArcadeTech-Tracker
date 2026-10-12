@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head"><h1>Payments</h1><a class="btn" href="{{ url_for('billing.index') }}">Invoices</a></div>
+  <table class="grid">
+    <thead><tr><th>Payment</th><th>Customer</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {% for p, customer in rows %}
+    <tr>
+      <td><a href="{{ url_for('billing.payment', payment_id=p.id) }}">#{{ p.id }}</a> <span class="dim small">{{ p.received_on }} · {{ methods[p.method] }}{% if p.kind != 'receipt' %} · <span class="badge {{ 'danger' if p.kind == 'reversal' else 'warn' }}">{{ kinds[p.kind] | lower }}</span>{% endif %}</span></td>
+      <td>{{ customer.display_name }}</td>
+      <td class="num">{{ p.amount | money }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="dim">No payments yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

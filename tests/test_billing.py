@@ -163,10 +163,11 @@ def test_issue_snapshots_numbers_and_freezes(app, signed_in, tdb):
                     "unit_price) SELECT id, 9, 'fee', 'x', 1, 1 FROM invoice"):
             with pytest.raises(INTEGRITY):
                 c.execute(sql)
-        # what may change after issue: payments and status (Phase 4b records them)
-        c.execute("UPDATE invoice SET amount_paid = 3.90, balance = 120.00, "
-                  "status = 'partially_paid'")
-    assert db_query(app, "SELECT status, balance FROM invoice") == [("partially_paid", D(120))]
+        # paid and balance move only with money actually applied (test_payments.py)
+        with pytest.raises(psycopg.errors.IntegrityConstraintViolation, match="applied to it"):
+            c.execute("UPDATE invoice SET amount_paid = 3.90, balance = 120.00, "
+                      "status = 'partially_paid'")
+    assert db_query(app, "SELECT status, balance FROM invoice") == [("issued", D("123.90"))]
 
 
 def test_issue_arithmetic_is_checked_by_postgres(app, signed_in, tdb):

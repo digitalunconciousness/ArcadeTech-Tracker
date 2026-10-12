@@ -17,7 +17,7 @@
     <dt>Sales tax</dt><dd>{{ tax_statuses[inv.tax_status] }}{% if inv.tax_status == 'collected' and inv.tax_jurisdiction %} · {{ inv.tax_jurisdiction.name }} {{ inv.tax_jurisdiction.combined_rate | rate_pct }}{% endif %}{% if inv.exempt_cert_no %} · certificate {{ inv.exempt_cert_no }}{% endif %}
       {% if inv.tax_status == 'not_collected' and inv.subtotal_taxable %}<div class="dim">{{ inv.subtotal_taxable | money }} of it is taxable goods, untaxed{% if exposure is not none %} ({{ inv.tax_jurisdiction.name }} {{ inv.tax_jurisdiction.combined_rate | rate_pct }} would be {{ exposure | money }}){% endif %}.</div>{% endif %}</dd>
     <dt>Total</dt><dd><strong>{{ inv.total | money }}</strong>{% if inv.tax %} <span class="dim">· tax {{ inv.tax | money }}</span>{% endif %}</dd>
-    {% if inv.status != 'void' %}<dt>Paid</dt><dd>{{ inv.amount_paid | money }}</dd>
+    {% if inv.status != 'void' %}<dt>Paid</dt><dd>{{ inv.amount_paid | money }}{% if inv.amount_credited %} <span class="dim">· credited {{ inv.amount_credited | money }}</span>{% endif %}</dd>
     <dt>Balance</dt><dd><strong>{{ inv.balance | money }}</strong></dd>{% endif %}
     <dt>Cost</dt><dd>{{ costs.cost | money }}{% if costs.margin is not none %} <span class="dim">· parts and sublets margin {{ costs.margin | pct }}</span>{% endif %}</dd>
     {% if inv.status == 'void' %}<dt>Void</dt><dd>{{ inv.voided_at | localdt }}{% if voided_by %} by {{ voided_by.display_name }}{% endif %} · {{ inv.void_reason }}</dd>{% endif %}
@@ -52,6 +52,46 @@
   {% endfor %}
 </section>
 
+{% if inv.status not in ('draft', 'void') %}
+<section class="panel" id="money">
+  <h2>Payments and credits</h2>
+  <ul class="list">
+    {% for alloc, p, cm in applied %}
+    <li>
+      {% if p %}<a href="{{ url_for('billing.payment', payment_id=p.id) }}">{{ kinds[p.kind] }} #{{ p.id }}</a> <span class="dim">{{ p.received_on }} · {{ methods[p.method] }}{% if p.reference %} {{ p.reference }}{% endif %}</span>
+      {% else %}<a href="{{ url_for('billing.credit_memo', cm_id=cm.id) }}">{{ cm.number }}</a> <span class="dim">{{ cm.issue_date }} · {{ cm.reason }}</span>{% endif %}
+      <strong class="num">{{ alloc.amount | money }}</strong>
+    </li>
+    {% else %}
+    <li class="dim">Nothing paid yet.</li>
+    {% endfor %}
+  </ul>
+  {% if can_bill %}
+  {% if inv.status in ('issued', 'partially_paid') %}
+  {% if credit %}
+  <form method="post" action="{{ url_for('billing.apply_credit', invoice_id=inv.id) }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn" type="submit">Apply {{ credit | money }} credit on account</button>
+  </form>
+  {% endif %}
+  <details class="form" open>
+    <summary>Record a payment</summary>
+    <form method="post" action="{{ url_for('billing.pay', invoice_id=inv.id) }}" novalidate>
+      {{ pay_form.csrf_token }}
+      <div class="row two">{{ field(pay_form.amount, inputmode="decimal") }}{{ field(pay_form.received_on) }}</div>
+      <div class="row two">{{ field(pay_form.method) }}{{ field(pay_form.reference) }}</div>
+      {{ field(pay_form.note) }}
+      <p class="dim">More than the balance? The rest is credit on the customer's account. Paying several invoices at once: <a href="{{ url_for('billing.customer_payment', customer_id=customer.id) }}">record it on the customer</a>.</p>
+      <button class="btn primary" type="submit">Record payment</button>
+    </form>
+  </details>
+  {% endif %}
+  {% if creditable > 0 %}<p class="actions"><a class="btn small" href="{{ url_for('billing.credit_memo_new', invoice_id=inv.id) }}">Issue a credit memo</a></p>{% endif %}
+  {% endif %}
+  {% if credit_memos %}<p class="dim small">Credit memos: {% for cm in credit_memos %}<a href="{{ url_for('billing.credit_memo', cm_id=cm.id) }}">{{ cm.number }}</a> {{ cm.total | money }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+</section>
+{% endif %}
+
 {% if can_bill %}
 <section class="panel" id="links">
   <h2>Customer link</h2>
@@ -77,7 +117,7 @@
   </ul>
 </section>
 
-{% if inv.status == 'issued' and not inv.amount_paid %}
+{% if inv.status == 'issued' and not inv.amount_paid and not inv.amount_credited %}
 <section class="panel">
   <h2>Void</h2>
   <details class="form">

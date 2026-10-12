@@ -131,6 +131,11 @@ def new():
 
 # --- one estimate ----------------------------------------------------------------------------
 
+def deposit_on(est):
+    from app.billing import payments
+    return payments.deposit_on(est)
+
+
 def line_forms(est, jobs):
     job_choices = [(j.id, f"{a.tag} · {a.name}" if a else "Consultation") for j, a in jobs]
     services = db.session.scalars(select(Service).where(Service.active.is_(True))
@@ -173,6 +178,7 @@ def show(est_id):
         costs=current_user.role in COST_ROLES, forms=line_forms(est, ctx["jobs"]) if editable
         else None, add_job=add_job, verbal=VerbalForm(), decline=DeclineForm(),
         convert=convert, now_hash=service.content_hash(est),
+        deposit=deposit_on(est) if current_user.role in COST_ROLES else None,
         signature_src=url_for("estimates.signature", sha256=est.signature_sha256)
         if est.signature_sha256 else None)
 

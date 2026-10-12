@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ cm.number }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head"><h1 class="mono tag">{{ cm.number }}</h1></div>
+  <dl class="facts">
+    <dt>Customer</dt><dd><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></dd>
+    <dt>Against</dt><dd><a href="{{ url_for('billing.show', invoice_id=inv.id) }}"><span class="mono">{{ inv.number }}</span></a></dd>
+    <dt>Issued</dt><dd>{{ cm.issue_date }}</dd>
+    <dt>Reason</dt><dd>{{ cm.reason }}</dd>
+    <dt>Total</dt><dd><strong>{{ cm.total | money }}</strong>{% if cm.tax %} <span class="dim">· tax {{ cm.tax | money }}</span>{% endif %}</dd>
+    <dt>Credit left</dt><dd>{{ left | money }}</dd>
+  </dl>
+  <table class="grid">
+    <thead><tr><th>Item</th><th class="num">Amount</th></tr></thead>
+    <tbody>{% for x in lines %}<tr><td>{{ x.description }}{% if x.taxable %} <span class="dim small">taxable</span>{% endif %}</td><td class="num">{{ x.line_total | money }}</td></tr>{% endfor %}</tbody>
+  </table>
+  <p class="actions"><a class="btn small" href="{{ url_for('billing.credit_memo_pdf', cm_id=cm.id) }}">Credit memo (PDF)</a></p>
+  <h2>Applied to</h2>
+  <ul class="list">
+    {% for alloc, i in applications %}<li><a href="{{ url_for('billing.show', invoice_id=i.id) }}"><span class="mono">{{ i.number }}</span></a> {{ alloc.amount | money }}</li>{% else %}<li class="dim">Not applied yet.</li>{% endfor %}
+    {% for r in refunds %}<li>Refunded <a href="{{ url_for('billing.payment', payment_id=r.id) }}">#{{ r.id }}</a> {{ (-r.amount) | money }} · {{ r.received_on }}</li>{% endfor %}
+  </ul>
+  {% if can_bill and left %}
+  {% if apply_form.invoice_id.choices %}
+  <details class="form">
+    <summary>Apply the credit left to an invoice</summary>
+    <form method="post" action="{{ url_for('billing.apply_credit_memo', cm_id=cm.id) }}" novalidate>
+      {{ apply_form.csrf_token }}
+      <div class="row two">{{ field(apply_form.invoice_id) }}{{ field(apply_form.amount, inputmode="decimal") }}</div>
+      <button class="btn" type="submit">Apply</button>
+    </form>
+  </details>
+  {% endif %}
+  <details class="form">
+    <summary>Refund the credit left</summary>
+    <form method="post" action="{{ url_for('billing.refund_credit_memo', cm_id=cm.id) }}" novalidate>
+      {{ refund_form.csrf_token }}
+      <div class="row two">{{ field(refund_form.amount, inputmode="decimal") }}{{ field(refund_form.method) }}</div>
+      <div class="row two">{{ field(refund_form.reference) }}{{ field(refund_form.reason) }}</div>
+      <button class="btn" type="submit">Record refund</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+{% endblock %}

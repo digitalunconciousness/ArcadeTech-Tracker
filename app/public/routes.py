@@ -19,6 +19,7 @@ from flask import (
 from sqlalchemy import select
 
 from app.billing import docs as invoice_docs
+from app.billing import payments
 from app.billing import service as billing
 from app.calendar_ics import calendar
 from app.estimates import docs, service
@@ -93,7 +94,28 @@ def invoice_page(found, token):
     customer = db.session.get(Customer, inv.customer_id)
     return render_template("public/invoice.html", token=token,
                            doc_css=url_for("static", filename="css/doc.css"),
+                           received=[(a, p) for a, p, _ in payments.applied_to(inv)
+                                     if p is not None and p.kind == "receipt"],
                            **invoice_docs.context(inv, billing.lines_of(inv), customer))
+
+
+@bp.route("/<token>/receipt/<int:payment_id>.pdf")
+@limiter.limit(VIEW_LIMIT)
+def invoice_receipt(token, payment_id):
+    """A receipt for a payment on this invoice; only those, so a link opens nothing else."""
+    found = billing.find_link(token)
+    if found is None:
+        return gone()
+    inv = found[1]
+    payment = next((p for _, p, _ in payments.applied_to(inv)
+                    if p is not None and p.id == payment_id and p.kind == "receipt"), None)
+    if payment is None:
+        return gone()
+    response = make_response(invoice_docs.receipt_pdf(payment, db.session.get(Customer,
+                                                                             inv.customer_id)))
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = f'inline; filename="payment-{payment.id}.pdf"'
+    return response
 
 
 def frozen_pdf(sha256, filename):

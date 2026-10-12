@@ -1,11 +1,21 @@
 from decimal import Decimal
 
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DateField, SelectField, StringField, TextAreaField
+from wtforms import (
+    BooleanField,
+    DateField,
+    FieldList,
+    Form,
+    FormField,
+    SelectField,
+    StringField,
+    TextAreaField,
+)
 from wtforms.validators import DataRequired, InputRequired, Length, Optional, ValidationError
 
 from app.customers.forms import opt_int
-from app.forms_common import blank_to_none, decimal_field, optional_text
+from app.forms_common import blank_to_none, decimal_field, money_field, optional_text
+from app.models import PAYMENT_METHODS
 from app.work.forms import MultiCheckboxField
 
 
@@ -20,6 +30,7 @@ class IssueForm(FlaskForm):
     issue_date = DateField("Issue date", validators=[InputRequired()])
     backdate_reason = optional_text("Why it's dated earlier (needed for an earlier date)", 300)
     jurisdiction_id = SelectField("Tax jurisdiction", coerce=opt_int)
+    apply_credit = BooleanField("Apply the customer's credit on account", default=True)
     customer_note = text_area("Note to the customer (printed)", 2000)
     internal_note = text_area("Internal note (not printed)", 2000)
 
@@ -65,3 +76,50 @@ class TaxSettingsForm(FlaskForm):
                                      "tax permit)")
     default_tax_jurisdiction_id = SelectField("The shop's own location (counter sales, and "
                                               "the default)", coerce=opt_int)
+
+
+METHOD_CHOICES = list(PAYMENT_METHODS.items())
+
+
+class PaymentForm(FlaskForm):
+    amount = money_field("Amount received", required=True)
+    method = SelectField("How", choices=METHOD_CHOICES, default="zelle")
+    received_on = DateField("Received on", validators=[InputRequired()])
+    reference = optional_text("Check no. or transaction id", 80)
+    note = optional_text("Note", 300)
+
+
+class CustomerPaymentForm(PaymentForm):
+    estimate_id = SelectField("A deposit for (optional)", coerce=opt_int)
+
+
+class ReverseForm(FlaskForm):
+    reason = StringField("Why (bounced check, entered by mistake…)", filters=[blank_to_none],
+                         validators=[DataRequired("Say why."), Length(max=300)])
+    received_on = DateField("Date", validators=[InputRequired()])
+
+
+class RefundForm(FlaskForm):
+    amount = money_field("Amount refunded", required=True)
+    method = SelectField("How it was paid back", choices=METHOD_CHOICES, default="zelle")
+    reference = optional_text("Check no. or transaction id", 80)
+    reason = StringField("Why", filters=[blank_to_none],
+                         validators=[DataRequired("Say why."), Length(max=300)])
+
+
+class ApplyForm(FlaskForm):
+    invoice_id = SelectField("Invoice", coerce=int)
+    amount = money_field("Amount (blank: as much as fits)")
+
+
+class CreditLine(Form):
+    description = StringField("What", filters=[blank_to_none], validators=[Optional(),
+                                                                           Length(max=200)])
+    amount = money_field("Amount")
+    taxable = BooleanField("Taxable (parts)")
+
+
+class CreditMemoForm(FlaskForm):
+    reason = StringField("Reason (printed)", filters=[blank_to_none],
+                         validators=[DataRequired("Say why."), Length(max=300)])
+    lines = FieldList(FormField(CreditLine), min_entries=4, max_entries=4)

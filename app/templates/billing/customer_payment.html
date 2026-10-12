@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Payment from {{ customer.display_name }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></p>
+  <h1>Record a payment</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.amount, inputmode="decimal") }}{{ field(form.received_on) }}</div>
+    <div class="row two">{{ field(form.method) }}{{ field(form.reference) }}</div>
+    {{ field(form.estimate_id) }}
+    {% if invoices %}
+    <h2>Apply it to</h2>
+    <p class="dim">Type the amount and press "Fill in oldest first", or type your own split. What isn't applied stays on the customer's account (a deposit, an overpayment) for the next invoice.</p>
+    <table class="grid">
+      <thead><tr><th>Invoice</th><th class="num">Owed</th><th class="num">Apply</th></tr></thead>
+      <tbody>
+      {% for inv in invoices %}
+      {% set value = posted[inv.id] if posted is not none else (suggested.get(inv.id) | string if suggested.get(inv.id) else '') %}
+      <tr>
+        <td><a href="{{ url_for('billing.show', invoice_id=inv.id) }}"><span class="mono">{{ inv.number }}</span></a> <span class="dim small">due {{ inv.due_date }}</span></td>
+        <td class="num">{{ inv.balance | money }}</td>
+        <td class="num"><input name="apply-{{ inv.id }}" value="{{ value or '' }}" inputmode="decimal" aria-label="Apply to {{ inv.number }}"></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="dim">No open invoices: the whole amount goes on the customer's account (pick the estimate above if it's a deposit).</p>
+    {% endif %}
+    {{ field(form.note) }}
+    <p class="actions">
+      {% if invoices %}<button class="btn" type="submit" name="action" value="fill">Fill in oldest first</button>{% endif %}
+      <button class="btn primary" type="submit" name="action" value="record">Record payment</button>
+    </p>
+  </form>
+</section>
+{% endblock %}

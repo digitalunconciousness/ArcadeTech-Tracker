@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Payment #{{ p.id }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head"><h1 class="mono tag">Payment #{{ p.id }}</h1></div>
+  <p class="lead">{{ customer.display_name }}
+    {% if p.kind != 'receipt' %}<span class="badge {{ 'danger' if p.kind == 'reversal' else 'warn' }}">{{ kinds[p.kind] | lower }}</span>{% endif %}
+    {% if reversal %}<span class="badge danger">reversed</span>{% endif %}</p>
+  <dl class="facts">
+    <dt>Customer</dt><dd><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></dd>
+    <dt>Amount</dt><dd><strong>{{ p.amount | money }}</strong></dd>
+    <dt>Date</dt><dd>{{ p.received_on }} <span class="dim">· recorded {{ p.created_at | localdt }}</span></dd>
+    <dt>How</dt><dd>{{ methods[p.method] }}{% if p.reference %} · <span class="mono">{{ p.reference }}</span>{% endif %}</dd>
+    {% if p.note %}<dt>{{ 'Note' if p.kind == 'receipt' else 'Why' }}</dt><dd>{{ p.note }}</dd>{% endif %}
+    {% if estimate %}<dt>Deposit on</dt><dd><a href="{{ url_for('estimates.show', est_id=estimate.id) }}"><span class="mono">{{ estimate.number }}</span></a> {{ estimate.summary }}</dd>{% endif %}
+    {% if original %}<dt>{{ 'Reverses' if p.kind == 'reversal' else 'Refund of' }}</dt><dd><a href="{{ url_for('billing.payment', payment_id=original.id) }}">payment #{{ original.id }}</a> ({{ original.received_on }}, {{ original.amount | money }})</dd>{% endif %}
+    {% if refunded_cm %}<dt>Refund of</dt><dd><a href="{{ url_for('billing.credit_memo', cm_id=refunded_cm.id) }}">{{ refunded_cm.number }}</a></dd>{% endif %}
+    {% if reversal %}<dt>Reversed</dt><dd><a href="{{ url_for('billing.payment', payment_id=reversal.id) }}">#{{ reversal.id }}</a> {{ reversal.received_on }} · {{ reversal.note }}</dd>{% endif %}
+    {% if p.kind == 'receipt' and not reversal %}<dt>Credit left</dt><dd>{{ left | money }}</dd>{% endif %}
+  </dl>
+  <p class="actions"><a class="btn small" href="{{ url_for('billing.receipt_pdf', payment_id=p.id) }}">{{ 'Receipt' if p.kind == 'receipt' else 'Record' }} (PDF)</a></p>
+</section>
+
+<section class="panel">
+  <h2>{{ 'Paid on' if p.kind == 'receipt' else 'Taken back from' }}</h2>
+  <ul class="list">
+    {% for alloc, inv in applications %}
+    <li><a href="{{ url_for('billing.show', invoice_id=inv.id) }}"><span class="mono">{{ inv.number }}</span></a> {{ alloc.amount | money }} <span class="dim">· {{ alloc.created_at | localdt('%Y-%m-%d') }}</span></li>
+    {% else %}
+    <li class="dim">Not applied to an invoice{{ ' yet' if p.kind == 'receipt' }}.</li>
+    {% endfor %}
+  </ul>
+  {% if refunds %}
+  <h3>Refunded</h3>
+  <ul class="list">{% for r in refunds %}<li><a href="{{ url_for('billing.payment', payment_id=r.id) }}">#{{ r.id }}</a> {{ r.received_on }} · {{ (-r.amount) | money }} · {{ r.note }}</li>{% endfor %}</ul>
+  {% endif %}
+</section>
+
+{% if can_bill and p.kind == 'receipt' and not reversal %}
+<section class="panel">
+  <h2>Change what it did</h2>
+  {% if left and apply_form.invoice_id.choices %}
+  <details class="form">
+    <summary>Apply the credit left ({{ left | money }}) to an invoice</summary>
+    <form method="post" action="{{ url_for('billing.apply_payment', payment_id=p.id) }}" novalidate>
+      {{ apply_form.csrf_token }}
+      <div class="row two">{{ field(apply_form.invoice_id) }}{{ field(apply_form.amount, inputmode="decimal") }}</div>
+      <button class="btn" type="submit">Apply</button>
+    </form>
+  </details>
+  {% endif %}
+  {% if left %}
+  <details class="form">
+    <summary>Refund the credit left</summary>
+    <form method="post" action="{{ url_for('billing.refund_payment', payment_id=p.id) }}" novalidate>
+      {{ refund_form.csrf_token }}
+      <div class="row two">{{ field(refund_form.amount, inputmode="decimal") }}{{ field(refund_form.method) }}</div>
+      <div class="row two">{{ field(refund_form.reference) }}{{ field(refund_form.reason) }}</div>
+      <button class="btn" type="submit">Record refund</button>
+    </form>
+  </details>
+  {% endif %}
+  {% if not refunds %}
+  <details class="form">
+    <summary>Reverse it (bounced check, entered by mistake)</summary>
+    <form method="post" action="{{ url_for('billing.reverse', payment_id=p.id) }}" novalidate>
+      {{ reverse_form.csrf_token }}
+      <div class="row two">{{ field(reverse_form.reason) }}{{ field(reverse_form.received_on) }}</div>
+      <p class="dim">The payment stays on file; a reversal for the whole {{ p.amount | money }} takes back everything it paid, so those invoices are owed again.</p>
+      <button class="btn danger" type="submit" data-confirm="Reverse payment #{{ p.id }}? This can't be undone.">Reverse</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

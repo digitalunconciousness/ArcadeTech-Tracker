@@ -102,6 +102,27 @@
   </ul>
 </section>
 
+{% if account %}
+<section class="panel" id="account">
+  <div class="head">
+    <h2>Account</h2>
+    {% if is_owner %}<a class="btn primary" href="{{ url_for('billing.customer_payment', customer_id=customer.id) }}">Record a payment</a>{% endif %}
+  </div>
+  <dl class="facts">
+    <dt>Owes</dt><dd><strong>{{ account.owed | money }}</strong></dd>
+    <dt>Credit</dt><dd>{{ account.credit | money }}{% if account.credit %} <span class="dim">· goes on the next invoice when it's issued</span>{% endif %}</dd>
+  </dl>
+  {% if account.sources %}
+  <ul class="list">
+    {% for src in account.sources %}
+    <li>{% if src.is_payment %}<a href="{{ url_for('billing.payment', payment_id=src.obj.id) }}">{{ src.label }}</a>{% if src.obj.estimate_id %} <span class="badge">deposit</span>{% endif %}{% else %}<a href="{{ url_for('billing.credit_memo', cm_id=src.obj.id) }}">{{ src.label }}</a>{% endif %} <span class="dim">{{ src.left | money }} unapplied</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <p class="actions"><a class="btn small" href="{{ url_for('billing.statement_pdf', customer_id=customer.id) }}">Statement (PDF)</a></p>
+</section>
+{% endif %}
+
 {% if can_see_costs %}
 <section class="panel" id="invoices">
   <h2>Invoices</h2>

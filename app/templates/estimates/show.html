@@ -16,7 +16,8 @@
     {% if est.valid_until %}<dt>Good until</dt><dd>{{ est.valid_until }}</dd>{% endif %}
     <dt>Total</dt><dd><strong>{{ totals.total | money }}</strong>{% if totals.hours %} <span class="dim">· {{ totals.hours | qty }} h labor</span>{% endif %}</dd>
     {% if est.not_to_exceed is not none %}<dt>Not to exceed</dt><dd>{{ est.not_to_exceed | money }}</dd>{% endif %}
-    {% if est.deposit_required %}<dt>Deposit</dt><dd>{{ est.deposit_required | money }}</dd>{% endif %}
+    {% if est.deposit_required or (deposit and deposit[0]) %}<dt>Deposit</dt><dd>{% if est.deposit_required %}{{ est.deposit_required | money }} asked{% endif %}{% if deposit %}{% if est.deposit_required %} · {% endif %}{{ deposit[0] | money }} received{% if deposit[1] %} <span class="dim">({{ deposit[1] | money }} not yet on an invoice)</span>{% endif %}{% endif %}
+      {% if is_owner and deposit is not none and est.deposit_required and deposit[0] < est.deposit_required %}<a class="btn small" href="{{ url_for('billing.customer_payment', customer_id=customer.id, estimate=est.id, amount=est.deposit_required - deposit[0]) }}">Record the deposit</a>{% endif %}</dd>{% endif %}
     {% if costs %}<dt>Cost</dt><dd>{{ totals.cost | money }}{% if totals.margin is not none %} <span class="dim">· parts and sublets margin {{ totals.margin | pct }}</span>{% endif %}</dd>{% endif %}
     {% if est.work_order_id %}<dt>Work order</dt><dd><a href="{{ url_for('work.show', wo_id=est.work_order_id) }}">open it</a></dd>{% endif %}
     {% if revisions | length > 1 %}<dt>Revisions</dt><dd>{% for r in revisions %}<a href="{{ url_for('estimates.show', est_id=r.id) }}"{% if r.id == est.id %} class="glow"{% endif %}>r{{ r.revision }}</a> <span class="dim">{{ r.status }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</dd>{% endif %}

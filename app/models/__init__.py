@@ -3,9 +3,15 @@ from app.models.audit import AuditLog
 from app.models.billing import (
     INVOICE_STATUSES,
     OPEN_INVOICE_STATUSES,
+    PAYMENT_KINDS,
+    PAYMENT_METHODS,
     TAX_STATUSES,
+    CreditMemo,
+    CreditMemoLine,
     Invoice,
     InvoiceLine,
+    Payment,
+    PaymentAllocation,
     TaxJurisdiction,
 )
 from app.models.customer import COMM_KINDS, PAYMENT_TERMS, CommLog, Contact, Customer, Site
@@ -64,6 +70,8 @@ __all__ = [
     "WorkOrderTech",
     "ALL_LABOR_MODES", "INVOICE_STATUSES", "OPEN_INVOICE_STATUSES", "TAX_STATUSES",
     "Invoice", "InvoiceLine", "TaxJurisdiction",
+    "PAYMENT_KINDS", "PAYMENT_METHODS", "CreditMemo", "CreditMemoLine", "Payment",
+    "PaymentAllocation",
     "APPROVAL_METHODS", "ESTIMATE_STATUSES",
     "Appointment", "AppointmentUser", "CalendarFeed", "DocLink", "Estimate", "EstimateJob",
     "EstimateLine",
