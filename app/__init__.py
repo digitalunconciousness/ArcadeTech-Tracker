@@ -18,7 +18,8 @@ PUBLIC_ENDPOINTS = frozenset({
     "auth.login", "auth.login_totp", "health.healthz", "static",
     # customer links and calendar feeds (/d/...): token-only, see app/public/routes.py
     "public.estimate", "public.approve", "public.decline", "public.estimate_pdf",
-    "public.signature", "public.accent_css", "public.calendar_feed",
+    "public.signature", "public.accent_css", "public.calendar_feed", "public.invoice_pdf",
+    "public.invoice_report",
 })
 # Reachable by an owner who hasn't enrolled 2FA yet.
 ENROLLMENT_ENDPOINTS = frozenset({"auth.totp_setup", "auth.logout", "static"})
@@ -47,6 +48,7 @@ def create_app(overrides=None):
     from app import models  # noqa: F401
     from app.assets.routes import bp as assets_bp
     from app.auth.routes import bp as auth_bp
+    from app.billing.routes import bp as billing_bp
     from app.customers.routes import bp as customers_bp
     from app.dashboard.routes import bp as dashboard_bp
     from app.estimates.routes import bp as estimates_bp
@@ -59,7 +61,7 @@ def create_app(overrides=None):
     from app.work.routes import bp as work_bp
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
-               pricebook_bp, parts_bp, work_bp, estimates_bp, public_bp):
+               pricebook_bp, parts_bp, work_bp, estimates_bp, billing_bp, public_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)

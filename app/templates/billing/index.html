@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Invoices{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Invoices</h1>
+  </div>
+  {% if not show_all %}<p class="lead">Owed to you: <strong>{{ owed | money }}</strong></p>{% endif %}
+  <table class="grid">
+    <thead><tr><th>Invoice</th><th>Customer</th><th class="num">Total</th><th class="num">Balance</th></tr></thead>
+    <tbody>
+    {% for inv, customer in rows %}
+    <tr{% if inv.status == 'void' %} class="inactive"{% endif %}>
+      <td><a href="{{ url_for('billing.show', invoice_id=inv.id) }}"><span class="mono tag">{{ inv.number }}</span></a>
+        <div class="dim small">{{ inv.issue_date }} · due {{ inv.due_date }}
+          {% if inv.status != 'issued' %}<span class="badge {{ 'ok' if inv.status == 'paid' else '' }}">{{ inv_statuses[inv.status] | lower }}</span>{% endif %}
+          {% if inv.id in overdue %}<span class="badge danger">overdue</span>{% endif %}</div></td>
+      <td>{{ customer.display_name }}</td>
+      <td class="num">{{ inv.total | money }}</td>
+      <td class="num">{{ inv.balance | money if inv.status != 'void' else '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="dim">{{ 'No invoices yet.' if show_all else 'Nothing owed.' }} Invoices are issued from a work order.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p><a href="{{ url_for('billing.index', all=None if show_all else 1) }}">{{ 'Open only' if show_all else 'Include paid and void' }}</a></p>
+</section>
+{% endblock %}

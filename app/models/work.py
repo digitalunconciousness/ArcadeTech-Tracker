@@ -29,7 +29,7 @@ from app.models.base import StandardColumns
 from app.models.parts import UNIT_COST
 
 WO_KINDS = {"on_site": "On site", "bench": "Bench", "mail_in": "Mail-in", "warranty": "Warranty",
-            "consult": "Consult"}
+            "consult": "Consult", "counter": "Counter sale"}
 WO_STATUSES = {
     "new": "New",
     "scheduled": "Scheduled",
@@ -46,6 +46,10 @@ JOB_STATUSES = {"open": "Open", "done": "Done", "cancelled": "Cancelled"}
 RECEIVED_VIA = {"drop_off": "Dropped off", "pickup": "We picked it up", "mail": "Mailed in"}
 LINE_KINDS = ("labor", "part", "fee", "sublet", "discount")
 LABOR_MODES = {"actual": "Actual time", "flat": "Flat hours"}
+# A fixed price is one labor line for the whole job as quoted (owner, 2026-10-12): qty 1,
+# the price, and the scope as text. Labor only, so parts we sell stay separate lines and
+# separately stated labor stays untaxed (see docs/PLAN.md, Oklahoma sales tax).
+ALL_LABOR_MODES = {**LABOR_MODES, "fixed": "Fixed price"}
 RESERVATION_STATUSES = ("reserved", "issued", "released")
 READING_PHASES = {"as_found": "As found", "during": "During", "as_left": "As left"}
 ATTACHMENT_KINDS = ("photo", "pdf", "receipt", "signature", "rail_report", "other")
@@ -138,14 +142,17 @@ class WoJob(StandardColumns, db.Model):
 class WoLine(StandardColumns, db.Model):
     """What the job is billed: labor, a part, a fee, a sublet or a discount. Amounts are
     qty × unit_price, rounded half-up; a discount line subtracts. unit_cost is a snapshot
-    (a part's lot cost), never looked up later."""
+    (a part's lot cost), never looked up later. Once on an invoice (invoice_id), a
+    trigger freezes the line until that invoice is voided."""
 
     __tablename__ = "wo_line"
     __audited__ = ()
     __table_args__ = (
         CheckConstraint(_in("kind", LINE_KINDS), name="kind"),
         CheckConstraint("(kind = 'labor') = (labor_mode IS NOT NULL)", name="labor_mode_iff_labor"),
-        CheckConstraint("labor_mode IS NULL OR labor_mode IN ('actual', 'flat')", name="labor_mode"),
+        CheckConstraint("labor_mode IS NULL OR labor_mode IN ('actual', 'flat', 'fixed')",
+                        name="labor_mode"),
+        CheckConstraint("labor_mode IS DISTINCT FROM 'fixed' OR qty = 1", name="fixed_qty_one"),
         # A part we sell is a catalog part; one the customer brought needn't be.
         CheckConstraint("kind <> 'part' OR part_id IS NOT NULL OR customer_supplied",
                         name="part_line_has_part"),
@@ -183,6 +190,9 @@ class WoLine(StandardColumns, db.Model):
     customer_supplied: Mapped[bool] = mapped_column(Boolean, nullable=False,
                                                     server_default=false())
     tech_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("app_user.id"))
+    # What a fixed price covers, one item per line; printed under the line.
+    scope: Mapped[str | None] = mapped_column(Text)
+    invoice_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("invoice.id"), index=True)
 
 
 class TimeEntry(StandardColumns, db.Model):

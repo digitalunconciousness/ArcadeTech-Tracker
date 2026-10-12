@@ -77,3 +77,10 @@ img.signature { display: block; max-width: 3in; max-height: 1.1in; margin-top: 4
   .no-print { margin-top: 24px; }
 }
 @media print { .approve-panel, .no-print { display: none; } }
+
+/* A fixed price's scope, printed under its line. */
+ul.scope { margin: 2pt 0 0; padding-left: 12pt; font-size: 9pt; }
+ul.scope li { margin: 0; }
+.small { font-size: 8.5pt; }
+.pay { margin-top: 10pt; page-break-inside: avoid; }
+@media print { .notice { border: 1pt solid #000; padding: 4pt; } }

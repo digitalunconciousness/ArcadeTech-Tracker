@@ -21,8 +21,8 @@ from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.formatting import qty as fmt_qty
 from app.models import (
+    ALL_LABOR_MODES,
     JOB_STATUSES,
-    LABOR_MODES,
     OPEN_WO_STATUSES,
     PRIORITIES,
     READING_PHASES,
@@ -34,6 +34,7 @@ from app.models import (
     Attachment,
     Customer,
     Estimate,
+    Invoice,
     ManualReading,
     Part,
     Reservation,
@@ -56,6 +57,7 @@ from app.work.forms import (
     AppointmentForm,
     CustomerPartForm,
     CustomLineForm,
+    FixedLineForm,
     JobForm,
     LineEditForm,
     NewWorkOrderForm,
@@ -76,7 +78,7 @@ bp = Blueprint("work", __name__)
 @bp.context_processor
 def labels():
     return {"statuses": WO_STATUSES, "kinds": WO_KINDS, "priorities": PRIORITIES,
-            "job_statuses": JOB_STATUSES, "labor_modes": LABOR_MODES, "phases": READING_PHASES}
+            "job_statuses": JOB_STATUSES, "labor_modes": ALL_LABOR_MODES, "phases": READING_PHASES}
 
 
 def sees_costs():
@@ -227,11 +229,17 @@ def show(wo_id):
         who.setdefault(appt_id, []).append(name)
     estimates = db.session.scalars(select(Estimate).where(Estimate.work_order_id == wo.id)
                                    .order_by(Estimate.revision)).all()
+    invoices = db.session.scalars(select(Invoice).where(Invoice.work_order_id == wo.id,
+                                                        Invoice.status != "draft")
+                                  .order_by(Invoice.id)).all() if sees_costs() else []
+    unbilled = any(x.billable and x.invoice_id is None and x.qty > 0
+                   for job, _ in jobs if job.status != "cancelled" for x in lines[job.id])
     return render_template("work/show.html", wo=wo, customer=customer, site=site, jobs=jobs,
                            job_totals=job_totals, total=total, techs=techs, over_nte=over_nte,
                            status_form=StatusForm(status=wo.status), add_job=add_job,
                            warranty_of=warranty_of, costs=sees_costs(),
                            appointments=appointments, who=who, estimates=estimates,
+                           invoices=invoices, unbilled=unbilled,
                            appointment_form=appointment_form(wo, customer)
                            if current_user.role in EDIT_ROLES else None)
 
@@ -361,6 +369,7 @@ def job_forms(job, wo):
 
     forms = {
         "service": ServiceLineForm(tech_user_id=current_user.id),
+        "fixed": FixedLineForm(tech_user_id=current_user.id),
         "part": PartLineForm(),
         "customer_part": CustomerPartForm(),
         "other": CustomLineForm(),
@@ -371,11 +380,21 @@ def job_forms(job, wo):
     }
     forms["service"].service_id.choices = [(s.id, f"{s.code} · {s.name}") for s in services]
     forms["service"].tech_user_id.choices = techs
+    forms["fixed"].tech_user_id.choices = techs
     forms["part"].part_id.choices = [(p.id, part_label(p)) for p in parts]
     forms["reserve"].part_id.choices = [(p.id, part_label(p)) for p in parts if p.track_stock]
     if not sees_costs():
         del forms["other"].unit_cost
     return forms
+
+
+def billed_numbers(lines):
+    """{invoice_id: number} for the invoices these lines are billed on."""
+    ids = {x.invoice_id for x in lines if x.invoice_id}
+    if not ids:
+        return {}
+    return dict(db.session.execute(select(Invoice.id, Invoice.number)
+                                   .where(Invoice.id.in_(ids))).all())
 
 
 def job_form(job):
@@ -414,6 +433,7 @@ def job(job_id):
         users=users, entries=entries, my_timer=mine, reservations=reservations,
         readings=readings, photos=photos, costs=sees_costs(),
         billable_minutes=service.billable_minutes(job), actual_hours=service.actual_hours(job),
+        fixed=service.fixed_price_rate(job, lines), invoices=billed_numbers(lines),
         warranty=lambda line: service.warranty_days(line, has_customer_part),
         amount=service.line_amount, line_cost=service.line_cost,
         job_form=job_form(job) if edit else None, forms=job_forms(job, wo) if edit else None)
@@ -506,6 +526,21 @@ def line_service(job_id):
     return back_to_job(job.id, "#lines")
 
 
+@bp.route("/work/jobs/<int:job_id>/lines/fixed", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def line_fixed(job_id):
+    job, wo = load_job(job_id)
+    form = job_forms(job, wo)["fixed"]
+    if form.validate_on_submit():
+        attempt(lambda: service.add_fixed_line(
+            job, description=form.description.data, unit_price=form.unit_price.data,
+            scope=form.scope.data, billable=form.billable.data,
+            tech_user_id=form.tech_user_id.data), "Fixed price added.")
+    else:
+        flash_errors(form)
+    return back_to_job(job.id, "#lines")
+
+
 @bp.route("/work/jobs/<int:job_id>/lines/part", methods=["POST"])
 @requires_role(*EDIT_ROLES)
 def line_part(job_id):
@@ -568,7 +603,7 @@ def line_edit(line_id):
                 line, description=form.description.data, unit_price=form.unit_price.data,
                 billable=form.billable.data, taxable=form.taxable.data, qty=form.qty.data,
                 unit_cost=form.unit_cost.data if "unit_cost" in form else line.unit_cost,
-                tech_user_id=form.tech_user_id.data), "Line saved."):
+                tech_user_id=form.tech_user_id.data, scope=form.scope.data), "Line saved."):
             return back_to_job(job.id, "#lines")
     flash_errors(form)
     return render_template("work/line_form.html", form=form, line=line, job=job, wo=wo)

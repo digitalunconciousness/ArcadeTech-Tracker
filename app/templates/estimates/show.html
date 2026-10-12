@@ -41,13 +41,14 @@
     {% for x in lines[job.id] %}
     <tr>
       <td>{{ x.description }}
-        <div class="dim small">{{ x.kind }}{% if x.labor_mode %} · {{ 'estimated; billed as worked' if x.labor_mode == 'actual' else 'flat' }}{% endif %}{% if x.taxable %} · taxable{% endif %}{% if costs and x.unit_cost is not none %} · cost {{ x.unit_cost | unit_cost }}{% endif %}</div>
+        {% if x.scope %}<ul class="scope">{% for item in x.scope | scope_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+        <div class="dim small">{{ x.kind }}{% if x.labor_mode %} · {{ {'actual': 'estimated; billed as worked', 'flat': 'flat', 'fixed': 'fixed price'}[x.labor_mode] }}{% endif %}{% if x.taxable %} · taxable{% endif %}{% if costs and x.unit_cost is not none %} · cost {{ x.unit_cost | unit_cost }}{% endif %}</div>
         {% if editable %}<div class="actions">
           <a class="btn small" href="{{ url_for('estimates.line_edit', line_id=x.id) }}">Edit</a>
           <form class="inline-form" method="post" action="{{ url_for('estimates.line_delete', line_id=x.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Remove this line?">Remove</button></form>
         </div>{% endif %}
       </td>
-      <td class="num">{{ x.qty | qty }} × {{ x.unit_price | money }}</td>
+      <td class="num">{% if x.labor_mode == 'fixed' %}fixed{% else %}{{ x.qty | qty }} × {{ x.unit_price | money }}{% endif %}</td>
       <td class="num">{{ line_amount(x) | money }}</td>
     </tr>
     {% else %}
@@ -69,6 +70,17 @@
       {{ field(forms.service.service_id) }}
       <div class="row two">{{ field(forms.service.labor_mode) }}{{ field(forms.service.qty, inputmode="decimal") }}</div>
       <div class="row two">{{ field(forms.service.unit_price, inputmode="decimal") }}{{ field(forms.service.description) }}</div>
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+  <details class="form">
+    <summary>Add a fixed price (one price for the job)</summary>
+    <form method="post" action="{{ url_for('estimates.add_line', est_id=est.id, kind='fixed') }}" novalidate>
+      {{ forms.fixed.csrf_token }}
+      {% if jobs | length > 1 %}{{ field(forms.fixed.estimate_job_id) }}{% else %}{{ forms.fixed.estimate_job_id(hidden=True) }}{% endif %}
+      <div class="row two">{{ field(forms.fixed.description) }}{{ field(forms.fixed.unit_price, inputmode="decimal") }}</div>
+      {{ field(forms.fixed.scope) }}
+      <p class="dim">Labor only. Parts we sell go on their own lines (they're taxed, labor isn't); if the customer buys the parts, say so in the list.</p>
       <button class="btn" type="submit">Add</button>
     </form>
   </details>

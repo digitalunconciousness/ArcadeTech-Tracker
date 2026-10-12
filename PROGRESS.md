@@ -88,28 +88,54 @@ push/PR → owner deploys (⏸).
   - [x] WOs, jobs (3C, intake), lines, timer, part issue / reserve / customer-supplied
   - [x] Manual readings; service report with as-found → as-left, spec and pass
   - [x] Photos (EXIF stripped), claim ticket and service report PDFs, work board
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR
-  - [ ] ⏸ Owner deploys (migration 0007) and writes the claim and warranty terms in Settings
+  - [x] Diff, tests, privacy output → OK → PR #7 (merged)
+  - [x] ⏸ Owner deployed (migration 0007)
+  - [ ] ⏸ Claim-ticket and warranty terms written in Settings (printed on those documents;
+        blank until then)
 - **3b: estimates and links** (branch `phase/3b-estimates`, on top of 3a)
   - [x] Estimates: lines, NTE, deposit, revisions, approval via `/d/<token>` on a phone
         (finger signature canvas → PNG + typed name; time, IP, UA logged); convert to a WO
   - [x] Appointments + .ics feed (`/d/cal/<token>.ics`)
-  - [ ] ⏸ Cloudflare Access bypass for `/d/*` in place (RUNBOOK §7, app 3): `/d/x` must
-        show the app's own "isn't available" page, not the Access PIN page
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR
-  - [ ] ⏸ Owner deploys (migration 0008), writes the estimate terms in Settings
-- [ ] ⏸ Exit: estimate approved on a phone through a link; converts; timer runs; report prints
+  - [x] ⏸ Cloudflare Access bypass for `/d/*` in place (RUNBOOK §7, app 3): `/d/x` shows the
+        app's own "isn't available" page (owner, 2026-10-09)
+  - [x] Diff, tests, privacy output → OK → PR #8 (merged)
+  - [x] ⏸ Owner deployed (migration 0008) and wrote the estimate terms (links can't be sent
+        without them)
+  - [x] PR #9: log CSRF rejections with their reason and explain them to the user
+- [x] ⏸ Exit: estimate approved on a phone through a link; converts; timer runs; report prints
+      (passed, owner, reported 2026-10-12)
 
 ## Phase 4: Billing (branch `phase/4-billing`)
 
-- [ ] Design note → ⏸ OK (must settle: invoicing taxable parts with no permit; see Notes)
-- [ ] Tax jurisdictions; invoice issue (snapshot, number, frozen PDF + sha256, warranty dates)
-- [ ] Payments, allocations, deposits, credit memos, voids, reversals, statements, receipts
-- [ ] Immutability triggers
-- [ ] DB tests: issued lines can't be updated/deleted; gapless across a rolled-back issue;
-      tax half-up on taxable subtotal at the frozen rate; partial / over / reversed payments
-- [ ] Diff, tests, privacy output → ⏸ OK → PR
-- [ ] ⏸ Exit, then enter the partner's first real invoice with its true issue date
+- [x] Design note → OK (owner, 2026-10-12): two PRs, 4a invoices then 4b money in; tax off
+      with a setting (see Decisions)
+- **4a: invoices**
+  - [x] Tax jurisdictions (rates entered by the owner from the OTC; none seeded); "collect
+        sales tax" switch, off; a site's jurisdiction; the shop's own as the default
+  - [x] Issue from a WO: tick the lines (bill part now, the rest later), snapshot, gapless
+        `INV` number in the issuing transaction, invoice PDF and service report frozen by
+        sha256, warranty date per line, backdating with a reason
+  - [x] Fixed-price lines on estimates and WOs (the owner's set-price quotes, asked for
+        2026-10-12): one labor line, qty 1, a scope list printed under it; time still logged,
+        so the job page shows the effective hourly rate
+  - [x] Counter-sale WO kind
+  - [x] Immutability triggers: `invoice_frozen`, `invoice_line_frozen`,
+        `wo_line_billed_guard`; void (reason, nothing paid) frees the lines to bill again
+  - [x] Invoice link `/d/<token>`: the invoice, balance, how to pay, the frozen PDFs
+  - [x] Restore drill re-hashes every issued PDF against `pdf_sha256` / `report_sha256`
+  - [x] DB tests: issued lines/invoices can't be updated or deleted (app role and schema
+        owner); gapless across a rolled-back issue; tax half-up at the frozen rate; Postgres
+        checks subtotals and tax at the moment of issue
+  - [ ] Diff, tests, privacy output → ⏸ OK (incl. the fixed-price design) → PR
+  - [ ] ⏸ Owner deploys (migration 0009); writes "How customers pay you" in Settings → Business
+- **4b: money in**
+  - [ ] Payments, allocations, deposits, credit memos, reversals, receipts, statements
+  - [ ] DB tests: partial / over / reversed payments; balance kept by a trigger, checked
+        against allocations (randomized)
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
+- [ ] ⏸ Exit: editing an issued invoice line fails in the database (4a); a partial + final
+      payment closes the invoice (4b); numbers gapless across a forced rollback (4a). Then
+      enter the partner's first real invoice with its true issue date
 
 ## Phase 5: Purchasing (branch `phase/5-purchasing`)
 
@@ -193,6 +219,21 @@ push/PR → owner deploys (⏸).
 | 2026-10-08 | Converting: jobs, labor, fees, sublets and discounts carry over; quoted stocked parts become reservations at the quoted price (issued when used; shortfalls flagged to order); actual-time labor starts at 0 | Parts are issued when used, not when quoted |
 | 2026-10-08 | Change orders: a revision of a converted estimate, once approved, raises the WO's NTE and takes it out of waiting_approval | The plan's over-NTE flow |
 | 2026-10-08 | Calendar feeds: one live per user, token hashed, made on the Account page; events for appointments the user is on, from 60 days back | Owner: name + address in Google is fine |
+| 2026-10-12 | Plain `http://` can't hold a session: the cookie is `Secure`, so a browser drops it and the login form's CSRF check fails ("session token is missing"). Cloudflare's Always Use HTTPS redirect covers it; **no app-side redirect** | Owner. Found when login failed on an `http://` address; works on `https://` |
+| 2026-10-12 | Sales tax: a "collect sales tax" setting, **off**. Invoices then say "Sales tax not collected"; taxable lines stay flagged and each invoice shows the untaxed amount at its recorded jurisdiction. Turning it on changes only new invoices | Owner (Phase 4 decision 1). CPA question stands: may parts be sold at retail without the permit? |
+| 2026-10-12 | Phase 4 in two PRs: 4a invoices, 4b payments and credit memos | Owner |
+| 2026-10-12 | Backdating: an owner may date an invoice earlier with a reason (kept, audited); never in the future. The number is the next in sequence, its year from the issue date, so numbers are gapless but not always in date order | Owner (decision 3): the first real invoices are entered after the fact |
+| 2026-10-12 | Owners issue, void and send invoices; viewers read them (with costs); techs get no invoice pages, only a "billed" badge on a WO line | Owner (decision 4) |
+| 2026-10-12 | The service report is rendered and frozen (sha256) with the invoice and offered on the invoice link; counter sales have none | Owner (decision 5). It would otherwise change with later WO edits |
+| 2026-10-12 | Void: owner only, with a reason, only while nothing is paid; the number stays used and the invoice stays on file; its WO lines are freed to bill again. Otherwise a credit memo or a reversing payment (4b) | Owner (decision 6) |
+| 2026-10-12 | Counter sales are a WO kind (`counter`), so stock issue and invoicing are the same path | Owner (decision 7) |
+| 2026-10-12 | Payment instructions are typed in Settings → Business by the owner; never in the repo | Owner (decision 8) |
+| 2026-10-12 | **Fixed price** (`labor_mode = 'fixed'`, qty 1 by CHECK) with a `scope` text printed as a list. Labor only: parts we sell stay their own lines, so the plan's "never a mixed lump sum" tax rule holds. Labor warranty rules apply (90 d when the customer's parts are on the job) | Owner asked for set-price quotes (a two-cab restoration, customer buys the parts). Built in 4a for the owner's review |
+| 2026-10-12 | No saved invoice drafts: the issue page previews from the WO, and a draft row exists only inside the issuing transaction. Corrections happen on the WO lines, which a trigger freezes once billed (`wo_line.invoice_id`) | One place to edit; no draft drifting from the WO. The plan's draft status stays in the CHECK for later |
+| 2026-10-12 | `invoice_line.line_total` is a generated column; at issue a trigger checks subtotals = line sums and tax = round(taxable × frozen rate, 2); the app role has only SELECT/INSERT on `invoice_line` | The arithmetic can't disagree with the lines, whoever writes them |
+| 2026-10-12 | `invoice_line.wo_line_id` has no foreign key | After a void the WO line may change or go; the frozen copy can't follow (like `stock_move.wo_job_id`) |
+| 2026-10-12 | Tax rates frozen on the invoice as text in `tax_jurisdiction` jsonb; tax rounds once per invoice, half-up | JSON numbers would be floats; the plan's rounding rule |
+| 2026-10-12 | Invoice links last 365 days (4b: 90 days after the invoice is paid) | Owner (design note): a customer may pay late |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -213,7 +254,8 @@ push/PR → owner deploys (⏸).
 - Tax with no permit (Phase 4 design question): the plan's rule "refuse to issue a taxable
   line with tax off" would block every invoice with parts, since parts default to taxable.
   Options to decide then: block; or issue with tax 0 and flag the lines. Ask the CPA whether
-  selling parts at all needs the permit first.
+  selling parts at all needs the permit first. **Settled 2026-10-12: a setting, off; issue
+  with tax 0, "Sales tax not collected", lines flagged** (see Decisions).
 
 ### Session 2 (2026-10-08, cloud)
 
@@ -302,3 +344,28 @@ push/PR → owner deploys (⏸).
   report. It caught two real problems, both fixed: the signature pad cleared itself on
   every `resize` (phones fire one when the address bar hides) and a refresh after approving
   re-posted the form (now redirects). Tests: 237 passed.
+
+### Session 3 (2026-10-12): Phase 3 close-out
+
+- Phase 3 exit passed on the owner's phone. Login over `http://` failed with "The CSRF session
+  token is missing": the session cookie is `Secure`, so plain http can't keep one. Works on
+  https; Cloudflare's Always Use HTTPS redirect is the fix, no app change.
+- Intermittent "CSRF token missing" on a second photo upload: not reproduced (repeated uploads,
+  Back-then-upload, a 6 MB photo, 40 uploads with parallel page and image requests; an
+  over-limit photo gives a plain 413, not CSRF). PR #9 logs the reason and the cookie state on
+  every rejection (`journalctl -u shop-hub | grep "csrf rejected"`); the first recurrence on
+  https will say whether it's a lost session or a form without its token.
+
+### Session 3, Phase 4a (2026-10-12, same cloud session)
+
+- Owner OK'd the Phase 4 design (all eight decisions as recommended) and asked for set-price
+  quotes: the first customer's two cabs are quoted at one price, labor only, parts bought by
+  the customer. Built as fixed-price lines (Decisions).
+- 4a on `phase/4-billing`: migration 0009 (tax_jurisdiction, invoice, invoice_line; fixed
+  labor mode and scope on estimate and WO lines; `wo_line.invoice_id`; counter kind; doc_link
+  for invoices; three triggers), `app/billing/`, the invoice template, Settings → Tax, the
+  invoice link, the restore drill's PDF re-hash. 255 tests green, none skipped (pg 17 tools
+  via docker for the backup tests).
+- Phone pass (iPhone 13 viewport): issue page, invoice page, link, customer page and PDF; no
+  page scrolls sideways. A too-wide table now scrolls inside its panel (the job page's Cost
+  column was already running past it).

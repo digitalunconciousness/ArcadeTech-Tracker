@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ inv.number }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1 class="mono tag">{{ inv.number }}</h1>
+  </div>
+  <p class="lead">{{ customer.display_name }}
+    <span class="badge {{ 'ok' if inv.status == 'paid' else 'danger' if inv.status == 'void' else 'warn' if inv.status == 'partially_paid' else '' }}">{{ inv_statuses[inv.status] | lower }}</span>
+    {% if overdue %}<span class="badge danger">overdue</span>{% endif %}</p>
+  <dl class="facts">
+    <dt>Customer</dt><dd><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a></dd>
+    {% if wo %}<dt>Work order</dt><dd><a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono">{{ wo.number }}</span></a> {{ wo.summary }}</dd>{% endif %}
+    <dt>Issued</dt><dd>{{ inv.issue_date }}{% if inv.backdate_reason %} <span class="dim">· entered {{ inv.issued_at | localdt }}: {{ inv.backdate_reason }}</span>{% endif %}</dd>
+    <dt>Due</dt><dd>{{ inv.due_date }} <span class="dim">· {{ payment_terms[inv.payment_terms] | lower }}</span></dd>
+    <dt>Sales tax</dt><dd>{{ tax_statuses[inv.tax_status] }}{% if inv.tax_status == 'collected' and inv.tax_jurisdiction %} · {{ inv.tax_jurisdiction.name }} {{ inv.tax_jurisdiction.combined_rate | rate_pct }}{% endif %}{% if inv.exempt_cert_no %} · certificate {{ inv.exempt_cert_no }}{% endif %}
+      {% if inv.tax_status == 'not_collected' and inv.subtotal_taxable %}<div class="dim">{{ inv.subtotal_taxable | money }} of it is taxable goods, untaxed{% if exposure is not none %} ({{ inv.tax_jurisdiction.name }} {{ inv.tax_jurisdiction.combined_rate | rate_pct }} would be {{ exposure | money }}){% endif %}.</div>{% endif %}</dd>
+    <dt>Total</dt><dd><strong>{{ inv.total | money }}</strong>{% if inv.tax %} <span class="dim">· tax {{ inv.tax | money }}</span>{% endif %}</dd>
+    {% if inv.status != 'void' %}<dt>Paid</dt><dd>{{ inv.amount_paid | money }}</dd>
+    <dt>Balance</dt><dd><strong>{{ inv.balance | money }}</strong></dd>{% endif %}
+    <dt>Cost</dt><dd>{{ costs.cost | money }}{% if costs.margin is not none %} <span class="dim">· parts and sublets margin {{ costs.margin | pct }}</span>{% endif %}</dd>
+    {% if inv.status == 'void' %}<dt>Void</dt><dd>{{ inv.voided_at | localdt }}{% if voided_by %} by {{ voided_by.display_name }}{% endif %} · {{ inv.void_reason }}</dd>{% endif %}
+  </dl>
+  {% if inv.customer_note %}<p class="notes">{{ inv.customer_note }}</p>{% endif %}
+  {% if inv.internal_note %}<p class="notes dim">Internal: {{ inv.internal_note }}</p>{% endif %}
+  <p class="actions">
+    <a class="btn small" href="{{ url_for('billing.pdf', invoice_id=inv.id) }}">Invoice (PDF)</a>
+    {% if inv.report_sha256 %}<a class="btn small" href="{{ url_for('billing.report_pdf', invoice_id=inv.id) }}">Service report as sent (PDF)</a>{% endif %}
+  </p>
+  <p class="dim small">These are the exact files issued: they never change, whatever happens to the work order later.</p>
+</section>
+
+<section class="panel">
+  <h2>Lines</h2>
+  {% for label, lines in groups %}
+  {% if label %}<h3>{{ label }}</h3>{% endif %}
+  <table class="grid">
+    <thead><tr><th>Item</th><th class="num">Qty × each</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {% for x in lines %}
+    <tr>
+      <td>{{ x.description }}
+        {% if x.scope %}<ul class="scope">{% for item in x.scope | scope_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+        <div class="dim small">{{ x.kind }}{% if x.taxable %} · taxable{% endif %}{% if x.customer_supplied %} · customer's part{% endif %}{% if x.warranty_until %} · warranty to {{ x.warranty_until }}{% endif %}{% if x.unit_cost is not none and not x.customer_supplied %} · cost {{ (x.qty * x.unit_cost) | money }}{% endif %}</div></td>
+      <td class="num">{% if x.labor_mode == 'fixed' %}fixed{% else %}{{ x.qty | qty }} × {{ x.unit_price | money }}{% endif %}</td>
+      <td class="num">{{ x.line_total | money }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+</section>
+
+{% if can_bill %}
+<section class="panel" id="links">
+  <h2>Customer link</h2>
+  {% if inv.status not in ('draft', 'void') %}
+  <form method="post" action="{{ url_for('billing.send', invoice_id=inv.id) }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn primary" type="submit">Send link</button>
+  </form>
+  {% if not shop.payment_instructions %}<p class="dim">Tip: write how customers pay you in <a href="{{ url_for('settings.index') }}">Settings → Business</a>; it shows on the link and the PDF.</p>{% endif %}
+  {% endif %}
+  <ul class="list">
+    {% for link in links %}
+    <li{% if link.revoked_at %} class="inactive"{% endif %}>
+      <span class="dim">made {{ link.created_at | localdt }}</span> · expires {{ link.expires_at | localdt('%Y-%m-%d') }}
+      · {{ link.view_count }} view{{ 's' if link.view_count != 1 }}{% if link.last_viewed_at %}, last {{ link.last_viewed_at | localdt }}{% endif %}
+      {% if link.revoked_at %}<span class="badge">withdrawn</span>{% else %}
+      <form class="inline-form" method="post" action="{{ url_for('billing.revoke', link_id=link.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Withdraw this link? It stops opening.">Withdraw</button></form>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="dim">No links yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% if inv.status == 'issued' and not inv.amount_paid %}
+<section class="panel">
+  <h2>Void</h2>
+  <details class="form">
+    <summary>Void this invoice</summary>
+    <form method="post" action="{{ url_for('billing.void', invoice_id=inv.id) }}" novalidate>
+      {{ void_form.csrf_token }}
+      {{ field(void_form.reason) }}
+      <p class="dim">The number stays used and the invoice stays on file, marked void. Its lines go back on the work order, ready to bill again.</p>
+      <button class="btn danger" type="submit" data-confirm="Void {{ inv.number }}? This can't be undone.">Void it</button>
+    </form>
+  </details>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

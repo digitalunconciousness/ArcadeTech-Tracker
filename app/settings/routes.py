@@ -6,8 +6,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.auth.decorators import requires_role
 from app.auth.forms import EmptyForm
+from app.billing.forms import JurisdictionForm, TaxSettingsForm
 from app.extensions import db
-from app.models import MarkupTier, ShopSetting, User
+from app.models import MarkupTier, ShopSetting, TaxJurisdiction, User
 from app.pricing import multiplier_margin
 from app.settings.forms import (
     BusinessForm,
@@ -206,3 +207,74 @@ def tier_delete(tier_id):
         flash("Bracket removed. Parts it priced have no markup price until another covers them.",
               "ok")
     return redirect(url_for("settings.pricing"))
+
+
+# --- sales tax: the switch, the shop's jurisdiction, the rates -------------------------------
+
+def _jurisdictions():
+    return db.session.scalars(select(TaxJurisdiction).order_by(
+        TaxJurisdiction.name, TaxJurisdiction.effective_from.desc())).all()
+
+
+@bp.route("/tax", methods=["GET", "POST"])
+@requires_role("owner")
+def tax():
+    row = db.session.get(ShopSetting, True)
+    rows = _jurisdictions()
+    form = TaxSettingsForm(obj=row)
+    form.default_tax_jurisdiction_id.choices = [(None, "—")] + [
+        (j.id, f"{j.name} (from {j.effective_from})") for j in rows]
+    if form.validate_on_submit():
+        turned_on = form.collect_sales_tax.data and not row.collect_sales_tax
+        form.populate_obj(row)
+        db.session.commit()
+        flash("Tax settings saved." + (" New invoices now charge sales tax on taxable lines; "
+                                       "issued ones don't change." if turned_on else ""), "ok")
+        return redirect(url_for("settings.tax"))
+    _flash_errors(form)
+    return render_template("settings/tax.html", form=form, jurisdictions=rows,
+                           new_form=JurisdictionForm())
+
+
+def _save_jurisdiction(form, j):
+    form.populate_obj(j)
+    for name in ("state_rate", "county_rate", "city_rate", "other_rate"):
+        if getattr(j, name) is None:
+            setattr(j, name, 0)
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        db.session.rollback()
+        if not isinstance(e.orig, UniqueViolation):
+            raise
+        form.effective_from.errors.append("That name already has a rate starting that day.")
+        return False
+    return True
+
+
+@bp.route("/tax/jurisdictions/new", methods=["POST"])
+@requires_role("owner")
+def jurisdiction_new():
+    form = JurisdictionForm()
+    if form.validate_on_submit():
+        j = TaxJurisdiction()
+        db.session.add(j)
+        if _save_jurisdiction(form, j):
+            flash(f"Added {j.name}.", "ok")
+            return redirect(url_for("settings.tax"))
+    _flash_errors(form)
+    return redirect(url_for("settings.tax"))
+
+
+@bp.route("/tax/jurisdictions/<int:jurisdiction_id>", methods=["GET", "POST"])
+@requires_role("owner")
+def jurisdiction_edit(jurisdiction_id):
+    j = db.session.get(TaxJurisdiction, jurisdiction_id) or abort(404)
+    form = JurisdictionForm(obj=j)
+    if form.validate_on_submit():
+        if _save_jurisdiction(form, j):
+            flash(f"Saved {j.name}. Invoices already issued keep the rate they were issued at.",
+                  "ok")
+            return redirect(url_for("settings.tax"))
+    _flash_errors(form)
+    return render_template("settings/jurisdiction_form.html", form=form, j=j)

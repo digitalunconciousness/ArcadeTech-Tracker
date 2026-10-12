@@ -1,10 +1,21 @@
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask_login import current_user
 from sqlalchemy import func, select
 
-from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
+from app.auth.decorators import ALL_ROLES, COST_ROLES, EDIT_ROLES, requires_role
 from app.customers.forms import CommLogForm, ContactForm, CustomerForm, SiteForm
 from app.extensions import db
-from app.models import Asset, CommLog, Contact, Customer, Estimate, Site, WorkOrder
+from app.models import (
+    Asset,
+    CommLog,
+    Contact,
+    Customer,
+    Estimate,
+    Invoice,
+    Site,
+    TaxJurisdiction,
+    WorkOrder,
+)
 
 bp = Blueprint("customers", __name__)
 
@@ -68,7 +79,12 @@ def show(customer_id):
                            log_form=CommLogForm(), work_orders=work_orders,
                            estimates=db.session.scalars(
                                select(Estimate).where(Estimate.customer_id == customer_id)
-                               .order_by(Estimate.id.desc()).limit(50)).all())
+                               .order_by(Estimate.id.desc()).limit(50)).all(),
+                           invoices=db.session.scalars(
+                               select(Invoice).where(Invoice.customer_id == customer_id,
+                                                     Invoice.status != "draft")
+                               .order_by(Invoice.id.desc()).limit(50)).all()
+                           if current_user.role in COST_ROLES else [])
 
 
 @bp.route("/customers/<int:customer_id>/edit", methods=["GET", "POST"])
@@ -145,6 +161,10 @@ def site_form(customer, site=None):
                                   .order_by(Contact.name)).all()
     # Only this customer's contacts; the database enforces it too (composite FK).
     form.site_contact_id.choices = [(None, "—")] + [(c.id, c.name) for c in contacts]
+    form.tax_jurisdiction_id.choices = [(None, "—")] + [
+        (j.id, f"{j.name} (from {j.effective_from})") for j in db.session.scalars(
+            select(TaxJurisdiction).order_by(TaxJurisdiction.name,
+                                             TaxJurisdiction.effective_from.desc()))]
     return form
 
 

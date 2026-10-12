@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}Tax{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Sales tax</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ check(form.collect_sales_tax) }}
+    <p class="dim">{% if shop.collect_sales_tax %}On: invoices add tax on taxable lines at the jurisdiction's rate, frozen when each invoice is issued.{% else %}Off: invoices say "Sales tax not collected". Taxable lines (parts) stay flagged, so your CPA can see what wasn't taxed. Turn it on once the business has an Oklahoma sales tax permit; only new invoices change.{% endif %}</p>
+    {{ field(form.default_tax_jurisdiction_id) }}
+    <button class="btn primary" type="submit">Save</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Jurisdictions</h2>
+  <p class="dim">Rates by where the customer gets the work: the site for on-site jobs, the shop for counter pickups. Enter them from the Oklahoma Tax Commission's rate tables; none are filled in for you. When a rate changes, end the old row (its "until" date) and add a new one, so old invoices keep making sense.</p>
+  <table class="grid">
+    <thead><tr><th>Name</th><th class="num">Combined</th><th>In effect</th></tr></thead>
+    <tbody>
+    {% for j in jurisdictions %}
+    <tr>
+      <td><a href="{{ url_for('settings.jurisdiction_edit', jurisdiction_id=j.id) }}">{{ j.name }}</a>
+        <div class="dim small">state {{ j.state_rate | rate_pct }} · county {{ j.county_rate | rate_pct }} · city {{ j.city_rate | rate_pct }}{% if j.other_rate %} · other {{ j.other_rate | rate_pct }}{% endif %}{% if j.source_note %} · {{ j.source_note }}{% endif %}</div></td>
+      <td class="num">{{ j.combined_rate | rate_pct }}</td>
+      <td>{{ j.effective_from }}{% if j.effective_to %} to {{ j.effective_to }}{% else %} on{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="dim">None yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <details class="form">
+    <summary>Add a jurisdiction</summary>
+    <form method="post" action="{{ url_for('settings.jurisdiction_new') }}" novalidate>
+      {{ new_form.csrf_token }}
+      {{ field(new_form.name) }}
+      <div class="row">{{ field(new_form.state_rate, inputmode="decimal") }}{{ field(new_form.county_rate, inputmode="decimal") }}{{ field(new_form.city_rate, inputmode="decimal") }}{{ field(new_form.other_rate, inputmode="decimal") }}</div>
+      <div class="row two">{{ field(new_form.effective_from) }}{{ field(new_form.effective_to) }}</div>
+      {{ field(new_form.source_note) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

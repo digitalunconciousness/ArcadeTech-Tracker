@@ -134,3 +134,13 @@ def store_signature(data_url):
     sha = hashlib.sha256(data).hexdigest()
     _write(path_for(sha, ".png"), data)
     return sha
+
+
+def store_pdf(data):
+    """A generated document (an issued invoice, its service report), stored as given.
+    Returns the sha256: the database keeps it, and the restore drill re-hashes the file."""
+    if not data.startswith(b"%PDF-"):
+        raise FileError("That isn't a PDF.")
+    sha = hashlib.sha256(data).hexdigest()
+    _write(path_for(sha, ".pdf"), data)
+    return sha

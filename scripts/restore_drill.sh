@@ -54,9 +54,29 @@ echo "  triggers ok ($got)"
 tar -tf files.tar > /dev/null || fail "files.tar unreadable"
 echo "  file store archive ok ($(tar -tf files.tar | grep -vc '/$' || true) files)"
 
-if [ -n "$(psql_q "SELECT to_regclass('public.invoice')")" ]; then
-  fail "an invoice table exists but the PDF re-hash isn't written yet (Phase 4 adds it here)"
+# Every issued invoice PDF, and the service report frozen with it, must still be the
+# exact file the customer got: in the archive, and hashing to what the database says.
+hashes=$(psql_q "SELECT pdf_sha256 FROM invoice WHERE pdf_sha256 IS NOT NULL
+                 UNION SELECT report_sha256 FROM invoice WHERE report_sha256 IS NOT NULL")
+if [ -z "$hashes" ]; then
+  echo "  pdf re-hash: no issued invoices yet"
+else
+  scratch=$(mktemp -d)
+  trap 'rm -rf "$scratch"' EXIT
+  tar -C "$scratch" -xf files.tar --wildcards '*.pdf' 2> /dev/null || true
+  bad="" n=0
+  while read -r sha; do
+    file="$scratch/${sha:0:2}/$sha.pdf"
+    if [ ! -f "$file" ]; then
+      bad+="    $sha.pdf: not in the archive"$'\n'
+      continue
+    fi
+    got=$(sha256sum "$file" | cut -d' ' -f1)
+    [ "$got" = "$sha" ] || bad+="    $sha.pdf: hashes to $got"$'\n'
+    n=$((n + 1))
+  done <<< "$hashes"
+  [ -z "$bad" ] || fail "issued documents don't match:"$'\n'"$bad"
+  echo "  pdf re-hash ok ($n files)"
 fi
-echo "  pdf re-hash: skipped (no invoices until Phase 4)"
 
 echo "restore drill: PASS"

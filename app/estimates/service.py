@@ -7,13 +7,13 @@ estimate, its jobs and its lines in the database."""
 
 import hashlib
 import json
-import secrets
 from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
 
 from app.extensions import db
+from app.links import live_link, new_token, token_hash
 from app.models import (
     Asset,
     Customer,
@@ -35,7 +35,6 @@ from app.timeutil import local_today, utcnow
 from app.work import files
 from app.work import service as work
 
-TOKEN_BYTES = 32
 OPEN_STATUSES = ("draft", "sent")
 
 
@@ -116,6 +115,15 @@ def add_part_line(est, job, part, *, qty, unit_price=None):
                  warranty_days=work.PART_WARRANTY_DAYS)
 
 
+def add_fixed_line(est, job, *, description, unit_price, scope=None):
+    """One price for the job as quoted, with what it covers as text. Labor only: parts we
+    sell go on their own lines, so they're taxed apart from the labor."""
+    ensure_editable(est)
+    return _line(job, kind="labor", labor_mode="fixed", description=description, qty=Decimal(1),
+                 unit_price=unit_price, scope=scope, taxable=False,
+                 warranty_days=work.LABOR_WARRANTY_DAYS)
+
+
 def add_custom_line(est, job, *, kind, description, qty, unit_price, taxable=False,
                     unit_cost=None):
     ensure_editable(est)
@@ -146,11 +154,15 @@ def apply_template(est, job, template):
 
 
 def edit_line(est, line, *, description, qty, unit_price, taxable, labor_mode=None,
-              unit_cost=None):
+              unit_cost=None, scope=None):
+    """A fixed price stays a fixed price (qty 1); other labor switches flat/actual."""
     ensure_editable(est)
-    line.description, line.qty, line.unit_price, line.taxable = description, qty, unit_price, taxable
-    if line.kind == "labor" and labor_mode:
-        line.labor_mode = labor_mode
+    line.description, line.unit_price, line.taxable, line.scope = \
+        description, unit_price, taxable, scope
+    if line.labor_mode != "fixed":
+        line.qty = qty
+        if line.kind == "labor" and labor_mode in ("flat", "actual"):
+            line.labor_mode = labor_mode
     if line.kind == "sublet":
         line.unit_cost = unit_cost
     db.session.flush()
@@ -197,7 +209,8 @@ def totals(lines):
     goods = sum((line_amount(x) for x in lines if x.kind in ("part", "sublet")), Decimal("0.00"))
     return {"total": total, "taxable": taxable, "cost": round_money(cost),
             "margin": margin_pct(goods, cost) if costed else None,
-            "hours": sum((x.qty for x in lines if x.kind == "labor"), Decimal(0))}
+            "hours": sum((x.qty for x in lines if x.kind == "labor" and x.labor_mode != "fixed"),
+                         Decimal(0))}
 
 
 def content_hash(est):
@@ -209,7 +222,7 @@ def content_hash(est):
         "deposit": str(est.deposit_required), "terms": est.terms_snapshot,
         "jobs": [[j.id, j.asset_id, j.complaint,
                   [[x.id, x.kind, x.description, str(x.qty), str(x.unit_price), x.labor_mode,
-                    x.taxable, x.warranty_days] for x in lines[j.id]]] for j, _ in jobs],
+                    x.taxable, x.warranty_days, x.scope] for x in lines[j.id]]] for j, _ in jobs],
     }
     return hashlib.sha256(json.dumps(doc, sort_keys=True).encode()).hexdigest()
 
@@ -223,10 +236,6 @@ def latest_revision(est):
 
 
 # --- links ------------------------------------------------------------------------------------
-
-def token_hash(token):
-    return hashlib.sha256(token.encode()).hexdigest()
-
 
 def new_link(est):
     """Mark the estimate sent and mint a link. Returns the token: shown once, only its
@@ -247,7 +256,7 @@ def new_link(est):
             est.status, est.sent_at = "sent", utcnow()
     elif est.status not in ("approved", "converted"):
         raise EstimateError(f"{label(est)} is {est.status}.")
-    token = secrets.token_urlsafe(TOKEN_BYTES)
+    token = new_token()
     db.session.add(DocLink(estimate_id=est.id, token_sha256=token_hash(token),
                            expires_at=utcnow() + timedelta(days=shop().estimate_link_days)))
     db.session.flush()
@@ -255,13 +264,9 @@ def new_link(est):
 
 
 def find_link(token):
-    """(link, estimate) for a live token, else None. Malformed tokens never reach the
-    database."""
-    if not isinstance(token, str) or len(token) != 43 or \
-            not all(c.isalnum() or c in "-_" for c in token):
-        return None
-    link = db.session.scalar(select(DocLink).where(DocLink.token_sha256 == token_hash(token)))
-    if link is None or link.revoked_at is not None or link.expires_at <= utcnow():
+    """(link, estimate) for a live estimate link, else None."""
+    link = live_link(token)
+    if link is None or link.estimate_id is None:
         return None
     return link, db.session.get(Estimate, link.estimate_id)
 
@@ -347,7 +352,7 @@ def revise(est):
                 estimate_id=new.id, estimate_job_id=copy.id, kind=x.kind, service_id=x.service_id,
                 part_id=x.part_id, description=x.description, qty=x.qty, labor_mode=x.labor_mode,
                 unit_price=x.unit_price, unit_cost=x.unit_cost, taxable=x.taxable,
-                warranty_days=x.warranty_days))
+                warranty_days=x.warranty_days, scope=x.scope))
     if est.approved_at is None:
         est.status = "superseded"
         revoke_links(est)
@@ -388,7 +393,7 @@ def convert(est, *, kind, tech_ids=()):
                 wo_job_id=job.id, kind=x.kind, service_id=x.service_id, part_id=x.part_id,
                 description=x.description, qty=qty, labor_mode=x.labor_mode,
                 unit_price=x.unit_price, unit_cost=x.unit_cost, taxable=x.taxable,
-                warranty_days=x.warranty_days))
+                warranty_days=x.warranty_days, scope=x.scope))
         db.session.flush()
         work.sync_actual_labor(job)
     est.status, est.work_order_id = "converted", wo.id

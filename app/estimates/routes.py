@@ -22,6 +22,7 @@ from app.estimates.forms import (
     CustomLineForm,
     DeclineForm,
     EstimateForm,
+    FixedLineForm,
     LineEditForm,
     NewEstimateForm,
     PartLineForm,
@@ -138,8 +139,8 @@ def line_forms(est, jobs):
                                .order_by(func.lower(Part.sku))).all()
     templates = db.session.scalars(select(JobTemplate).where(JobTemplate.active.is_(True))
                                    .order_by(JobTemplate.name)).all()
-    forms = {"service": ServiceLineForm(), "part": PartLineForm(), "other": CustomLineForm(),
-             "template": TemplateForm()}
+    forms = {"service": ServiceLineForm(), "fixed": FixedLineForm(), "part": PartLineForm(),
+             "other": CustomLineForm(), "template": TemplateForm()}
     for form in forms.values():
         form.estimate_job_id.choices = job_choices
     forms["service"].service_id.choices = [(s.id, f"{s.code} · {s.name}") for s in services]
@@ -243,6 +244,10 @@ def add_line(est_id, kind):
             action = lambda: service.add_service_line(  # noqa: E731
                 est, job, svc, qty=form.qty.data, labor_mode=form.labor_mode.data,
                 unit_price=form.unit_price.data, description=form.description.data)
+        elif kind == "fixed":
+            action = lambda: service.add_fixed_line(  # noqa: E731
+                est, job, description=form.description.data, unit_price=form.unit_price.data,
+                scope=form.scope.data)
         elif kind == "part":
             part = get_or_404(Part, form.part_id.data)
             action = lambda: service.add_part_line(  # noqa: E731
@@ -267,15 +272,17 @@ def line_edit(line_id):
     line = get_or_404(EstimateLine, line_id)
     est = db.session.get(Estimate, line.estimate_id)
     form = LineEditForm(obj=line)
-    if line.labor_mode is None:
-        form.labor_mode.data = form.labor_mode.data or "flat"
+    if line.labor_mode in (None, "fixed"):
+        form.labor_mode.data = "flat"
+    if line.labor_mode == "fixed":
+        form.qty.data = line.qty
     if current_user.role not in COST_ROLES:
         del form.unit_cost
     if form.validate_on_submit():
         if attempt(lambda: service.edit_line(
                 est, line, description=form.description.data, qty=form.qty.data,
                 unit_price=form.unit_price.data, taxable=form.taxable.data,
-                labor_mode=form.labor_mode.data,
+                labor_mode=form.labor_mode.data, scope=form.scope.data,
                 unit_cost=form.unit_cost.data if "unit_cost" in form else line.unit_cost),
                 "Line saved."):
             return redirect(url_for("estimates.show", est_id=est.id) + "#lines")

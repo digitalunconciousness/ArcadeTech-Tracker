@@ -1,0 +1,12 @@
+{% extends "docs/invoice.html" %}
+{% block head_extra %}
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="{{ url_for('public.accent_css') }}">
+{% endblock %}
+{% block after %}
+<p class="no-print">
+  <a class="button" href="{{ url_for('public.invoice_pdf', token=token) }}">Download the PDF</a>
+  {% if inv.report_sha256 %}<a class="button" href="{{ url_for('public.invoice_report', token=token) }}">Service report</a>{% endif %}
+</p>
+{% endblock %}

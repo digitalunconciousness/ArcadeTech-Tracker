@@ -120,6 +120,18 @@ class CustomerPartForm(FlaskForm):
     qty = qty_field("Quantity", required=True)
 
 
+SCOPE_LABEL = "What it covers (one item per line; printed under the price)"
+
+
+class FixedLineForm(FlaskForm):
+    description = StringField("Description", filters=[blank_to_none],
+                              validators=[DataRequired(), Length(max=200)])
+    unit_price = money_field("Price", required=True)
+    scope = text_area(SCOPE_LABEL, 4000)
+    tech_user_id = SelectField("Tech", coerce=opt_int)
+    billable = BooleanField("Billable", default=True)
+
+
 class CustomLineForm(FlaskForm):
     kind = SelectField("Kind", choices=[("fee", "Fee"), ("sublet", "Sublet (work sent out)"),
                                         ("discount", "Discount")])
@@ -141,6 +153,7 @@ class LineEditForm(FlaskForm):
     tech_user_id = SelectField("Tech", coerce=opt_int)
     taxable = BooleanField("Taxable")
     billable = BooleanField("Billable")
+    scope = text_area(SCOPE_LABEL, 4000)
 
 
 class TimeForm(FlaskForm):

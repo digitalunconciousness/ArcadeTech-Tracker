@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from app.extensions import db
 from app.models import (
     Asset,
+    Invoice,
     Reservation,
     ShopSetting,
     StockLot,
@@ -30,6 +31,7 @@ from app.timeutil import utcnow
 # Warranty defaults (owner, 2026-10-07): a year on parts we supply and on labor; labor on
 # a job that used a customer's own part gets 90 days, and that part gets none.
 PART_WARRANTY_DAYS = 365
+LABOR_WARRANTY_DAYS = 365
 CUSTOMER_PART_LABOR_WARRANTY_DAYS = 90
 
 SERVICE_LINE_KIND = {"labor": "labor", "fee": "fee", "trip": "fee", "diagnostic": "fee",
@@ -152,6 +154,14 @@ def warranty_days(line, job_has_customer_part):
 
 # --- lines ----------------------------------------------------------------------------------
 
+def ensure_unbilled(line):
+    """A line on an invoice is frozen (a trigger enforces it); say so plainly first."""
+    if line.invoice_id is not None:
+        inv = db.session.get(Invoice, line.invoice_id)
+        if inv.status != "void":
+            raise WorkError(f"That line is billed on {inv.number}: void the invoice to change it.")
+
+
 def actual_line(job):
     return db.session.scalar(select(WoLine).where(WoLine.wo_job_id == job.id,
                                                   WoLine.labor_mode == "actual"))
@@ -177,6 +187,20 @@ def add_service_line(job, service, *, qty=None, labor_mode=None, unit_price=None
                   unit_cost=unit_cost if kind == "sublet" else None,
                   taxable=service.taxable, warranty_days=service.warranty_days,
                   billable=billable, tech_user_id=tech_user_id if kind == "labor" else None)
+    db.session.add(line)
+    db.session.flush()
+    return line
+
+
+def add_fixed_line(job, *, description, unit_price, scope=None, billable=True,
+                   tech_user_id=None):
+    """The job at one quoted price, what it covers as text. Labor only: parts we sell go on
+    their own lines; parts the customer brings go on as theirs. Time on the job is still
+    logged, so the effective hourly rate shows how the quote did."""
+    line = WoLine(wo_job_id=job.id, kind="labor", labor_mode="fixed", description=description,
+                  qty=Decimal(1), unit_price=unit_price, scope=scope, taxable=False,
+                  warranty_days=LABOR_WARRANTY_DAYS, billable=billable,
+                  tech_user_id=tech_user_id)
     db.session.add(line)
     db.session.flush()
     return line
@@ -230,6 +254,7 @@ def add_customer_part(job, *, description, qty, part_id=None):
 
 def remove_line(line, part=None, wo_number=""):
     """Delete a line. An issued part goes back into the lot it came from."""
+    ensure_unbilled(line)
     if line.stock_lot_id is not None:
         try:
             stock.put(part, line.qty, "return", note=wo_number, lot_id=line.stock_lot_id,
@@ -241,14 +266,17 @@ def remove_line(line, part=None, wo_number=""):
 
 
 def edit_line(line, *, description, unit_price, billable, taxable, qty=None, unit_cost=None,
-              tech_user_id=None):
-    """Prices, wording and flags can change on any line. Quantity can't on an issued part
-    (remove the line and issue again) or on actual-time labor (the timer sets it)."""
+              tech_user_id=None, scope=None):
+    """Prices, wording and flags can change on any unbilled line. Quantity can't on an
+    issued part (remove the line and issue again), on actual-time labor (the timer sets
+    it) or on a fixed price (always 1)."""
+    ensure_unbilled(line)
     line.description = description
+    line.scope = scope
     line.unit_price = unit_price
     line.billable = billable
     line.taxable = taxable
-    if qty is not None and line.stock_lot_id is None and line.labor_mode != "actual":
+    if qty is not None and line.stock_lot_id is None and line.labor_mode not in ("actual", "fixed"):
         if qty <= 0:
             raise WorkError("Quantity must be more than zero.")
         line.qty = qty
@@ -260,6 +288,24 @@ def edit_line(line, *, description, unit_price, billable, taxable, qty=None, uni
 
 
 # --- time -----------------------------------------------------------------------------------
+
+def logged_minutes(job):
+    """All finished time on the job, billable or not: what a fixed price really took."""
+    return db.session.scalar(select(func.coalesce(func.sum(TimeEntry.minutes), 0)).where(
+        TimeEntry.wo_job_id == job.id, TimeEntry.ended_at.is_not(None)))
+
+
+def fixed_price_rate(job, lines):
+    """For a job with a fixed price: the price, the hours logged and the effective rate
+    (None until time is logged). None when the job has no fixed price."""
+    price = sum((x.unit_price for x in lines if x.labor_mode == "fixed"), Decimal("0.00"))
+    if not any(x.labor_mode == "fixed" for x in lines):
+        return None
+    minutes = logged_minutes(job)
+    hours = (Decimal(minutes) / 60).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return {"price": price, "hours": hours,
+            "rate": round_money(price * 60 / minutes) if minutes else None}
+
 
 def billable_minutes(job):
     return db.session.scalar(select(func.coalesce(func.sum(TimeEntry.minutes), 0)).where(
@@ -276,8 +322,9 @@ def actual_hours(job):
 
 
 def sync_actual_labor(job):
+    """Hours on the actual-time line follow the job's time, until the line is billed."""
     line = actual_line(job)
-    if line is not None:
+    if line is not None and line.invoice_id is None:
         line.qty = actual_hours(job)
         db.session.flush()
 

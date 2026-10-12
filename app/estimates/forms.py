@@ -44,6 +44,17 @@ class PartLineForm(FlaskForm):
     unit_price = money_field("Price each (blank: the part's price)")
 
 
+SCOPE_LABEL = "What it covers (one item per line; printed under the price)"
+
+
+class FixedLineForm(FlaskForm):
+    estimate_job_id = SelectField("Job", coerce=int)
+    description = StringField("Description", filters=[blank_to_none],
+                              validators=[DataRequired(), Length(max=200)])
+    unit_price = money_field("Price", required=True)
+    scope = text_area(SCOPE_LABEL, 4000)
+
+
 class CustomLineForm(FlaskForm):
     estimate_job_id = SelectField("Job", coerce=int)
     kind = SelectField("Kind", choices=[("fee", "Fee"), ("sublet", "Sublet (work sent out)"),
@@ -69,6 +80,7 @@ class LineEditForm(FlaskForm):
     labor_mode = SelectField("Labor hours", choices=list(LABOR_MODES.items()))
     unit_cost = cost_field("What it will cost us (sublets)")
     taxable = BooleanField("Taxable")
+    scope = text_area(SCOPE_LABEL, 4000)
 
 
 class SignForm(FlaskForm):

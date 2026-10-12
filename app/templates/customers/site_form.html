@@ -17,6 +17,7 @@
     </div>
     {{ field(form.site_contact_id) }}
     {{ field(form.access_notes) }}
+    {% if form.tax_jurisdiction_id.choices | length > 1 %}{{ field(form.tax_jurisdiction_id) }}{% endif %}
     {% if site %}{{ check(form.active) }}{% endif %}
     <button class="btn primary" type="submit">Save</button>
     <a class="btn" href="{{ url_for('customers.show', customer_id=customer.id) }}">Cancel</a>

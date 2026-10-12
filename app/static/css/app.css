@@ -229,3 +229,11 @@ table.grid td .actions { margin-top: 0.3rem; }
 .pad { width: 100%; height: 11rem; background: #fff; border-radius: var(--radius); touch-action: none; display: block; }
 img.sig { background: #fff; border-radius: var(--radius); max-width: 100%; height: auto; max-height: 8rem; padding: 0.3rem; }
 .break { word-break: break-all; }
+
+/* A fixed price's scope under its line. */
+ul.scope { margin: 0.25rem 0 0; padding-left: 1.2rem; font-size: 0.9rem; color: var(--text); }
+
+/* A table wider than a phone scrolls inside its panel instead of running past it. */
+.panel { overflow-x: auto; }
+table.grid input[type=checkbox] { width: auto; padding: 0; }
+table.grid td.pick, table.grid th.pick { width: 1.8rem; padding-right: 0; }

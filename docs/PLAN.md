@@ -245,6 +245,8 @@ PostgreSQL, through SQLAlchemy 2 + Flask-Migrate.
 - **`public_link`**
   - `token` (32 random bytes, URL-safe), `doc_kind`, `doc_id`, `expires_at`, `revoked_at`, `views`, `last_viewed_at`
 
+As built in Phase 4a (see PROGRESS Decisions, 2026-10-12): an invoice carries `issue_date` (printed; the number's year), `issued_at` (when it was really issued) and `backdate_reason`; `tax_status` (collected | not_collected | exempt) and `exempt_cert_no`; `report_sha256` (the service report frozen with it). `invoice_line.line_total` is a generated column, `group_label` is the job heading, `scope` a fixed price's list, and `wo_line_id` has no foreign key. A WO line on a live invoice points at it (`wo_line.invoice_id`) and is frozen by a trigger until that invoice is voided. Customer links for invoices share the estimates' `doc_link` table (one of `estimate_id`, `invoice_id`).
+
 **Immutability is enforced by the database, not just the app.** A Postgres trigger rejects any `UPDATE`/`DELETE` of an `invoice_line`, `credit_memo_line` or `payment` whose parent isn't a draft. On an issued invoice, only `status`, `amount_paid`, `balance` and the void fields may change. Corrections are a void (with a reason) or a credit memo, never an edit. That is what makes these records hold up to anyone who ever looks at them.
 
 ### Parts, stock and purchasing
@@ -350,6 +352,8 @@ What the sources say (Oklahoma Administrative Code and a rate summary, checked 2
 
 - **Separately stated labor isn't taxed; parts are.** The automotive repair rule (OAC 710:65-19-11) and the shoe repair rule (710:65-19-310) both tax the property sold and not separately stated labor.
 - **Lump-sum billing is where the trades differ.** Under the automotive rule, a shop that charges one combined price collects no tax and instead pays tax when it buys the materials. Under the shoe repair rule, a combined price is taxed in full. The app sidesteps this: **every line is labor, part or fee, never a mixed lump sum.**
+  - A **fixed price** (owner, 2026-10-12: one quoted price for a job, its scope as a list) is a single *labor* line. Parts the shop sells stay their own lines; parts the customer buys go on as theirs, at no charge. So a set-price quote never mixes taxable goods into untaxed labor.
+- **Until the business has a permit** (owner, 2026-10-07 and 2026-10-12), Settings → Tax "collect sales tax" is off: invoices issue with $0 tax and say "Sales tax not collected"; taxable lines stay flagged and each invoice shows the untaxed amount at its recorded jurisdiction. (This replaces "refuse to issue a taxable line with tax off", which would have blocked every invoice with parts.)
 - **Consumables used in the work are taxed when you buy them.** Solder, flux, cleaners and adhesives aren't resold, so `track_stock = false` parts are booked as expenses.
 - **Rates:** state 4.5%, plus county and city, so combined rates run up to about 11.5%.
 - **Sourcing is destination-based:** the rate is set by where the customer receives the goods.

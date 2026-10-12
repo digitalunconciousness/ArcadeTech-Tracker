@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ j.name }}{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel narrow">
+  <h1>{{ j.name }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.name) }}
+    <div class="row two">{{ field(form.state_rate, inputmode="decimal") }}{{ field(form.county_rate, inputmode="decimal") }}</div>
+    <div class="row two">{{ field(form.city_rate, inputmode="decimal") }}{{ field(form.other_rate, inputmode="decimal") }}</div>
+    <div class="row two">{{ field(form.effective_from) }}{{ field(form.effective_to) }}</div>
+    {{ field(form.source_note) }}
+    <p class="dim">Invoices already issued keep the rate they were issued at.</p>
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('settings.tax') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

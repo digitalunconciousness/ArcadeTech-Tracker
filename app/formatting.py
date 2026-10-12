@@ -42,4 +42,23 @@ def pct(value):
     return "" if value is None else f"{value}%"
 
 
-FILTERS = {"money": money, "unit_cost": unit_cost, "qty": qty, "pct": pct, "plain": plain}
+def rate_pct(value):
+    """A tax rate as a percentage: 0.087500 -> 8.75%."""
+    if value is None:
+        return ""
+    text = f"{Decimal(value) * 100:f}"
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return f"{text}%"
+
+
+def scope_items(value):
+    """A fixed price's scope, one item per line, as a list; pasted bullets are dropped."""
+    if not value:
+        return []
+    items = (line.strip().lstrip("-*•·").strip() for line in value.splitlines())
+    return [item for item in items if item]
+
+
+FILTERS = {"money": money, "unit_cost": unit_cost, "qty": qty, "pct": pct, "plain": plain,
+           "scope_items": scope_items, "rate_pct": rate_pct}

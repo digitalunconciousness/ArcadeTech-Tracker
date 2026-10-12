@@ -44,13 +44,17 @@ EXPECTED_GRANTS = {
     "estimate_line": {"SELECT", "INSERT", "UPDATE", "DELETE"},
     "appointment": {"SELECT", "INSERT", "UPDATE", "DELETE"},
     "appointment_user": {"SELECT", "INSERT", "DELETE"},
+    "tax_jurisdiction": {"SELECT", "INSERT", "UPDATE"},
+    "invoice": {"SELECT", "INSERT", "UPDATE"},
+    "invoice_line": {"SELECT", "INSERT"},
 }
 
 AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "service",
            "job_template", "job_template_line", "markup_tier", "vendor", "part", "stock_lot",
            "stock_move", "work_order", "wo_job", "work_order_tech", "wo_line", "time_entry",
            "reservation", "manual_reading", "attachment", "estimate", "estimate_job",
-           "estimate_line", "appointment", "appointment_user", "calendar_feed"}
+           "estimate_line", "appointment", "appointment_user", "calendar_feed",
+           "tax_jurisdiction", "invoice", "invoice_line"}
 
 
 def q(app, sql, **params):
@@ -130,7 +134,7 @@ def test_app_role_sequence_privileges(app):
                   "stock_lot", "stock_move", "work_order", "wo_job", "work_order_tech", "wo_line",
                   "time_entry", "reservation", "manual_reading", "attachment", "estimate",
                   "estimate_job", "estimate_line", "doc_link", "appointment", "appointment_user",
-                  "calendar_feed")
+                  "calendar_feed", "tax_jurisdiction", "invoice", "invoice_line")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)
@@ -139,7 +143,8 @@ def test_app_role_sequence_privileges(app):
 
 @pytest.mark.parametrize("fn", ["audit_row", "set_updated_at", "audit_log_append_only",
                                 "asset_tag_immutable", "asset_no_cycle", "stock_move_lot_guard",
-                                "estimate_frozen", "estimate_child_frozen"])
+                                "estimate_frozen", "estimate_child_frozen", "invoice_frozen",
+                                "invoice_line_frozen", "wo_line_billed_guard"])
 def test_trigger_functions_not_public(app, fn):
     rows = q(app, "SELECT has_function_privilege('shop_app', :f, 'EXECUTE')", f=f"{fn}()")
     assert rows == [(False,)]
