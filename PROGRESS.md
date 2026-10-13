@@ -271,6 +271,11 @@ push/PR → owner deploys (⏸).
   - [x] Power tables on the eight lists: sort, filters, saved views (per user), columns
         (per device), CSV of the view, bulk status and tech on work orders; cost columns
         only for owners and viewers
+  - [x] Buy links (owner, 2026-10-13): every part the customer is buying opens the
+        seller's page: the job's lines table, a new panel on the work order, the send-links
+        list, the service report (parts not here yet), and web addresses in the customer's
+        comm log (escaped text; only http(s) becomes a link). Already linked: the estimate
+        (staff, PDF, `/d/`) and the job's customer-parts panel
   - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0018)
 - **9b: work in motion**: work board (drag between statuses), dispatch calendar (tech
   lanes, drag to book, move and resize), audit log viewer, as-found vs as-left overlay
@@ -641,3 +646,5 @@ push/PR → owner deploys (⏸).
   command bar, `g c`, a saved view and hidden columns surviving a reload; no console errors.
 - GATBOX Phase 8 prompt handed to the owner (run it locally in `~/gatbox`, where its
   pre-push privacy hook lives).
+- Buy links added to the 9a PR as their own commit (no migration), comm-log addresses as
+  links included (owner). Stored service reports keep what they had.

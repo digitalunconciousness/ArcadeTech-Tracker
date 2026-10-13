@@ -56,11 +56,12 @@
     <tbody>
     {% for line in lines %}
     {% set c = line_cost(line) %}
+    {% set link = part_links.get(line.part_link_id) %}
     <tr{% if not line.billable %} class="inactive"{% endif %}>
-      <td>{{ line.description }}
+      <td>{% if link %}<a href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ line.description }}</a>{% else %}{{ line.description }}{% endif %}
         {% if line.scope %}<ul class="scope">{% for item in line.scope | scope_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
         <div class="dim small">
-          {{ line.kind }}{% if line.labor_mode %} · {{ labor_modes[line.labor_mode] | lower }}{% endif %}{% if line.tech_user_id and line.tech_user_id in users %} · {{ users[line.tech_user_id].display_name }}{% endif %}{% if line.stock_lot_id %} · lot #{{ line.stock_lot_id }}{% if lots.get(line.stock_lot_id) %} dc {{ lots[line.stock_lot_id] }}{% endif %}{% endif %}{% if line.taxable %} · taxable{% endif %} · warranty {{ warranty(line) }} d
+          {{ line.kind }}{% if line.labor_mode %} · {{ labor_modes[line.labor_mode] | lower }}{% endif %}{% if line.tech_user_id and line.tech_user_id in users %} · {{ users[line.tech_user_id].display_name }}{% endif %}{% if line.stock_lot_id %} · lot #{{ line.stock_lot_id }}{% if lots.get(line.stock_lot_id) %} dc {{ lots[line.stock_lot_id] }}{% endif %}{% endif %}{% if line.taxable %} · taxable{% endif %} · warranty {{ warranty(line) }} d{% if link %} · {{ link.domain }}{% endif %}
           {% if line.customer_supplied %}<span class="badge">customer's</span>{% endif %}
           {% if line.awaiting %}<span class="badge warn">on its way</span>{% endif %}
           {% if not line.billable %}<span class="badge warn">not billed</span>{% endif %}

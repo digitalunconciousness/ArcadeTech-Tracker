@@ -283,7 +283,8 @@ def show(wo_id):
                            status_form=StatusForm(status=wo.status), add_job=add_job,
                            warranty_of=warranty_of, costs=sees_costs(),
                            appointments=appointments, who=who, estimates=estimates,
-                           invoices=invoices, unbilled=unbilled,
+                           invoices=invoices, unbilled=unbilled, buying=link_lines(wo),
+                           job_tags={job.id: asset.tag if asset else None for job, asset in jobs},
                            appointment_form=appointment_form(wo, customer)
                            if current_user.role in EDIT_ROLES else None)
 

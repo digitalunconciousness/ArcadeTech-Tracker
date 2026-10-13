@@ -1,9 +1,15 @@
 """Jinja filters for money, unit costs and quantities. Decimal in, text out."""
 
+import re
 from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlsplit
 
+from markupsafe import Markup, escape
+
 from app.pricing import round_money
+
+URL_IN_TEXT = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+LINK = Markup('<a href="{0}" rel="noopener noreferrer nofollow" target="_blank">{0}</a>')
 
 
 def money(value):
@@ -70,5 +76,31 @@ def site(url):
     return host[4:] if host.startswith("www.") else host
 
 
+def _trim(url):
+    """Sentence punctuation after an address isn't part of it; a closing bracket is only
+    when the address opened one."""
+    while url and url[-1] in ".,;:!?)]":
+        if url[-1] == ")" and url.count("(") >= url.count(")"):
+            break
+        url = url[:-1]
+    return url
+
+
+def linkify(value):
+    """Plain text, escaped, with its http(s) addresses as links that open in a new tab.
+    Nothing else becomes a link."""
+    text = str(value or "")
+    out, last = [], 0
+    for m in URL_IN_TEXT.finditer(text):
+        url = _trim(m.group(0))
+        if not site(url):
+            continue
+        out += [escape(text[last:m.start()]), LINK.format(url)]
+        last = m.start() + len(url)
+    out.append(escape(text[last:]))
+    return Markup("").join(out)
+
+
 FILTERS = {"money": money, "unit_cost": unit_cost, "qty": qty, "pct": pct, "plain": plain,
-           "scope_items": scope_items, "rate_pct": rate_pct, "site": site}
+           "scope_items": scope_items, "rate_pct": rate_pct, "site": site,
+           "linkify": linkify}

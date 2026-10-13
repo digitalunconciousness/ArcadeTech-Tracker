@@ -13,6 +13,7 @@ from test_assets import asset, customer
 from test_estimates import approve_by_link, built, est_job, send, set_terms
 from test_work import first_job, new_wo, text
 
+from app.formatting import linkify
 from app.partlinks.service import LinkError, find_url, normalize
 from conftest import db_query, libpq
 
@@ -56,6 +57,29 @@ def test_find_url_looks_in_every_field():
     assert find_url(None, "Cap kit https://example.com/k?a=1", "Cap kit") == \
         "https://example.com/k?a=1"
     assert find_url("", "", "no link here") is None
+
+
+def a(url):
+    return f'<a href="{url}" rel="noopener noreferrer nofollow" target="_blank">{url}</a>'
+
+
+@pytest.mark.parametrize("raw,shown", [
+    ("Coin door lock: https://example.org/lock", "Coin door lock: " + a("https://example.org/lock")),
+    ("See https://example.com/p/1).\nThanks", "See " + a("https://example.com/p/1") + ").\nThanks"),
+    ("https://example.org/wiki/Fuse_(5A)", a("https://example.org/wiki/Fuse_(5A)")),
+    ("<b>x</b> https://example.com/?a=1&b=2", "&lt;b&gt;x&lt;/b&gt; "
+     + a("https://example.com/?a=1&amp;b=2")),
+    ('https://example.com/x"onmouseover="y', a("https://example.com/x") + "&#34;onmouseover=&#34;y"),
+    ("javascript:alert(1) data:text/html,hi ftp://example.com/x", None),
+    ("https:// and https:///x", None),
+    (None, ""),
+])
+def test_comm_log_addresses_become_links(raw, shown):
+    out = str(linkify(raw))
+    if shown is None:
+        assert "<a" not in out
+    else:
+        assert out == shown
 
 
 def test_save_matches_vendor_and_refuses_duplicates(app, signed_in):
@@ -252,6 +276,8 @@ def test_customer_buys_on_a_work_order_and_send_links(app, signed_in):
     assert resp.status_code == 302
     entry = db_query(app, "SELECT customer_id, kind, summary FROM comm_log")[0]
     assert entry[:2] == (cid, "text") and message in entry[2] and "WO-" in entry[2]
+    # and on the customer's comm log the address opens the seller's page
+    assert 'href="https://example.org/lock"' in tech.get(f"/customers/{cid}").get_data(as_text=True)
     usage = text(tech.get(f"/links/{lock}"))
     assert "Starlite Lanes Test" in usage and "Sent" in usage and "on its way" in usage
     # viewers can't send or add
@@ -261,6 +287,45 @@ def test_customer_buys_on_a_work_order_and_send_links(app, signed_in):
     assert viewer.post(f"/work/jobs/{job}/part-links", data={"part_link_id": str(cap),
                                                              "qty": "1"}).status_code == 403
 
+
+
+def test_every_part_they_buy_links_to_the_site(app, signed_in, monkeypatch):
+    """Wherever a part the customer is buying shows, it opens the seller's page."""
+    from app.work import docs
+    tech, viewer = signed_in("tech"), signed_in("viewer")
+    cid = customer(tech, "Buy Link Arcade")
+    wo_id = new_wo(tech, cid, asset(tech, cid, "Galaga"))
+    assert "Parts the customer is buying" not in text(tech.get(f"/work/{wo_id}"))
+    job = first_job(app, wo_id)
+    cap, lock = save(tech), save(tech, "https://example.org/lock", "Coin door lock")
+    for link in (cap, lock):
+        tech.post(f"/work/jobs/{job}/part-links", data={"part_link_id": str(link), "qty": "1",
+                                                        "wait": "y"})
+    cap_href = 'href="https://www.example.com/cap-kits/k7000?sku=K7"'
+    lock_href = 'href="https://example.org/lock"'
+    arrived = db_query(app, "SELECT id FROM wo_line WHERE part_link_id = :l", l=cap)[0][0]
+    tech.post(f"/work/lines/{arrived}/arrived")
+    # the job's lines table, not only its customer-parts panel
+    page = text(tech.get(f"/work/jobs/{job}"))
+    table = page[:page.index('id="customer-parts"')]
+    assert lock_href in table and cap_href in table and "example.org" in table
+    # the work order page lists them, for everyone; sending is for those who edit
+    page = text(viewer.get(f"/work/{wo_id}"))
+    assert "Parts the customer is buying" in page and lock_href in page and cap_href in page
+    assert "Send links to the customer" not in page
+    assert "Send links to the customer" in text(tech.get(f"/work/{wo_id}"))
+    # the send page opens the site, with the saved link's page a click away
+    page = text(tech.get(f"/work/{wo_id}/send-links"))
+    listed = page[page.index("On this work order"):]
+    assert lock_href in listed and f'href="/links/{lock}"' in listed
+    # the service report links what's still to buy, not what's here
+    seen = {}
+    monkeypatch.setattr(docs, "render_pdf", lambda template, **ctx: seen.setdefault(
+        template, docs.render_template(template, doc_css="css/doc.css", wo_kinds=docs.WO_KINDS,
+                                       received_via=docs.RECEIVED_VIA, **ctx)).encode())
+    tech.get(f"/work/{wo_id}/service-report.pdf")
+    report = seen["docs/service_report.html"]
+    assert lock_href in report and "not here yet" in report and cap_href not in report
 
 def test_switched_off_links_and_closed_targets(app, signed_in):
     owner = signed_in("owner")

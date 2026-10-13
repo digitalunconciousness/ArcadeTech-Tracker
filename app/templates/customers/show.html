@@ -167,7 +167,7 @@
     {% for entry in log %}
     <li>
       <span class="dim">{{ entry.at | localdt }}</span> <span class="badge">{{ entry.kind.replace('_', ' ') }}</span>
-      <div class="notes">{{ entry.summary }}</div>
+      <div class="notes">{{ entry.summary | linkify }}</div>
     </li>
     {% else %}
     <li class="dim">Nothing logged yet.</li>
