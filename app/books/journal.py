@@ -11,7 +11,8 @@ Simplifications, said once:
   else to the account for its payment method (payments) or "Checking" (everything else).
 - Stock is inventory when bought (its purchase order) and cost of goods when sold (on its
   invoice), as the P&L counts it. Stock received without a purchase order comes in against
-  a clearing account the accountant can sort out.
+  a clearing account the accountant can sort out. A part the shop doesn't stock is an
+  expense when it's bought and isn't counted again when it's sold (figures.is_cogs).
 - A voided invoice, expense or trip is left out entirely.
 """
 
@@ -45,7 +46,8 @@ from app.models import (
     User,
     Vendor,
 )
-from app.reports.figures import LIVE_INVOICE, local_date
+from app.pricing import round_money
+from app.reports.figures import LIVE_INVOICE, is_cogs, local_date, stocked_part_ids
 
 ZERO = Decimal("0.00")
 
@@ -61,7 +63,7 @@ FIXED = {
     "income:sublet": ("Sales: sublet work", "Sublet lines on invoices"),
     "income:discount": ("Discounts given", "Discount lines on invoices"),
     "income:credits": ("Returns and allowances", "Credit memos, before tax"),
-    "cogs": ("Cost of goods sold", "What the parts and sublets on invoices cost"),
+    "cogs": ("Cost of goods sold", "What the stocked parts and sublets on invoices cost"),
     "mileage": ("Car and truck expenses (mileage)", "Trips at the standard mileage rate"),
     "inventory": ("Inventory", "Stocked parts: in when ordered, out when invoiced"),
     "inventory_clearing": ("Stock received without a purchase order",
@@ -177,7 +179,7 @@ def entries(start, end):
     invoices = db.session.scalars(select(Invoice).where(
         Invoice.status.in_(LIVE_INVOICE), Invoice.issue_date.between(start, end))
         .order_by(Invoice.issue_date, Invoice.number)).all()
-    lines = defaultdict(list)
+    lines, stocked = defaultdict(list), stocked_part_ids()
     for line in db.session.scalars(select(InvoiceLine).where(
             InvoiceLine.invoice_id.in_([i.id for i in invoices]))):
         lines[line.invoice_id].append(line)
@@ -192,12 +194,10 @@ def entries(start, end):
             e.credit(f"income:{kind}", amount)
         e.credit("sales_tax", inv.tax)
         out.append(e)
-        cost_parts = sum((round(x.qty * x.unit_cost, 2) for x in lines[inv.id]
-                          if x.kind == "part" and x.unit_cost is not None
-                          and not x.customer_supplied), ZERO)
-        cost_sublets = sum((round(x.qty * x.unit_cost, 2) for x in lines[inv.id]
-                            if x.kind == "sublet" and x.unit_cost is not None
-                            and not x.customer_supplied), ZERO)
+        cost_parts = sum((round_money(x.qty * x.unit_cost) for x in lines[inv.id]
+                          if x.kind == "part" and is_cogs(x, stocked)), ZERO)
+        cost_sublets = sum((round_money(x.qty * x.unit_cost) for x in lines[inv.id]
+                            if x.kind == "sublet" and is_cogs(x, stocked)), ZERO)
         if cost_parts or cost_sublets:
             c = Entry(inv.issue_date, f"Cost of {inv.number}", customers.get(inv.customer_id, ""),
                       inv.number)
@@ -269,7 +269,7 @@ def entries(start, end):
             .where(StockLot.po_line_id.is_(None), StockMove.reason == "receive",
                    received_on.between(start, end))
             .group_by(StockLot.id).order_by(StockLot.id)):
-        value = round(qty * lot.unit_cost, 2)
+        value = round_money(qty * lot.unit_cost)
         if value:
             e = Entry(on, f"Stock received, lot #{lot.id}", reference=f"lot #{lot.id}")
             e.debit("inventory", value)

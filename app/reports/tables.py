@@ -70,7 +70,7 @@ def pnl_table(start, end, basis):
     rows = [("Revenue", BASES[basis] + (": collected, less sales tax" if basis == "cash"
                                         else ": invoiced, less tax and credit memos"),
              p["revenue"]),
-            ("Cost of goods", "Parts and sublets on invoices issued", p["cogs"]),
+            ("Cost of goods", "Stocked parts and sublets on invoices issued", p["cogs"]),
             ("Gross profit", "", p["gross"])]
     rows += [("Expenses", name, total) for name, total in p["by_category"]]
     rows += [("Expenses", "Total expenses", p["expenses"]),
@@ -246,7 +246,9 @@ def jobs_table(start, end):
             r["hours"], r["labor"], r["profit"]] for r in rows]
     note = (f"Labor at the internal rate of {rate:,.2f} an hour (Settings → Books)."
             if rate is not None else
-            "No internal labor rate set (Settings → Books), so profit is before labor.")
+            "No internal labor rate set (Settings → Books), so profit is before labor.") + \
+        (" Parts cost includes parts the shop doesn't stock, at their default cost; the P&L"
+         " counts those as expenses when they're bought.")
     return Table(f"Job profitability, invoiced {start} to {end}", [
         ("Work order", "text"), ("Customer", "text"), ("Invoices", "text"),
         ("Billed (no tax)", "money"), ("Parts cost", "money"), ("Hours", "qty"),
@@ -309,14 +311,16 @@ def invoice_lines_table(start, end):
         select(InvoiceLine, Invoice).join(Invoice, Invoice.id == InvoiceLine.invoice_id)
         .where(Invoice.status != "draft", Invoice.issue_date >= start,
                Invoice.issue_date <= end).order_by(Invoice.number, InvoiceLine.position)).all()
+    stocked = figures.stocked_part_ids()
     return Table("Invoice lines", [
         ("Invoice", "text"), ("Invoice status", "text"), ("Kind", "text"),
         ("Description", "text"), ("Qty", "qty"), ("Unit price", "money"),
         ("Line total", "money"), ("Taxable", "text"), ("Customer's own part", "text"),
-        ("Unit cost", "cost"), ("Warranty until", "text")],
+        ("Unit cost", "cost"), ("Cost of goods", "text"), ("Warranty until", "text")],
         [[inv.number, inv.status, ln.kind, ln.description, ln.qty, ln.unit_price,
           ln.line_total, "yes" if ln.taxable else "", "yes" if ln.customer_supplied else "",
-          ln.unit_cost, ln.warranty_until or ""] for ln, inv in rows])
+          ln.unit_cost, "yes" if figures.is_cogs(ln, stocked) else "",
+          ln.warranty_until or ""] for ln, inv in rows])
 
 
 def payments_table(start, end):

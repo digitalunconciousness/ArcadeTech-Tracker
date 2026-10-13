@@ -2,7 +2,7 @@ from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 from flask_login import current_user
-from sqlalchemy import func, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.auth.decorators import ALL_ROLES, COST_ROLES, EDIT_ROLES, requires_role
@@ -12,7 +12,18 @@ from app.formatting import qty as fmt_qty
 from app.formatting import unit_cost as fmt_cost
 from app.forms_common import QTY_MAX
 from app.lists import desk_list
-from app.models import Part, PartLink, StockLot, StockMove, User, Vendor
+from app.models import (
+    InvoiceLine,
+    Part,
+    PartLink,
+    PoLine,
+    Reservation,
+    StockLot,
+    StockMove,
+    User,
+    Vendor,
+    WoLine,
+)
 from app.parts import stock
 from app.parts.forms import (
     PRICING_FIELDS,
@@ -134,9 +145,25 @@ def sku_taken(sku, part_id=None):
     return db.session.scalar(q) is not None
 
 
+def part_used(part_id):
+    """Has the part been received, ordered, set aside, put on a job or invoiced?"""
+    return part_id is not None and any(
+        db.session.scalar(select(exists().where(model.part_id == part_id)))
+        for model in (StockMove, PoLine, Reservation, WoLine, InvoiceLine))
+
+
 def save_part(form, part):
     if sku_taken(form.sku.data, part.id):
         form.sku.errors.append("Another part has that SKU.")
+        return False
+    # Whether a part is stocked decides where its cost lands in the books (inventory and
+    # cost of goods, or an expense when bought; figures.is_cogs) and what its lots mean,
+    # so it's fixed once the part is used: changing it would rewrite past figures.
+    if part.id and form.track_stock.data != part.track_stock and part_used(part.id):
+        form.track_stock.errors.append(
+            "This part has been ordered, stocked or sold, so whether it's tracked can't "
+            "change now: past costs would change with it. Add a new part instead, and "
+            "switch this one off.")
         return False
     form.populate_obj(part)
     if part.price_mode == "markup" and part.default_cost is None and "default_cost" in form:
@@ -171,7 +198,7 @@ def edit(part_id):
         flash("Saved.", "ok")
         return redirect(url_for("parts.show", part_id=part.id))
     flash_errors(form)
-    return render_template("parts/form.html", form=form, part=part)
+    return render_template("parts/form.html", form=form, part=part, used=part_used(part.id))
 
 
 @bp.route("/parts/<int:part_id>")

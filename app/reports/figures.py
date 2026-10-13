@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 
 from app.books import service as books
 from app.extensions import db
@@ -29,6 +29,7 @@ from app.models import (
     Customer,
     Invoice,
     InvoiceLine,
+    Part,
     Payment,
     PaymentAllocation,
     ShopSetting,
@@ -143,15 +144,37 @@ def invoiced(start, end):
     return billed - credited + ZERO
 
 
+def stocked_part_ids():
+    return set(db.session.scalars(select(Part.id).where(Part.track_stock.is_(True))))
+
+
+def is_cogs(line, stocked):
+    """Does an invoice line's cost count as cost of goods? A stocked part's does (its lot
+    cost: inventory until it's sold), and a sublet's. A part the shop doesn't stock was an
+    expense when it was bought (supplies on its purchase order, or an expense typed in),
+    so it isn't counted again; nor is a customer's own part. `stocked` is
+    stocked_part_ids(); cogs_line() is the same rule in SQL. Whether a part is stocked
+    can't change once it's used (parts.routes.save_part), so past periods stay put."""
+    return (line.unit_cost is not None and not line.customer_supplied
+            and (line.kind == "sublet" or (line.kind == "part" and line.part_id in stocked)))
+
+
+def cogs_line():
+    """is_cogs() as a condition on InvoiceLine."""
+    return and_(InvoiceLine.unit_cost.isnot(None), InvoiceLine.customer_supplied.is_(False),
+                or_(InvoiceLine.kind == "sublet",
+                    and_(InvoiceLine.kind == "part", InvoiceLine.part_id.in_(
+                        select(Part.id).where(Part.track_stock.is_(True))))))
+
+
 def cogs(start, end):
-    """What the parts and sublets on the period's invoices cost, per line to the cent."""
+    """What the stocked parts and sublets on the period's invoices cost, per line to the
+    cent (see is_cogs)."""
     return db.session.scalar(select(func.coalesce(func.sum(
         func.round(InvoiceLine.qty * InvoiceLine.unit_cost, 2)), 0))
         .join(Invoice, Invoice.id == InvoiceLine.invoice_id)
         .where(Invoice.status.in_(LIVE_INVOICE), Invoice.issue_date >= start,
-               Invoice.issue_date <= end, InvoiceLine.kind.in_(("part", "sublet")),
-               InvoiceLine.unit_cost.isnot(None), InvoiceLine.customer_supplied.is_(False))) \
-        + ZERO
+               Invoice.issue_date <= end, cogs_line())) + ZERO
 
 
 def revenue(start, end, basis):

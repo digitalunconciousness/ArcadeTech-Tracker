@@ -32,8 +32,10 @@ Profit and loss
   less the sales tax inside what was applied to taxed invoices.
   Accrual basis revenue: invoices issued in the year without their tax, less credit
   memos issued in it. Voided invoices never count.
-  Cost of goods (both bases): parts and sublets on invoices issued in the year, at the
-  cost frozen on each line; a customer's own parts cost nothing.
+  Cost of goods (both bases): stocked parts and sublets on invoices issued in the year,
+  at the cost frozen on each line ("Cost of goods" in invoice-lines.csv). A customer's
+  own parts cost nothing; a part the shop doesn't stock was an expense when it was
+  bought, so it isn't counted again.
   Expenses include what purchase orders spent that isn't stocked inventory (supplies,
   shipping, tax paid), on each order's date. Mileage is at the IRS standard rate for
   each trip's date.

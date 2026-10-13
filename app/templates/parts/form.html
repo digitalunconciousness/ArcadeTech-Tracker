@@ -19,6 +19,7 @@
     {{ check(form.taxable) }}
     <h2>Stock</h2>
     {{ check(form.track_stock) }}
+    {% if used %}<p class="dim small">Fixed now: this part has been ordered, stocked or sold. To track it differently, add a new part.</p>{% endif %}
     <div class="row">{{ field(form.unit) }}{{ field(form.reorder_point, inputmode="decimal") }}{{ field(form.reorder_qty, inputmode="decimal") }}</div>
     <div class="row">{{ field(form.preferred_vendor_id) }}{{ field(form.bin) }}{{ field(form.barcode) }}</div>
     {{ field(form.datasheet_url, inputmode="url") }}

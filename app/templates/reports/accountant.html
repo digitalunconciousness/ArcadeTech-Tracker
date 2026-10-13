@@ -30,7 +30,7 @@
   <ul class="list small">
     <li>A customer's credit (a deposit, an overpayment, a credit memo not yet used) stays in Accounts receivable as a credit balance.</li>
     <li>Money is booked to the account it was matched to in <a href="{{ url_for('bank.index') }}">Money → Bank</a>, otherwise to the account for its payment method (payments) or Checking (everything else).</li>
-    <li>Stocked parts are inventory when ordered and cost of goods when invoiced. Stock received without a purchase order comes in against a clearing account; stock counts, scrap and returns to vendors aren't booked here.</li>
+    <li>Stocked parts are inventory when ordered and cost of goods when invoiced; parts the shop doesn't stock are expenses when bought, and aren't counted again when invoiced. Stock received without a purchase order comes in against a clearing account; stock counts, scrap and returns to vendors aren't booked here.</li>
     <li>What a partner paid with their own money (or drove in their own vehicle) is owed to them until a reimbursement is recorded.</li>
     <li>Voided invoices, expenses, trips and partner entries are left out.</li>
   </ul>

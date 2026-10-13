@@ -11,10 +11,11 @@ from decimal import Decimal as D
 
 import psycopg
 import pytest
-from test_billing import billable, capture, owner_sql, today
+from test_billing import billable, capture, issue, issued_id, owner_sql, today
 from test_books import add_expense, category
+from test_parts import add_part
 from test_payments import fixed_invoice
-from test_work import first_job, new_wo, text
+from test_work import first_job, new_wo, setup, text
 
 from conftest import db_query, libpq
 
@@ -185,8 +186,6 @@ def test_import_match_reconcile_and_the_locks(app, signed_in, tdb):
     account = db_query(app, "SELECT id FROM bank_account")[0][0]
     # what the app knows: a check and cash (deposited together), a card purchase
     b = billable(owner, app)
-    inv = db_query(app, "SELECT id FROM invoice")
-    from test_billing import issue, issued_id
     inv = issued_id(issue(owner, app, b["wo"]))
     owner.post(f"/invoices/{inv}/payment", data={"amount": "123.90", "method": "check",
                                                  "received_on": str(day), "reference": "1001",
@@ -382,3 +381,25 @@ def test_general_journal_balances_and_ties_to_the_pnl(app, signed_in, tdb):
         ("income:labor", "Repair income"), ("income:part", "Repair income")]
     owner.post("/settings/accounts", data={"name-income:labor": "", "number-income:labor": ""})
     assert db_query(app, "SELECT key FROM account_map") == [("income:part",)]
+
+
+def test_journal_rounds_a_half_cent_like_the_pnl(app, signed_in):
+    """A lot cost of $0.1250 is exactly half a cent: Postgres rounds it up, as the P&L
+    does, and the journal must too (Python's round() would go to the even cent)."""
+    from app.books import journal
+    from app.reports import figures
+    owner = signed_in("owner")
+    _, _, wo, job = setup(owner, app)
+    pid = add_part(owner, sku="HALF-CENT")
+    owner.post(f"/parts/{pid}/receive", data={"qty": "1", "unit_cost": "0.1250",
+                                              "vendor_id": "None"})
+    owner.post(f"/work/jobs/{job}/lines/part", data={"part_id": pid, "qty": "1",
+                                                      "billable": "y"})
+    issued_id(issue(owner, app, wo))
+    t = today(app)
+    with app.app_context():
+        es = journal.entries(t, t)
+        tb = {name: amount for name, _, _, _, amount in journal.trial_balance(es)}
+        assert figures.cogs(t, t) == D("0.13")
+        assert journal.net_income(es) == figures.pnl(t, t, "accrual")["net"]
+    assert tb["Cost of goods sold"] == D("0.13")
