@@ -14,7 +14,7 @@
   {% set ns = namespace(any=false) %}
   {% for status, rows in groups.items() if rows %}
   {% set ns.any = true %}
-  <h2>{{ statuses[status] }} <span class="dim">{{ rows | length }}</span></h2>
+  <h2 id="{{ status }}">{{ statuses[status] }} <span class="dim">{{ rows | length }}</span></h2>
   <ul class="list">
     {% for wo, customer, techs in rows %}
     <li>

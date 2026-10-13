@@ -1,0 +1,32 @@
+{# One report cell: a Link, or a raw value shown by its column's kind. #}
+{% macro value(v, kind) -%}
+{%- if v is none or v == "" -%}
+{%- elif v.url is defined -%}<a href="{{ v.url }}">{{ v.text }}</a>
+{%- elif kind == "money" -%}<span class="money">{{ v | money }}</span>
+{%- elif kind == "cost" -%}<span class="money">{{ v | unit_cost }}</span>
+{%- elif kind == "qty" -%}{{ v | qty }}
+{%- elif kind == "pct" -%}{{ v }}%
+{%- else -%}{{ v }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro grid(table) -%}
+{% if table.rows %}
+<div class="scroll">
+<table class="grid">
+  <thead><tr>{% for label, kind in table.cols %}<th{% if kind != "text" %} class="num"{% endif %}>{{ label }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row in table.rows %}
+  {% set cls = table.row_classes[loop.index0] if table.row_classes else "" %}
+  <tr{% if cls %} class="{{ cls }}"{% endif %}>{% for cell in row %}{% set kind = table.cols[loop.index0][1] %}<td{% if kind != "text" %} class="num"{% endif %}>{{ value(cell, kind) }}</td>{% endfor %}</tr>
+  {% endfor %}
+  {% if table.totals %}
+  <tr class="total basis">{% for cell in table.totals %}{% set kind = table.cols[loop.index0][1] %}<td{% if kind != "text" %} class="num"{% endif %}>{{ value(cell, kind) }}</td>{% endfor %}</tr>
+  {% endif %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="dim">{{ table.empty }}</p>
+{% endif %}
+{%- endmacro %}

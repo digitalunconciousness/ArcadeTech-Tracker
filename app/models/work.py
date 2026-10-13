@@ -96,6 +96,9 @@ class WorkOrder(StandardColumns, db.Model):
     # Set when the last part it was waiting on came in and the app put it back In
     # progress; the board flags it until someone changes the status.
     parts_arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When it first went to Ready (Phase 6b): turnaround is intake to here. Older WOs have
+    # none; reports fall back to completed_at.
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class WorkOrderTech(StandardColumns, db.Model):

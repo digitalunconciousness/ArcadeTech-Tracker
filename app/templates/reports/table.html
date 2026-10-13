@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "reports/_macros.html" import grid, value %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>{{ title }}</h1>
+    <div class="actions">
+      <a class="btn small" href="{{ csv_url() }}">CSV</a>
+      <a class="btn small" href="{{ url_for('reports.index') }}">All reports</a>
+    </div>
+  </div>
+  {% include "reports/_filters.html" %}
+  {% if facts %}
+  <dl class="facts">
+    {% for label, v, kind in facts %}<dt>{{ label }}</dt><dd>{{ value(v, kind) }}</dd>{% endfor %}
+  </dl>
+  {% endif %}
+</section>
+{% for table in tables %}
+<section class="panel">
+  <h2>{{ table.title }}</h2>
+  {% if table.note %}<p class="dim small">{{ table.note }}</p>{% endif %}
+  {{ grid(table) }}
+</section>
+{% endfor %}
+{% endblock %}

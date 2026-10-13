@@ -392,6 +392,10 @@ I'm not a tax professional; these are the questions, not the answers.
 
 ## Dashboard (owners)
 
+- **As built in Phase 6b:** every figure comes from `app/reports/figures.py` (definitions in
+  PROGRESS Decisions, 2026-10-13); Chart.js on screen and the same data as server-drawn SVG
+  for print and PDFs; viewers see what owners see, techs see the work and parts counts only.
+
 **Top row: figures for MTD, QTD and YTD**, each against the same period last year. Cash basis by default, with an accrual toggle; your CPA should confirm which you file on.
 - **Collected:** payments.
 - **Invoiced:** issued totals.
@@ -514,6 +518,9 @@ Mirror the tracker's runbook (`deploy/RUNBOOK.md`), which you already run:
 - **The phone is the main screen.** A bar owner is standing next to you, and your partner is on their own phone. Mobile-first, server-rendered Flask/Jinja, plain JS, no CDN, vendored libraries.
 - **House style** in the app: the synthwave tokens from GATBOX's CLAUDE.md, Chakra Petch / Share Tech Mono served locally.
 - **Navigation:** Dashboard · Work · Customers · Assets · Billing · Parts · Purchasing · Expenses · Reports · Settings.
+  - **As built in Phase 6b:** six sections, each with a tab row: Dashboard · Work (Work
+    orders, Estimates) · Customers (Customers, Assets) · Money (Invoices, Payments, Books,
+    Reports) · Parts (Parts, Links, Buying, Price book) · Settings.
 - **Global search** across customer, phone, asset tag, serial, any document number and tracking number.
 - **Scanning:** an asset QR opens the asset. A bin label opens the part, with **+1 / −1 / count**. The EY-H2 works anywhere a field has focus.
 - **Work board:** WOs as columns by status. Tap through to job → 3C, timer, parts, readings, photos, sign-off.

@@ -246,3 +246,38 @@ form.add-link .check { margin-bottom: 0.35rem; }
 
 /* An expense's receipt photo. */
 img.receipt { max-width: 100%; height: auto; max-height: 28rem; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; }
+
+/* Dashboard and reports: figures, charts, the blur toggle. */
+.figures { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); margin-bottom: 0.6rem; }
+.figure { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.6rem; }
+.figure h3 { color: var(--cyan); margin-bottom: 0.3em; }
+table.grid tr.basis td { font-weight: bold; }
+table.grid tr.basis td.dim { font-weight: normal; }
+table.grid tr.sub td:first-child { padding-left: 1.2rem; color: var(--dim); }
+.chart { margin: 0 0 1.4rem; }
+.chart figcaption { color: var(--dim); font-size: 0.9rem; margin-bottom: 0.3rem; }
+.chart-box { position: relative; height: 16rem; }
+.print-chart { display: none; }
+html.blurred .money { filter: blur(0.45em); }
+.subnav { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.4rem 1rem 0; max-width: 46rem; margin: 0 auto; }
+.subnav a { color: var(--dim); text-decoration: none; padding: 0.25rem 0.6rem; border: 1px solid transparent; border-radius: var(--radius); font-size: 0.9rem; }
+.subnav a.active { color: var(--cyan); border-color: var(--border); background: var(--panel); }
+
+/* The browser's print of an app page: white paper, no chrome, the server-drawn charts. */
+@media print {
+  html, body { background: #fff; color: #000; }
+  body::before { display: none; }
+  .topbar, .subnav, .timerbar, .search, .actions, .btn, .flash, form.filters { display: none; }
+  .page { max-width: none; padding: 0; }
+  .panel { background: none; border: none; padding: 0; margin-bottom: 1.2rem; overflow: visible; }
+  .figure { border-color: #999; break-inside: avoid; }
+  h1, h2, h3, .figure h3 { color: #000; text-shadow: none; }
+  a, .tag { color: #000; text-decoration: none; }
+  .dim, .facts dt, table.grid th, .chart figcaption { color: #555; }
+  table.grid th, table.grid td { border-color: #bbb; }
+  .badge { color: #000; border-color: #000; box-shadow: none; }
+  .chart { break-inside: avoid; }
+  .chart-box { display: none; }
+  .print-chart { display: block; }
+  html.blurred .money { filter: none; }
+}

@@ -197,17 +197,33 @@ push/PR → owner deploys (⏸).
         filings recorded with the period's figures copied in; no overlapping periods
   - [x] Settings → Books (split, set-aside, storage days, internal labor cost, 1099
         threshold, mileage rates, categories); restore drill re-hashes receipts
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0014, 0015)
+  - [x] Diff, tests, privacy output → OK → PR #14 (merged)
+  - [ ] ⏸ Owner deploys (migrations 0014, 0015)
   - [ ] ⏸ Exit: an expense, a trip and a PO paid by a partner each show on that partner's
         statement as owed; recording a reimbursement clears it (tested:
         `test_what_a_partner_is_owed_and_paying_it_back`). On the phone: mark both owners as
         partners (Settings → Users), confirm the mileage rates (Settings → Books)
-- **6b: numbers** (dashboard, reports, CSV, year-end package)
-  - [ ] Dashboard (cash/accrual), charts (Chart.js on screen; server-drawn for PDFs and
-        print), reports with CSV exports, partner shares of profit
-  - [ ] Year-end package + 1099 reconciliation; reconciles to the dashboard to the cent on a
-        synthetic year (tested)
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
+- **6b: numbers** (branch `phase/6b-numbers`)
+  - [x] Design note → OK (owner, 2026-10-13, all seven decisions as recommended)
+  - [x] `work_order.ready_at` (migration 0016), set the first time a WO reaches Ready
+  - [x] Dashboard: MTD/QTD/YTD against last year, cash/accrual (remembered on the device),
+        blur toggle, receivables and aging, money/work/parts/warranty counts; techs see
+        work and parts only. Charts: Chart.js 4.5.1 (vendored, pinned by sha256) on
+        screen, the same data as server-drawn SVG in print and PDFs
+  - [x] Reports (owners and viewers), each a page and a CSV: P&L (and by month, and a PDF),
+        aging, sales tax, expenses, mileage, partners, 1099 reconciliation, inventory value
+        with lot trace, parts used, labor by person, job profitability, turnaround,
+        warranty and comebacks
+  - [x] Year-end package: one zip of CSVs, both P&Ls (CSV and PDF), issued invoice and
+        credit memo PDFs, receipts, a README; it reconciles to the dashboard and the P&L to
+        the cent on a synthetic year, both bases (tested:
+        `test_synthetic_year_adds_up_everywhere`)
+  - [x] Nav in six sections with a tab row: Dashboard · Work · Customers · Money · Parts ·
+        Settings
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0016)
+  - [ ] ⏸ Exit: the year-end package's figures reconcile to the dashboard to the cent
+        (tested). On the phone: the dashboard on both bases, blur, print the P&L, download
+        this year's package and open it
 
 ## Phase 7: GATBOX link, hub side (branch `phase/7-gatbox-link`)
 
@@ -318,6 +334,13 @@ push/PR → owner deploys (⏸).
 | 2026-10-13 | Owners keep the books; viewers (the accountant, later) read them; techs see none of it | Owner (decision 6) |
 | 2026-10-13 | 2026 mileage rates seeded from the IRS (Notice 2026-10: 72.5¢; Announcement 2026-11: 76¢ from July 1), labelled with their source; the 1099-NEC threshold is a setting, $2,000 for 2026 payments | Owner (decisions 7, 8); checked 2026-10-12 |
 | 2026-10-13 | Sales-tax filings copy the period's taxable sales and tax collected when recorded; periods can't overlap (exclusion constraint). "Collected and not yet filed" counts from the day after the last filed period | A later void can't change what was filed |
+| 2026-10-13 | Every figure comes from `app/reports/figures.py`. Cash basis revenue = money received (receipts less reversals and refunds) by date, less the sales tax inside what was applied to taxed invoices (each allocation's share, half-up); deposits and credit count when received. Accrual = invoices issued without tax, less credit memos issued; voids never count | Owner (decision 2); CPA to confirm the basis filed on |
+| 2026-10-13 | Cost of goods = parts and sublets on invoices issued in the period at the line's frozen cost, under both bases; a customer's own parts cost nothing | Owner (decision 3) |
+| 2026-10-13 | Turnaround = intake (first job received, else WO opened) → `ready_at`; older WOs use `completed_at`. Comeback rate = warranty WOs opened in the last 90 days ÷ jobs invoiced in the same window | Owner (decisions 4, 5) |
+| 2026-10-13 | Year-end package built on demand into a temp file and streamed, never stored; files missing from the store are listed in its README rather than failing the build | Owner (decision 6) |
+| 2026-10-13 | Dashboard basis and blur are remembered per device (localStorage), blur applied before the page draws. Reports and the year-end package: owners and viewers | Owner (decision 7) |
+| 2026-10-13 | CSVs: plain numbers, ISO dates, a totals row last; text that a spreadsheet would run as a formula (`= + - @`) gets a leading apostrophe | Payees and descriptions are typed in |
+| 2026-10-13 | Nav regrouped: Dashboard · Work (Work orders, Estimates) · Customers (Customers, Assets) · Money (Invoices, Payments, Books, Reports; owners and viewers) · Parts (Parts, Links, Buying, Price book) · Settings (owners) | Owner (decision 1) |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -511,3 +534,23 @@ push/PR → owner deploys (⏸).
 - Phone pass: expense with a receipt photo, a trip from a WO, the partner page, expenses,
   sales tax, settings; no page scrolls sideways, no console errors.
 
+### Session 3, Phase 6b (2026-10-13, same cloud session)
+
+- PR #14 merged; 6b on `phase/6b-numbers` from `main`. Migration 0016 (`work_order.ready_at`);
+  round-tripped, no drift.
+- `app/reports/`: `figures.py` (every number), `service.py` and `tables.py` (each report as a
+  table: page, CSV and year-end file from the same rows), `svg.py` (print charts),
+  `dashboard.py` (the counts), `yearend.py`. Chart.js 4.5.1 from the npm tarball, checked
+  against npm's sha512 and pinned in `app/static/vendor/VENDORED.txt` (a test checks every
+  vendored file's hash; the external-assets test now skips `vendor/`).
+- The exit test builds a synthetic year (taxed and untaxed invoices, a void, partial,
+  bounced and over payments, a refund, a credit memo, expenses with a receipt, a PO, trips),
+  recomputes the P&L from the zip's raw CSVs alone, and checks it equals the P&L CSV, the
+  monthly totals and the dashboard to the cent on both bases.
+- Phone pass: dashboard (both bases, blur across a reload, basis remembered), every report,
+  invoices/buying/work with the new tabs, print emulation (SVG charts shown, canvas and nav
+  hidden), the P&L PDF and this year's zip; no page scrolls sideways, no console or CSP
+  errors.
+- Not done (say if wanted): the dashboard's "to order" is a count, not grouped by vendor
+  (the shopping list groups them); aging is as of today only (balances aren't kept by
+  date).

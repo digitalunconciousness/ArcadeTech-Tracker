@@ -92,8 +92,8 @@ def test_read_only_alembic_commands_work_from_a_fresh_cli(app):
 
     root = Path(__file__).resolve().parent.parent
     flask = str(Path(sys.executable).with_name("flask"))
-    for cmd, expect in (("heads", "0015_seed_books (head)"),
-                        ("current", "0015_seed_books (head)"),
+    for cmd, expect in (("heads", "0016_ready_at (head)"),
+                        ("current", "0016_ready_at (head)"),
                         ("history", "0001_foundation -> 0002_seed_settings")):
         run = subprocess.run([flask, "--app", "wsgi", "db", cmd], cwd=root, env=dict(os.environ),
                              capture_output=True, text=True, timeout=60)

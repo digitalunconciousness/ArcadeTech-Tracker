@@ -80,6 +80,8 @@ def set_techs(wo, user_ids):
 def set_status(wo, status):
     wo.status = status
     wo.parts_arrived_at = None
+    if status == "ready" and wo.ready_at is None:
+        wo.ready_at = utcnow()
     if status == "completed":
         wo.completed_at = wo.completed_at or utcnow()
     else:

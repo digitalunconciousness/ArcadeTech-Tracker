@@ -1,0 +1,4 @@
+# Third-party files served from app/static/vendor/, pinned by sha256 (a test checks these).
+# path  sha256  where it came from
+chartjs/chart.umd.min.js  48444a82d4edcb5bec0f1965faacdde18d9c17db3063d042abada2f705c9f54a  chart.js 4.5.1, npm tarball dist/chart.umd.min.js (tarball sha512-GIjfiT9dbmHRiYi6Nl2yFCq7kkwdkp1W/lp2J99rX0yo9tgJGn3lKQATztIjb5tVtevcBtIdICNWqlq5+E8/Pw==, as published)
+chartjs/LICENSE.md  41a84aa2caba645f966a18d9c2056b73e6d3a81d80bc0046bc0011a2634d4cce  chart.js 4.5.1, npm tarball LICENSE.md (MIT)

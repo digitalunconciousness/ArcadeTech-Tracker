@@ -11,27 +11,19 @@
   <link rel="manifest" href="{{ url_for('partlinks.manifest') }}" crossorigin="use-credentials">
   <meta name="theme-color" content="#150a28">
   <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" sizes="192x192">
+  <script src="{{ url_for('static', filename='js/prefs.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="{{ url_for('dashboard.index') }}">{{ shop.business_name }}</a>
     {% if current_user.is_authenticated %}
+    {% set nav = nav_for(current_user.role) %}
     <nav class="nav">
-      <a href="{{ url_for('dashboard.index') }}" {% if request.endpoint == 'dashboard.index' %}class="active"{% endif %}>Dashboard</a>
-      <a href="{{ url_for('work.index') }}" {% if request.blueprint == 'work' %}class="active"{% endif %}>Work</a>
-      <a href="{{ url_for('estimates.index') }}" {% if request.blueprint == 'estimates' %}class="active"{% endif %}>Estimates</a>
-      {% if can_see_costs %}<a href="{{ url_for('billing.index') }}" {% if request.blueprint == 'billing' %}class="active"{% endif %}>Invoices</a>{% endif %}
-      {% if can_see_costs %}<a href="{{ url_for('books.index') }}" {% if request.blueprint == 'books' %}class="active"{% endif %}>Books</a>{% endif %}
-      <a href="{{ url_for('customers.index') }}" {% if request.blueprint == 'customers' %}class="active"{% endif %}>Customers</a>
-      <a href="{{ url_for('assets.index') }}" {% if request.blueprint == 'assets' %}class="active"{% endif %}>Assets</a>
-      <a href="{{ url_for('parts.index') }}" {% if request.blueprint == 'parts' %}class="active"{% endif %}>Parts</a>
-      <a href="{{ url_for('partlinks.index') }}" {% if request.blueprint == 'partlinks' %}class="active"{% endif %}>Links</a>
-      <a href="{{ url_for('purchasing.index') }}" {% if request.blueprint == 'purchasing' %}class="active"{% endif %}>Buying</a>
-      <a href="{{ url_for('pricebook.index') }}" {% if request.blueprint == 'pricebook' %}class="active"{% endif %}>Price book</a>
-      {% if current_user.role == 'owner' %}
-      <a href="{{ url_for('settings.index') }}" {% if request.blueprint == 'settings' %}class="active"{% endif %}>Settings</a>
-      {% endif %}
+      {% for label, endpoint, active in nav.sections %}
+      <a href="{{ url_for(endpoint) }}"{% if active %} class="active"{% endif %}>{{ label }}</a>
+      {% endfor %}
       <a href="{{ url_for('auth.account') }}" {% if request.endpoint == 'auth.account' %}class="active"{% endif %}>{{ current_user.username }}</a>
     </nav>
     <form class="search" action="{{ url_for('search.index') }}" method="get" role="search">
@@ -39,6 +31,13 @@
     </form>
     {% endif %}
   </header>
+  {% if current_user.is_authenticated and nav.tabs %}
+  <nav class="subnav">
+    {% for label, endpoint, active in nav.tabs %}
+    <a href="{{ url_for(endpoint) }}"{% if active %} class="active"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
   {% if running_timer %}
   {% set entry, wo_number = running_timer %}
   <div class="timerbar">

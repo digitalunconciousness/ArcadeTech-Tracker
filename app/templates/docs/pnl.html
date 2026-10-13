@@ -1,0 +1,33 @@
+{% extends "docs/_doc.html" %}
+{% block title %}Profit and loss {{ start }} to {{ end }}{% endblock %}
+{% block doctype %}Profit and loss{% endblock %}
+{% block docno %}{{ start }} – {{ end }}{% endblock %}
+{% block docmeta %}{{ bases[basis] }} · printed {{ today }}{% endblock %}
+{% block content %}
+<table>
+  <thead><tr><th></th><th class="num">Amount</th></tr></thead>
+  <tbody>
+  {% for section, line, amount in table.rows %}
+  {% set cls = table.row_classes[loop.index0] %}
+  <tr>
+    <td>{% if cls == "sub" %}&nbsp;&nbsp;&nbsp;{{ line }}{% elif line == "Total expenses" %}Total expenses{% elif cls == "basis" %}<strong>{{ section }}</strong>{% else %}{{ section }}{% if line %} <span class="muted small">{{ line }}</span>{% endif %}{% endif %}</td>
+    <td class="num">{% if cls == "basis" %}<strong>{{ amount | money }}</strong>{% else %}{{ amount | money }}{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<table class="totals">
+  <tbody>
+    <tr><td>Collected (cash in, less sales tax)</td><td class="num">{{ collected | money }}</td></tr>
+    <tr><td>Invoiced (without tax, less credit memos)</td><td class="num">{{ invoiced | money }}</td></tr>
+    {% if set_aside is not none %}<tr><td>Set aside for tax ({{ pct | pct }})</td><td class="num">{{ set_aside | money }}</td></tr>{% endif %}
+    {% for user, share_pct, amount in shares %}
+    <tr><td>{{ user.display_name }} ({{ share_pct }}%)</td><td class="num">{{ amount | money }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if chart.labels | length > 1 %}
+<div class="chart">{{ chart_svg_doc }}</div>
+{% endif %}
+<p class="muted small">Cash basis revenue is money received less reversals, refunds and the sales tax inside it. Accrual basis revenue is invoices issued without their tax, less credit memos. Cost of goods is the frozen cost of parts and sublets on invoices issued in the period, under both bases. Expenses include purchase-order shipping, supplies and tax paid; mileage is at the IRS rate for each trip's date.</p>
+{% endblock %}
