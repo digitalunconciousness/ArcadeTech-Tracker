@@ -318,6 +318,29 @@ def amounts(po_id):
     return redirect(url_for("purchasing.order", po_id=po.id))
 
 
+@bp.route("/purchasing/orders/<int:po_id>/receipt", methods=["POST"])
+@requires_role(*BUY_ROLES)
+def receipt_upload(po_id):
+    """The vendor's receipt or order confirmation, a photo or a PDF."""
+    from app.books.forms import ReceiptForm
+    from app.books.service import BooksError, store_receipt
+
+    po, _ = load_po(po_id)
+    form = ReceiptForm()
+    if form.validate_on_submit() and form.receipt.data and \
+            getattr(form.receipt.data, "filename", ""):
+        try:
+            po.receipt_sha256, po.receipt_type = store_receipt(form.receipt.data.stream)
+            db.session.commit()
+            flash("Receipt saved.", "ok")
+        except BooksError as e:
+            db.session.rollback()
+            flash(str(e), "error")
+    else:
+        flash("Pick a photo or a PDF.", "error")
+    return redirect(url_for("purchasing.order", po_id=po.id))
+
+
 @bp.route("/purchasing/orders/<int:po_id>/<action>", methods=["POST"])
 @requires_role(*BUY_ROLES)
 def finish(po_id, action):

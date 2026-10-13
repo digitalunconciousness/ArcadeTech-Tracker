@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ cat.name }}{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>{{ cat.name }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.name) }}
+    {{ field(form.schedule_c) }}
+    {{ field(form.position, inputmode="numeric") }}
+    {{ check(form.active) }}
+    {% if cat.code %}<p class="dim small">Purchase orders book into this one; rename it if you like, but keep it.</p>{% endif %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('settings.books') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

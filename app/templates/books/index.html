@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Books{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Books</h1>
+    {% if keeps %}<a class="btn primary" href="{{ url_for('books.expense_new') }}">Add an expense</a>{% endif %}
+  </div>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('books.expenses') }}">Expenses</a>
+    <a class="btn" href="{{ url_for('books.mileage') }}">Mileage</a>
+    <a class="btn" href="{{ url_for('books.partners') }}">Partners</a>
+    <a class="btn" href="{{ url_for('books.sales_tax') }}">Sales tax</a>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>This month</h2>
+  <dl class="facts">
+    <dt>Spent</dt><dd><a href="{{ url_for('books.expenses') }}">{{ spent | money }}</a> <span class="dim">· {{ year_spent | money }} this year</span></dd>
+    <dt>Mileage</dt><dd><a href="{{ url_for('books.mileage', start=start, end=end) }}">{{ miles | qty }} mi · {{ mileage | money }}</a></dd>
+    <dt>Sales tax not yet filed</dt><dd>{{ unfiled | money }}</dd>
+  </dl>
+  {% if by_category %}
+  <h3>Where it went</h3>
+  <ul class="list">{% for name, total in by_category %}<li>{{ name }} <span class="dim">{{ total | money }}</span></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Owed to partners</h2>
+  <ul class="list">
+    {% for u, o in owed %}
+    <li><a href="{{ url_for('books.partner', user_id=u.id) }}">{{ u.display_name }}</a> <strong>{{ o.owed | money }}</strong>
+      <div class="dim small">expenses {{ o.expenses | money }} · purchases {{ o.purchases | money }} · mileage {{ o.mileage | money }} · paid back {{ o.reimbursed | money }}</div></li>
+    {% else %}
+    <li class="dim">No partners yet: mark each owner as a partner in Settings → Users.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

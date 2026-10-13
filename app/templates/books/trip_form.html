@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ 'Edit trip' if trip else 'Log a trip' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>{{ 'Edit trip' if trip else 'Log a trip' }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.trip_on) }}{{ field(form.miles, inputmode="decimal", autofocus=not trip) }}</div>
+    {{ field(form.user_id) }}
+    <div class="row two">{{ field(form.from_place) }}{{ field(form.to_place) }}</div>
+    {{ field(form.purpose) }}
+    {{ field(form.wo) }}
+    {{ check(form.own_vehicle) }}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('books.mileage') }}">Cancel</a>
+  </form>
+</section>
+{% if trip and not trip.voided_at %}
+<section class="panel">
+  <details class="form">
+    <summary>Void this trip</summary>
+    <form method="post" action="{{ url_for('books.trip_void', trip_id=trip.id) }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="field"><span>Why</span><input name="reason" maxlength="300" required></label>
+      <button class="btn danger" type="submit">Void</button>
+    </form>
+  </details>
+</section>
+{% endif %}
+{% endblock %}

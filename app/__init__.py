@@ -51,6 +51,7 @@ def create_app(overrides=None):
     from app.assets.routes import bp as assets_bp
     from app.auth.routes import bp as auth_bp
     from app.billing.routes import bp as billing_bp
+    from app.books.routes import bp as books_bp
     from app.customers.routes import bp as customers_bp
     from app.dashboard.routes import bp as dashboard_bp
     from app.estimates.routes import bp as estimates_bp
@@ -66,7 +67,7 @@ def create_app(overrides=None):
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
                pricebook_bp, parts_bp, partlinks_bp, purchasing_bp, work_bp, estimates_bp,
-               billing_bp, public_bp):
+               billing_bp, books_bp, public_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)

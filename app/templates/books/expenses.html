@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Expenses{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Expenses</h1>
+    {% if keeps %}<a class="btn primary" href="{{ url_for('books.expense_new') }}">Add</a>{% endif %}
+  </div>
+  {% set keep = {'category': category_id} %}
+  {% include "books/_period.html" %}
+  <form method="get" class="filters">
+    <input type="hidden" name="start" value="{{ start }}"><input type="hidden" name="end" value="{{ end }}">
+    <label class="field"><span>Category</span>
+      <select name="category"><option value="">All</option>{% for id, name in categories %}<option value="{{ id }}"{% if id == category_id %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">Filter</button>
+  </form>
+  <p><strong>{{ total | money }}</strong> <span class="dim">{{ start }} to {{ end }}</span></p>
+  <ul class="list">
+    {% for r in rows %}
+    <li>
+      {% if r.expense %}<a href="{{ url_for('books.expense', expense_id=r.expense.id) }}">{{ r.payee }}</a>{% else %}<a href="{{ url_for('purchasing.order', po_id=r.po.id) }}">{{ r.payee }}</a> <span class="badge">{{ r.po.number }}</span>{% endif %}
+      <strong>{{ r.amount | money }}</strong>
+      <div class="dim small">{{ r.on }} · {{ r.category }}{% if r.paid_by_user_id %} · paid by {{ users[r.paid_by_user_id].display_name }}{% endif %}{% if r.expense and r.expense.receipt_sha256 %} · receipt{% endif %}</div>
+    </li>
+    {% else %}
+    <li class="dim">Nothing in this period.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% if by_category %}
+<section class="panel">
+  <h2>By category</h2>
+  <ul class="list">{% for name, t in by_category %}<li>{{ name }} <span class="dim">{{ t | money }}</span></li>{% endfor %}</ul>
+  <p class="dim small">Rows marked with a PO number come from purchase orders: shipping, sales tax paid, and stock the shop doesn't track. Parts kept in stock count when they're sold, not here.</p>
+</section>
+{% endif %}
+{% endblock %}

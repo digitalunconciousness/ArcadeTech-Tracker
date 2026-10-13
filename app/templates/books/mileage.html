@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Mileage{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Mileage</h1>
+    {% if keeps %}<a class="btn primary" href="{{ url_for('books.trip_new') }}">Log a trip</a>{% endif %}
+  </div>
+  {% include "books/_period.html" %}
+  <p><strong>{{ miles | qty }} miles · {{ value | money }}</strong> <span class="dim">{{ start }} to {{ end }}</span>{% if unpriced %} <span class="badge warn">{{ unpriced }} without a rate</span>{% endif %}</p>
+  <ul class="list">
+    {% for t, v in rows %}
+    <li>
+      {{ t.trip_on }} · <strong>{{ t.miles | qty }} mi</strong> {% if v is not none %}{{ v | money }}{% else %}<span class="badge warn">no rate</span>{% endif %}
+      <div class="dim small">{{ users[t.user_id].display_name }}{% if not t.own_vehicle %} · business vehicle{% endif %} · {{ t.purpose }}{% if t.from_place or t.to_place %} · {{ t.from_place or '' }} → {{ t.to_place or '' }}{% endif %}{% if t.work_order_id %} · <a href="{{ url_for('work.show', wo_id=t.work_order_id) }}">{{ wos[t.work_order_id].number }}</a>{% endif %}</div>
+      {% if keeps %}<div class="actions"><a class="btn small" href="{{ url_for('books.trip_edit', trip_id=t.id) }}">Edit</a></div>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">No trips in this period.</li>
+    {% endfor %}
+  </ul>
+</section>
+<section class="panel">
+  <h2>Rates</h2>
+  <ul class="list">{% for r in rates %}<li>From {{ r.effective_from }}: <strong>{{ (r.rate * 100) | qty }}¢</strong> a mile <span class="dim small">{{ r.source or '' }}</span></li>{% else %}<li class="dim">No rates: add them in Settings → Books.</li>{% endfor %}</ul>
+  <p class="dim small">Each trip is valued at the rate in effect on its date. In a partner's own vehicle, it's owed to them.</p>
+</section>
+{% endblock %}

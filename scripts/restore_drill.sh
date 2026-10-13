@@ -81,4 +81,34 @@ else
   echo "  pdf re-hash ok ($n files)"
 fi
 
+# Receipts behind expenses and purchase orders: a photo (stored as .jpg) or a PDF.
+receipts=$(psql_q "SELECT receipt_sha256 || CASE WHEN receipt_type = 'application/pdf'
+                          THEN '.pdf' ELSE '.jpg' END FROM expense WHERE receipt_sha256 IS NOT NULL
+                   UNION SELECT receipt_sha256 || CASE WHEN receipt_type = 'application/pdf'
+                          THEN '.pdf' ELSE '.jpg' END FROM purchase_order
+                          WHERE receipt_sha256 IS NOT NULL")
+if [ -z "$receipts" ]; then
+  echo "  receipt re-hash: no receipts yet"
+else
+  rscratch=$(mktemp -d)
+  trap 'rm -rf "${scratch:-}" "$rscratch"' EXIT
+  patterns=()
+  while read -r name; do patterns+=("*/$name"); done <<< "$receipts"
+  tar -C "$rscratch" -xf files.tar --wildcards "${patterns[@]}" 2> /dev/null || true
+  bad="" n=0
+  while read -r name; do
+    sha=${name%.*}
+    file="$rscratch/${sha:0:2}/$name"
+    if [ ! -f "$file" ]; then
+      bad+="    $name: not in the archive"$'\n'
+      continue
+    fi
+    got=$(sha256sum "$file" | cut -d' ' -f1)
+    [ "$got" = "$sha" ] || bad+="    $name: hashes to $got"$'\n'
+    n=$((n + 1))
+  done <<< "$receipts"
+  [ -z "$bad" ] || fail "receipts don't match:"$'\n'"$bad"
+  echo "  receipt re-hash ok ($n files)"
+fi
+
 echo "restore drill: PASS"

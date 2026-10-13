@@ -22,6 +22,7 @@
       <a href="{{ url_for('work.index') }}" {% if request.blueprint == 'work' %}class="active"{% endif %}>Work</a>
       <a href="{{ url_for('estimates.index') }}" {% if request.blueprint == 'estimates' %}class="active"{% endif %}>Estimates</a>
       {% if can_see_costs %}<a href="{{ url_for('billing.index') }}" {% if request.blueprint == 'billing' %}class="active"{% endif %}>Invoices</a>{% endif %}
+      {% if can_see_costs %}<a href="{{ url_for('books.index') }}" {% if request.blueprint == 'books' %}class="active"{% endif %}>Books</a>{% endif %}
       <a href="{{ url_for('customers.index') }}" {% if request.blueprint == 'customers' %}class="active"{% endif %}>Customers</a>
       <a href="{{ url_for('assets.index') }}" {% if request.blueprint == 'assets' %}class="active"{% endif %}>Assets</a>
       <a href="{{ url_for('parts.index') }}" {% if request.blueprint == 'parts' %}class="active"{% endif %}>Parts</a>

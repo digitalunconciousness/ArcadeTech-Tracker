@@ -103,6 +103,10 @@ class PurchaseOrder(StandardColumns, db.Model):
                         name="ordered_numbered"),
         CheckConstraint("number IS NULL OR ordered_on IS NOT NULL", name="ordered_dated"),
         CheckConstraint("shipping >= 0 AND tax_paid >= 0", name="amounts_nonnegative"),
+        CheckConstraint("(receipt_sha256 IS NULL) = (receipt_type IS NULL) AND "
+                        "(receipt_sha256 IS NULL OR receipt_sha256 ~ '^[0-9a-f]{64}$') AND "
+                        "(receipt_type IS NULL OR receipt_type IN "
+                        "('image/jpeg', 'application/pdf'))", name="receipt_complete"),
     )
 
     id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
@@ -121,6 +125,9 @@ class PurchaseOrder(StandardColumns, db.Model):
     tax_paid: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
                                               server_default=text("0"))
     notes: Mapped[str | None] = mapped_column(Text)
+    # The vendor's receipt or order confirmation: a photo or a PDF (Phase 6a).
+    receipt_sha256: Mapped[str | None] = mapped_column(String(64))
+    receipt_type: Mapped[str | None] = mapped_column(String(40))
 
 
 class PoLine(StandardColumns, db.Model):

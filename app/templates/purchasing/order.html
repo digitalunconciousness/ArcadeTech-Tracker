@@ -60,6 +60,19 @@
     <button class="btn primary" type="submit">Mark ordered</button>
   </form>
   {% endif %}
+  {% if po.receipt_sha256 and can_see_costs %}
+  <p><a class="btn small" href="{{ url_for('books.receipt', sha256=po.receipt_sha256) }}" target="_blank">Vendor's receipt</a></p>
+  {% endif %}
+  {% if buys and po.status != 'cancelled' %}
+  <details class="form">
+    <summary>{{ 'Replace the receipt' if po.receipt_sha256 else "Attach the vendor's receipt" }}</summary>
+    <form method="post" action="{{ url_for('purchasing.receipt_upload', po_id=po.id) }}" enctype="multipart/form-data" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="field"><span>Photo or PDF</span><input type="file" name="receipt" accept="image/*,application/pdf"></label>
+      <button class="btn" type="submit">Save</button>
+    </form>
+  </details>
+  {% endif %}
   {% if forms.amounts %}
   <details class="form">
     <summary>Shipping, tax paid, notes</summary>

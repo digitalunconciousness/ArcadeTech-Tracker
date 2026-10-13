@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Partners{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Partners</h1>
+  <ul class="list">
+    {% for u, o in rows %}
+    <li><a href="{{ url_for('books.partner', user_id=u.id) }}"><strong>{{ u.display_name }}</strong></a> owed <strong>{{ o.owed | money }}</strong>
+      <div class="dim small">expenses {{ o.expenses | money }} · purchases {{ o.purchases | money }} · mileage {{ o.mileage | money }} · paid back {{ o.reimbursed | money }}</div></li>
+    {% else %}
+    <li class="dim">No partners yet: mark each owner as a partner in Settings → Users.</li>
+    {% endfor %}
+  </ul>
+  <p class="dim small">Owed is what they paid for the business (expenses with their own money, purchase orders on their card, trips in their own vehicle) less what's been paid back. Each partner's share of the profit comes with the dashboard (6b).</p>
+</section>
+{% if form %}
+<section class="panel">
+  <h2>Record money in or out</h2>
+  <form method="post" action="{{ url_for('books.entry_new') }}" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.user_id) }}{{ field(form.kind) }}</div>
+    <div class="row two">{{ field(form.amount, inputmode="decimal") }}{{ field(form.entry_on) }}</div>
+    {{ field(form.note) }}
+    <button class="btn primary" type="submit">Record</button>
+  </form>
+</section>
+{% endif %}
+{% if recent %}
+<section class="panel">
+  <h2>Recent</h2>
+  <ul class="list">{% for e in recent %}<li>{{ e.entry_on }} · {{ users[e.user_id].display_name if e.user_id in users else '' }} · {{ ledger_kinds[e.kind] }} <strong>{{ e.amount | money }}</strong>{% if e.note %} <span class="dim">{{ e.note }}</span>{% endif %}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% endblock %}

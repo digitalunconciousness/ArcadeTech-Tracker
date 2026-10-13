@@ -32,6 +32,14 @@ class ShopSetting(StandardColumns, db.Model):
         CheckConstraint("labor_increment_hours > 0", name="labor_increment_positive"),
         CheckConstraint("labor_minimum_hours >= 0", name="labor_minimum_nonnegative"),
         CheckConstraint("estimate_link_days BETWEEN 1 AND 365", name="estimate_link_days_range"),
+        CheckConstraint("set_aside_pct IS NULL OR set_aside_pct BETWEEN 0 AND 100",
+                        name="set_aside_range"),
+        CheckConstraint("storage_days IS NULL OR storage_days BETWEEN 1 AND 3650",
+                        name="storage_days_range"),
+        CheckConstraint("split_mode IN ('equal', 'hours', 'custom')", name="split_mode"),
+        CheckConstraint("labor_cost_rate IS NULL OR labor_cost_rate >= 0",
+                        name="labor_cost_nonnegative"),
+        CheckConstraint("nec_threshold > 0", name="nec_threshold_positive"),
     )
 
     id: Mapped[bool] = mapped_column(Boolean, primary_key=True, server_default=true())
@@ -74,3 +82,13 @@ class ShopSetting(StandardColumns, db.Model):
     # How customers pay (Zelle, Venmo…): on invoices and the invoice link. Written by the
     # owner in Settings; never in the repo.
     payment_instructions: Mapped[str | None] = mapped_column(Text)
+    # Books (Phase 6a). All blank until the owner sets them, except the split (equal,
+    # owner 2026-10-07) and the 1099-NEC threshold ($2,000 for 2026 payments; indexed
+    # for inflation from 2027, so it's a setting).
+    set_aside_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    storage_days: Mapped[int | None] = mapped_column(Integer)
+    split_mode: Mapped[str] = mapped_column(String(8), nullable=False,
+                                            server_default=text("'equal'"))
+    labor_cost_rate: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    nec_threshold: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
+                                                   server_default=text("2000"))

@@ -459,6 +459,13 @@ Every report exports to CSV.
   - `kind`: contribution | draw | reimbursement | distribution
   - `amount`, `note`
   - Split mode lives in Settings: equal, by labor hours, or a custom percentage. The partner statement shows each of you your share and your balance.
+- **As built in Phase 6a:** `expense` has `spent_on`, `tax_included`, `paid_by_user_id`
+  (null = business), `work_order_id`, a receipt (photo or PDF, by sha256) and void fields;
+  purchase orders add their shipping, tax paid and non-stock lines to the expense list
+  without a second entry; `trip` + dated `mileage_rate`; the ledger is `partner_entry`
+  (contribution | draw | reimbursement | distribution) and what a partner is owed is
+  computed; `sales_tax_filing` copies the period's figures. See PROGRESS Decisions,
+  2026-10-13.
 - **How you're set up** (a partnership return, or one of you paying the other as a contractor) is a question for a CPA. The ledger works either way. If one of you pays the other as a contractor, the $2,000 1099-NEC threshold applies to you as a payer too.
 
 ---
