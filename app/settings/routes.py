@@ -11,6 +11,7 @@ from app.books.forms import BooksSettingsForm, CategoryForm, RateForm
 from app.extensions import db
 from app.models import (
     Carrier,
+    Device,
     ExpenseCategory,
     MarkupTier,
     MileageRate,
@@ -22,6 +23,7 @@ from app.pricing import multiplier_margin
 from app.purchasing.forms import CarrierForm
 from app.settings.forms import (
     BusinessForm,
+    DeviceForm,
     LaborPolicyForm,
     MarkupTierForm,
     SetPasswordForm,
@@ -417,3 +419,44 @@ def category_edit(category_id):
     _flash_errors(form)
     return render_template("settings/category_form.html", form=form, cat=cat)
 
+
+# --- devices (GATBOX) -------------------------------------------------------------------------
+
+@bp.route("/devices", methods=["GET", "POST"])
+@requires_role("owner")
+def devices():
+    """Machine clients for /api/v1. A token is shown once, on the page that mints it: it
+    never goes in a flash message (the session cookie is signed, not encrypted)."""
+    form = DeviceForm()
+    if form.validate_on_submit():
+        device = Device(name=form.name.data, notes=form.notes.data)
+        token = device.issue_token()
+        db.session.add(device)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash("A device already has that name.", "error")
+            return redirect(url_for("settings.devices"))
+        return render_template("settings/device_token.html", device=device, token=token)
+    _flash_errors(form)
+    rows = db.session.scalars(select(Device).order_by(Device.name)).all()
+    return render_template("settings/devices.html", devices=rows, form=form,
+                           action=EmptyForm())
+
+
+@bp.route("/devices/<int:device_id>/<action>", methods=["POST"])
+@requires_role("owner")
+def device_action(device_id, action):
+    device = db.session.get(Device, device_id) or abort(404)
+    if action not in ("switch", "rotate") or not EmptyForm().validate_on_submit():
+        abort(400)
+    if action == "rotate":
+        token = device.issue_token()
+        db.session.commit()
+        return render_template("settings/device_token.html", device=device, token=token,
+                               rotated=True)
+    device.enabled = not device.enabled
+    db.session.commit()
+    flash(f"{device.name} is {'on' if device.enabled else 'switched off'}.", "ok")
+    return redirect(url_for("settings.devices"))

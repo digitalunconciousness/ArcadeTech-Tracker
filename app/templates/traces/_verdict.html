@@ -1,0 +1,2 @@
+{# A trace's verdict as a badge. `s` is the rail_session. #}
+{% if s.verdict %}{% set badge = verdict_badges[s.verdict] %}<span class="badge {{ badge[0] }}">{{ badge[1] }}</span>{% else %}<span class="badge">no window</span>{% endif %}

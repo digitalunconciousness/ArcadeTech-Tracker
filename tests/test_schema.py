@@ -64,6 +64,10 @@ EXPECTED_GRANTS = {
     "trip": {"SELECT", "INSERT", "UPDATE"},
     "partner_entry": {"SELECT", "INSERT", "UPDATE"},
     "sales_tax_filing": {"SELECT", "INSERT", "UPDATE"},
+    "device": {"SELECT", "INSERT", "UPDATE"},
+    "rail_session": {"SELECT", "INSERT"},
+    "reading": {"SELECT", "INSERT"},
+    "wo_job_session": {"SELECT", "INSERT", "UPDATE", "DELETE"},
 }
 
 AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "service",
@@ -74,7 +78,8 @@ AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "
            "tax_jurisdiction", "invoice", "invoice_line", "payment", "payment_allocation",
            "credit_memo", "credit_memo_line", "part_link", "estimate_part_link", "carrier",
            "purchase_order", "po_line", "po_receipt", "shipment", "expense_category", "expense",
-           "mileage_rate", "trip", "partner_entry", "sales_tax_filing"}
+           "mileage_rate", "trip", "partner_entry", "sales_tax_filing", "device",
+           "wo_job_session"}
 
 
 def q(app, sql, **params):
@@ -158,7 +163,8 @@ def test_app_role_sequence_privileges(app):
                   "payment_allocation", "credit_memo", "credit_memo_line", "part_link",
                   "estimate_part_link", "carrier", "purchase_order", "po_line", "po_receipt",
                   "shipment", "expense_category", "expense", "mileage_rate", "trip",
-                  "partner_entry", "sales_tax_filing")
+                  "partner_entry", "sales_tax_filing", "device", "rail_session", "reading",
+                  "wo_job_session")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)

@@ -11,7 +11,9 @@ from weasyprint import CSS, HTML
 
 from app.extensions import db
 from app.formatting import plain
+from app.gatbox import service as gatbox
 from app.models import (
+    READING_PHASES,
     RECEIVED_VIA,
     WO_KINDS,
     Asset,
@@ -87,7 +89,15 @@ def service_report(wo, customer):
     for job_id, ls in lines.items():
         has_customer_part = any(x.customer_supplied for x in ls)
         warranty[job_id] = [(x, service.warranty_days(x, has_customer_part)) for x in ls]
+    traces = {}
+    for job_id in job_ids:
+        rows = gatbox.traces_for_job(job_id)
+        if rows:
+            # As found first, then during, as left, and any without a phase last.
+            order = {p: i for i, p in enumerate(("as_found", "during", "as_left"))}
+            traces[job_id] = sorted(rows, key=lambda r: order.get(r[0].phase, 3))
     return render_pdf("docs/service_report.html", wo=wo, customer=customer, jobs=jobs,
+                      traces=traces, trace_phases=READING_PHASES,
                       lines=lines, lots=lots, readings={k: reading_rows(v)
                                                         for k, v in readings.items()},
                       labor=labor, techs=techs, warranty=warranty,

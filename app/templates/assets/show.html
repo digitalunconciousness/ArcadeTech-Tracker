@@ -60,6 +60,19 @@
   </ul>
 </section>
 
+{% if traces %}
+<section class="panel" id="traces">
+  <h2>GATBOX traces</h2>
+  <ul class="list">
+    {% for s, job_ids in traces[:50] %}
+    <li><a href="{{ url_for('traces.show', session_id=s.id) }}">{{ s.started_at | localdt }}</a> {{ s.profile_label or s.rail or '' }} {% include "traces/_verdict.html" %}
+      <div class="small">{% for job_id in job_ids %}{% set job, wo = jobs[job_id] %}<a href="{{ url_for('work.job', job_id=job.id) }}">{{ wo.number }}</a>{% if not loop.last %}, {% endif %}{% else %}<span class="badge warn">Not on a job</span>{% endfor %}</div></li>
+    {% endfor %}
+  </ul>
+  {% if traces | length > 50 %}<p class="dim small">The latest 50 of {{ traces | length }}.</p>{% endif %}
+</section>
+{% endif %}
+
 <section class="panel" id="history">
   <h2>History</h2>
   {% if can_edit %}

@@ -281,3 +281,8 @@ html.blurred .money { filter: blur(0.45em); }
   .print-chart { display: block; }
   html.blurred .money { filter: none; }
 }
+
+/* A GATBOX trace's chart (prints as drawn: no server copy). */
+.trace-box { position: relative; height: 18rem; }
+.traces .trace { padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+form.inline-form select, form.actions select { width: auto; max-width: 100%; padding: 0.3rem 0.4rem; }

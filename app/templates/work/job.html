@@ -272,6 +272,42 @@
   {% endif %}
 </section>
 
+<section class="panel traces" id="traces">
+  <h2>GATBOX traces</h2>
+  {% for link, s in traces %}
+  <div class="trace">
+    <a href="{{ url_for('traces.show', session_id=s.id) }}">{{ s.started_at | localdt }}</a> {{ s.profile_label or s.rail or '' }} {% include "traces/_verdict.html" %}
+    <div class="dim small mono">{% if s.powered_mean is not none %}{{ s.powered_min | plain }} – {{ s.powered_max | plain }} {{ s.window_unit or 'V' }}, mean {{ s.powered_mean | plain }}{% if s.in_window_pct is not none %} · {{ s.in_window_pct | plain }}% in window{% endif %}{% else %}no powered readings{% endif %}</div>
+    {% if can_edit %}
+    <form class="inline-form" method="post" action="{{ url_for('traces.link_action', link_id=link.id, action='phase') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="job">
+      <select name="phase" aria-label="Phase">
+        <option value="">phase not set</option>
+        {% for key, label in trace_phases.items() %}<option value="{{ key }}"{% if link.phase == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <button class="btn small" type="submit">Set</button>
+    </form>
+    <form class="inline-form" method="post" action="{{ url_for('traces.link_action', link_id=link.id, action='detach') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="job"><button class="btn small danger" type="submit" data-confirm="Take this trace off the job?">Take off</button></form>
+    {% else %}
+    <div class="dim small">{{ trace_phases[link.phase] if link.phase else 'phase not set' }}</div>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="dim">No GATBOX traces on this job.{% if asset %} Traces of <span class="mono">{{ asset.tag }}</span> land here by themselves while it's this machine's only open job.{% endif %}</p>
+  {% endfor %}
+  {% if loose_traces %}
+  <details class="form">
+    <summary>Put a trace from this machine on the job ({{ loose_traces | length }} not on a job)</summary>
+    <ul class="list">
+      {% for s in loose_traces %}
+      <li><a href="{{ url_for('traces.show', session_id=s.id) }}">{{ s.started_at | localdt }}</a> {{ s.profile_label or s.rail or '' }} {% include "traces/_verdict.html" %}
+        <form class="inline-form" method="post" action="{{ url_for('traces.attach', session_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="job"><input type="hidden" name="job_id" value="{{ job.id }}"><button class="btn small primary" type="submit">Put on this job</button></form></li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</section>
+
 <section class="panel" id="readings">
   <h2>Readings</h2>
   <table class="grid">
