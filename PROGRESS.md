@@ -79,7 +79,7 @@ push/PR → owner deploys (⏸).
 - [x] Diff, tests, privacy output → OK → PR #6 (merged, deployed 2026-10-08)
 - [x] Exit: on hand = sum of moves (`test_stock.py`, 300 randomized moves); a count adjustment
       leaves an audit row with its user (`test_stock.py`, `test_parts.py` count sheet)
-- [ ] ⏸ Owner sets the service rates in the price book and switches them on
+- [x] ⏸ Owner sets the service rates in the price book and switches them on (owner, 2026-10-13)
 
 ## Phase 3: Work (branch `phase/3-work`)
 
@@ -90,8 +90,8 @@ push/PR → owner deploys (⏸).
   - [x] Photos (EXIF stripped), claim ticket and service report PDFs, work board
   - [x] Diff, tests, privacy output → OK → PR #7 (merged)
   - [x] ⏸ Owner deployed (migration 0007)
-  - [ ] ⏸ Claim-ticket and warranty terms written in Settings (printed on those documents;
-        blank until then)
+  - [x] ⏸ Claim-ticket and warranty terms written in Settings (printed on those documents;
+        blank until then) (owner, 2026-10-13)
 - **3b: estimates and links** (branch `phase/3b-estimates`, on top of 3a)
   - [x] Estimates: lines, NTE, deposit, revisions, approval via `/d/<token>` on a phone
         (finger signature canvas → PNG + typed name; time, IP, UA logged); convert to a WO
@@ -176,7 +176,7 @@ push/PR → owner deploys (⏸).
   - [x] Receive → lot + receive move (both carry the PO line); the job's part was set aside
         when it was ordered; WO out of `waiting_parts` (tested, incl. FIFO between jobs)
   - [x] Diff, tests, privacy output → OK → PR #13
-  - [ ] ⏸ Owner merges and deploys (migrations 0012, 0013)
+  - [x] ⏸ Owner merges (PR #13) and deploys (migrations 0012, 0013) (owner, 2026-10-13)
   - [ ] ⏸ Exit: receiving a line tied to a job reserves it and moves that WO out of
         `waiting_parts` (tested: `test_order_for_job_then_receive_releases_the_wo`). On the
         phone: Order for this job → Make draft POs → Mark ordered → add tracking → Receive
@@ -198,7 +198,7 @@ push/PR → owner deploys (⏸).
   - [x] Settings → Books (split, set-aside, storage days, internal labor cost, 1099
         threshold, mileage rates, categories); restore drill re-hashes receipts
   - [x] Diff, tests, privacy output → OK → PR #14 (merged)
-  - [ ] ⏸ Owner deploys (migrations 0014, 0015)
+  - [x] ⏸ Owner deploys (migrations 0014, 0015) (owner, 2026-10-13)
   - [ ] ⏸ Exit: an expense, a trip and a PO paid by a partner each show on that partner's
         statement as owed; recording a reimbursement clears it (tested:
         `test_what_a_partner_is_owed_and_paying_it_back`). On the phone: mark both owners as
@@ -221,7 +221,7 @@ push/PR → owner deploys (⏸).
   - [x] Nav in six sections with a tab row: Dashboard · Work · Customers · Money · Parts ·
         Settings
   - [x] Diff, tests, privacy output → OK → PR #15 (merged)
-  - [ ] ⏸ Owner deploys (migration 0016)
+  - [x] ⏸ Owner deploys (migration 0016) (owner, 2026-10-13)
   - [ ] ⏸ Exit: the year-end package's figures reconcile to the dashboard to the cent
         (tested). On the phone: the dashboard on both bases, blur, print the P&L, download
         this year's package and open it
@@ -241,7 +241,7 @@ push/PR → owner deploys (⏸).
       `test_posting_the_example_twice_gives_created_then_duplicate` and the rest of
       `tests/test_api_v1_contract.py`)
 - [x] Diff, tests, privacy output → OK → PR #16 (merged)
-- [ ] ⏸ Owner deploys (migration 0017)
+- [x] ⏸ Owner deploys (migration 0017) (owner, 2026-10-13)
 - [ ] ⏸ Mint a device token in Settings → Devices and run the smoke test (RUNBOOK §10).
       The token goes on the Pi only once GATBOX has `hubs.d` (plan Phase 8): its single
       `hub.conf` points at the barcade's hub today. No GATBOX code here
@@ -282,7 +282,7 @@ push/PR → owner deploys (⏸).
         part can wait too ("Not here yet"); a work order waiting with nothing outstanding
         gets a one-tap Back to In progress
   - [x] Diff, tests, privacy output → OK → PR #17 (merged; the parts fix rode in with #19)
-  - [ ] ⏸ deploy (migrations 0018, 0019)
+  - [x] ⏸ deploy (migrations 0018, 0019) (owner, 2026-10-13)
 - **9b: work in motion** (branch `phase/9b-work-in-motion`, on top of 9a's)
   - [x] Design → OK (owner, 2026-10-13: all eight as recommended; double-booking warns,
         with a setting to refuse it)
@@ -303,7 +303,7 @@ push/PR → owner deploys (⏸).
         trace pages, an SVG on the service report; manual readings per test point against
         the spec on the job page
   - [x] Diff, tests, privacy output → OK → PR #19 (merged)
-  - [ ] ⏸ deploy (migration 0020)
+  - [x] ⏸ deploy (migration 0020) (owner, 2026-10-13)
 - **9c: money at the desk** (branch `phase/9c-money-desk`)
   - [x] Design → OK (owner, 2026-10-13: all eleven as recommended; no accountant yet, so
         the export uses generic journal columns)
@@ -324,7 +324,9 @@ push/PR → owner deploys (⏸).
         period, accrual double entry; Settings → Accounts names and numbers each account
         (migration 0023); both CSVs in the year-end zip. Ties to the accrual P&L to the
         cent (tested on the synthetic year, and shown on the page)
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0021-0023)
+  - [x] Diff, tests, privacy output → OK → PR #20 (merged)
+  - [x] ⏸ deploy (migrations 0021-0023) (owner, 2026-10-13; `deploy.sh --check`: all
+        clear, "migrations: at head 0023_accounts")
 
 ## Decisions
 
@@ -730,3 +732,11 @@ push/PR → owner deploys (⏸).
   borders (fixed in the two new tables).
 - The worker restart lost the docker dev database (synthetic only); `devdb.sh start`
   makes a fresh one.
+- PR #20 merged. The owner reports everything merged and deployed, the price book's
+  rates set and the claim-ticket and warranty terms written; the host's
+  `deploy.sh --check` confirms the database at head 0023_accounts. Open: the phone exits
+  (0, 4, 5b, 6a, 6b), "How customers pay you", the device token and smoke test (7),
+  GATBOX's `hubs.d` and the Phase 8 exit.
+- Found while building the journal, not fixed (owner to decide): a part the shop doesn't
+  stock takes its default cost onto job lines, so its cost counts as supplies on its PO
+  and again as cost of goods when invoiced. In the P&L since 6b; the journal follows it.
