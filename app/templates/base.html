@@ -26,6 +26,7 @@
       <a href="{{ url_for('assets.index') }}" {% if request.blueprint == 'assets' %}class="active"{% endif %}>Assets</a>
       <a href="{{ url_for('parts.index') }}" {% if request.blueprint == 'parts' %}class="active"{% endif %}>Parts</a>
       <a href="{{ url_for('partlinks.index') }}" {% if request.blueprint == 'partlinks' %}class="active"{% endif %}>Links</a>
+      <a href="{{ url_for('purchasing.index') }}" {% if request.blueprint == 'purchasing' %}class="active"{% endif %}>Buying</a>
       <a href="{{ url_for('pricebook.index') }}" {% if request.blueprint == 'pricebook' %}class="active"{% endif %}>Price book</a>
       {% if current_user.role == 'owner' %}
       <a href="{{ url_for('settings.index') }}" {% if request.blueprint == 'settings' %}class="active"{% endif %}>Settings</a>

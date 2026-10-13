@@ -213,6 +213,30 @@
     </form>
   </details>
   {% endif %}
+  {% if po_lines %}
+  <h3>Bought for this job</h3>
+  <ul class="list">
+    {% for line, part, number in po_lines %}
+    <li{% if line.status in ('received', 'closed', 'cancelled') %} class="inactive"{% endif %}>
+      <span class="mono">{{ part.sku }}</span> × {{ line.qty | qty }} <span class="badge{{ ' ok' if line.status == 'received' else ' warn' if line.status == 'backordered' else '' }}">{{ po_line_statuses[line.status] | lower }}</span>
+      <span class="dim">{% if number %}<a href="{{ url_for('purchasing.order', po_id=line.po_id) }}">{{ number }}</a>{% elif line.po_id %}<a href="{{ url_for('purchasing.order', po_id=line.po_id) }}">draft PO</a>{% else %}<a href="{{ url_for('purchasing.index') }}#list">on the shopping list</a>{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if order_form %}
+  <details class="form">
+    <summary>Order for this job</summary>
+    <form method="post" action="{{ url_for('purchasing.order_for_job', job_id=job.id) }}" novalidate>
+      {{ order_form.csrf_token }}
+      {{ field(order_form.part_id) }}
+      <div class="row two">{{ field(order_form.qty, inputmode="decimal") }}{{ field(order_form.note) }}</div>
+      {{ check(order_form.wait) }}
+      <p class="dim">Goes on the shopping list for this job and is set aside for it now, so it's this job's when it comes in.</p>
+      <button class="btn" type="submit">Put on the list</button>
+    </form>
+  </details>
+  {% endif %}
 </section>
 
 <section class="panel" id="time">

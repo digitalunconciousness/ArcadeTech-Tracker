@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ part.sku }} · {{ label }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1><span class="mono">{{ part.sku }}</span> {{ part.name }}</h1>
+  <p class="dim">{{ label }}</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.qty, inputmode="decimal") }}{{ field(form.unit_cost, inputmode="decimal") }}</div>
+    {% if line.status != 'to_order' %}<div class="row two">{{ field(form.expected_on) }}<div>{{ check(form.backordered) }}</div></div>{% endif %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('purchasing.order', po_id=po.id) }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

@@ -93,6 +93,9 @@ class WorkOrder(StandardColumns, db.Model):
         Integer, ForeignKey("wo_job.id", use_alter=True, name="fk_work_order_warranty_of_job"))
     notes: Mapped[str | None] = mapped_column(Text)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set when the last part it was waiting on came in and the app put it back In
+    # progress; the board flags it until someone changes the status.
+    parts_arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class WorkOrderTech(StandardColumns, db.Model):

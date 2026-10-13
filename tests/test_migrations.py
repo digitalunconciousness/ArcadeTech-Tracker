@@ -38,7 +38,7 @@ def test_upgrade_downgrade_upgrade_from_empty(app, tdb, monkeypatch):
                                  "credit_memo_frozen", "credit_memo_line_frozen",
                                  "estimate_child_frozen", "estimate_frozen", "invoice_frozen",
                                  "invoice_line_frozen", "payment_guard",
-                                 "payment_reversal_complete", "set_updated_at",
+                                 "payment_reversal_complete", "po_line_guard", "set_updated_at",
                                  "stock_move_lot_guard", "wo_line_billed_guard"]
             with engine.connect() as c:
                 assert c.execute(text("SELECT count(*) FROM shop_setting")).scalar() == 1
@@ -92,8 +92,8 @@ def test_read_only_alembic_commands_work_from_a_fresh_cli(app):
 
     root = Path(__file__).resolve().parent.parent
     flask = str(Path(sys.executable).with_name("flask"))
-    for cmd, expect in (("heads", "0011_part_links (head)"),
-                        ("current", "0011_part_links (head)"),
+    for cmd, expect in (("heads", "0013_seed_carriers (head)"),
+                        ("current", "0013_seed_carriers (head)"),
                         ("history", "0001_foundation -> 0002_seed_settings")):
         run = subprocess.run([flask, "--app", "wsgi", "db", cmd], cwd=root, env=dict(os.environ),
                              capture_output=True, text=True, timeout=60)

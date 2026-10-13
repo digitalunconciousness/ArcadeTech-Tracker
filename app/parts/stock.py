@@ -50,24 +50,26 @@ def _check(part, qty):
         raise StockError("Quantity must be more than zero.")
 
 
-def _move(part, lot, qty, reason, note, wo_job_id=None):
+def _move(part, lot, qty, reason, note, wo_job_id=None, po_line_id=None):
     move = StockMove(part_id=part.id, lot_id=lot.id, qty=qty, reason=reason, note=note,
-                     wo_job_id=wo_job_id)
+                     wo_job_id=wo_job_id, po_line_id=po_line_id)
     db.session.add(move)
     return move
 
 
 def receive(part, qty, unit_cost, *, vendor_id=None, date_code=None, vendor_lot=None,
-            note=None, reason="receive"):
-    """A new lot at one cost, and the move that puts qty into it."""
+            note=None, reason="receive", po_line_id=None):
+    """A new lot at one cost, and the move that puts qty into it. Received on an order,
+    both carry the PO line (set now: neither row can be updated later)."""
     _check(part, qty)
     if unit_cost is None or unit_cost < 0:
         raise StockError("A received lot needs its unit cost.")
     lot = StockLot(part_id=part.id, unit_cost=unit_cost, vendor_id=vendor_id,
-                   date_code=date_code, vendor_lot=vendor_lot, note=note)
+                   date_code=date_code, vendor_lot=vendor_lot, note=note,
+                   po_line_id=po_line_id)
     db.session.add(lot)
     db.session.flush()
-    _move(part, lot, qty, reason, note)
+    _move(part, lot, qty, reason, note, po_line_id=po_line_id)
     db.session.flush()
     return lot
 

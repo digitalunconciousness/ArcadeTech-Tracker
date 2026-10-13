@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ carrier.name }}{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>{{ carrier.name }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.code) }}{{ field(form.name) }}</div>
+    {{ field(form.url_template, inputmode="url") }}
+    {{ field(form.number_pattern) }}
+    <div class="row two">{{ field(form.position, inputmode="numeric") }}<div>{{ check(form.active) }}</div></div>
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('settings.carriers') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

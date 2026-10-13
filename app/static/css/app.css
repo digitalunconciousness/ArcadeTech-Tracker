@@ -92,7 +92,7 @@ a:hover { color: var(--magenta); }
   color: var(--magenta);
   box-shadow: 0 0 8px rgba(255, 46, 159, 0.45);
 }
-.tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 1rem; }
 
 .page { max-width: 46rem; margin: 0 auto; padding: 1rem; }
 

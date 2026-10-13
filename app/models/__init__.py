@@ -37,6 +37,19 @@ from app.models.pricebook import (
     MarkupTier,
     Service,
 )
+from app.models.purchasing import (
+    OPEN_LINE_STATUSES,
+    OPEN_PO_STATUSES,
+    PO_LINE_STATUSES,
+    PO_STATUSES,
+    SHIPMENT_DIRECTIONS,
+    SHIPMENT_STATUSES,
+    Carrier,
+    PoLine,
+    PoReceipt,
+    PurchaseOrder,
+    Shipment,
+)
 from app.models.settings import ShopSetting
 from app.models.user import ROLES, User
 from app.models.work import (
@@ -77,4 +90,7 @@ __all__ = [
     "Appointment", "AppointmentUser", "CalendarFeed", "DocLink", "Estimate", "EstimateJob",
     "EstimateLine",
     "EstimatePartLink", "PartLink",
+    "OPEN_LINE_STATUSES", "OPEN_PO_STATUSES", "PO_LINE_STATUSES", "PO_STATUSES",
+    "SHIPMENT_DIRECTIONS", "SHIPMENT_STATUSES",
+    "Carrier", "PoLine", "PoReceipt", "PurchaseOrder", "Shipment",
 ]

@@ -87,6 +87,9 @@ def index():
                                        PartLink.domain.ilike(pat)))
             .order_by(PartLink.active.desc(), func.lower(PartLink.title)).limit(LIMIT)).all()
 
+        from app.purchasing.routes import search as purchasing_search
+        results["orders"], results["shipments"] = purchasing_search(pat)
+
         results["vendors"] = db.session.scalars(
             select(Vendor).where(or_(Vendor.name.ilike(pat), Vendor.account_ref.ilike(pat)))
             .order_by(Vendor.name).limit(LIMIT)).all()

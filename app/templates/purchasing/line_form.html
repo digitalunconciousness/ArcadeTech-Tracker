@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ part.sku }} on the list{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1><span class="mono">{{ part.sku }}</span> {{ part.name }}</h1>
+  {% if line.wo_job_id %}<p class="dim">Bought for a job: what's set aside for it follows the quantity.</p>{% endif %}
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.qty, inputmode="decimal") }}{% if form.unit_cost %}{{ field(form.unit_cost, inputmode="decimal") }}{% endif %}</div>
+    {% if not line.po_id %}{{ field(form.vendor_id) }}{% endif %}
+    {{ field(form.note) }}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('purchasing.order', po_id=line.po_id) if line.po_id else url_for('purchasing.index') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

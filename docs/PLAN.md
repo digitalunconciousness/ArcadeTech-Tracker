@@ -306,6 +306,12 @@ As built in Phase 4b: `payment.kind` is receipt | reversal | refund (`received_o
   - `shipped_at`, `eta`, `delivered_at`, `cost`, `insured_value`, `status_updated_at`
   - `status_source`: manual now; an API later
   - The carrier is guessed from the tracking-number format and can be overridden. Tracking links come from per-carrier URL templates kept in Settings, so a carrier changing its site is a settings edit, not a deploy.
+- **As built in Phase 5b:** received is the sum of `po_receipt` rows (append-only), never a
+  stored `qty_received`; a PO's number is issued when it's marked ordered; a line needs a
+  catalog part; Order for this job sets the part aside at once (receiving then fills it);
+  `shipment` hangs off a PO or a WO; carriers and their link templates live in a `carrier`
+  table (Settings → Carriers); `paid_with` is `paid_by_user_id` (null = business account);
+  vendor RMAs deferred. See PROGRESS Decisions, 2026-10-12.
 - **"Delivered" isn't "received".** Receiving means someone opened the box and counted it, and that's the step that touches stock. Receiving a PO line:
   1. creates a `stock_lot` and a `receive` move (with the date code);
   2. if the line is tied to a job, creates a `reservation` for that job;

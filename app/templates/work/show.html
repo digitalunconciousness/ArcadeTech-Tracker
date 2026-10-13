@@ -7,7 +7,8 @@
     <h1 class="mono tag">{{ wo.number }}</h1>
     {% if can_edit %}<a class="btn" href="{{ url_for('work.edit', wo_id=wo.id) }}">Edit</a>{% endif %}
   </div>
-  <p class="lead">{{ wo.summary }} <span class="badge {{ 'ok' if wo.status == 'completed' else 'danger' if wo.status == 'cancelled' else 'warn' if wo.status.startswith('waiting') else '' }}">{{ statuses[wo.status] | lower }}</span></p>
+  <p class="lead">{{ wo.summary }} <span class="badge {{ 'ok' if wo.status == 'completed' else 'danger' if wo.status == 'cancelled' else 'warn' if wo.status.startswith('waiting') else '' }}">{{ statuses[wo.status] | lower }}</span>{% if wo.parts_arrived_at %} <span class="badge ok glow">parts in</span>{% endif %}</p>
+  {% if waiting %}<div class="small"><span class="dim">Waiting on:</span> {{ waiting | join(' · ') }}</div>{% elif wo.status == 'waiting_parts' %}<div class="small dim">Waiting on parts, but nothing is outstanding: set the status by hand.</div>{% endif %}
   <dl class="facts">
     <dt>Customer</dt><dd><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a>{% if customer.phone %} · <a href="tel:{{ customer.phone }}">{{ customer.phone }}</a>{% endif %}</dd>
     {% if site %}<dt>Site</dt><dd>{{ site.name }}{% if site.city %}, {{ site.city }}{% endif %}</dd>{% endif %}
@@ -115,6 +116,14 @@
     {% endfor %}
   </ul>
   {% if invoices and unbilled %}<p class="dim">Some lines aren't on an invoice yet.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if shipments or ship_form %}
+<section class="panel" id="shipments">
+  <h2>Tracking</h2>
+  {% set action = url_for('purchasing.wo_shipment', wo_id=wo.id) %}
+  {% include "purchasing/_shipments.html" %}
 </section>
 {% endif %}
 

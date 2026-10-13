@@ -5,6 +5,7 @@ Money: a line's amount is qty × unit_price rounded half-up to the cent (a disco
 subtracts). A line that isn't billable (warranty work) still shows its amount and cost
 but charges nothing."""
 
+from collections import defaultdict
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -12,8 +13,11 @@ from sqlalchemy import func, select
 
 from app.extensions import db
 from app.models import (
+    OPEN_LINE_STATUSES,
     Asset,
     Invoice,
+    Part,
+    PoLine,
     Reservation,
     ShopSetting,
     StockLot,
@@ -75,6 +79,7 @@ def set_techs(wo, user_ids):
 
 def set_status(wo, status):
     wo.status = status
+    wo.parts_arrived_at = None
     if status == "completed":
         wo.completed_at = wo.completed_at or utcnow()
     else:
@@ -282,7 +287,7 @@ def awaiting_lines(wo):
 
 def mark_arrived(line):
     """The customer's part is here. If the WO was waiting on parts and nothing else is
-    on its way, it goes back to In progress. Returns True when it did."""
+    outstanding, it goes back to In progress. Returns True when it did."""
     if not line.awaiting:
         raise WorkError("That part is already here.")
     ensure_unbilled(line)
@@ -290,11 +295,58 @@ def mark_arrived(line):
     db.session.flush()
     wo = db.session.scalar(select(WorkOrder).join(WoJob, WoJob.work_order_id == WorkOrder.id)
                            .where(WoJob.id == line.wo_job_id))
-    if wo.status == "waiting_parts" and not awaiting_lines(wo):
-        set_status(wo, "in_progress")
-        db.session.flush()
-        return True
-    return False
+    return release_if_ready(wo)
+
+
+def short_reservations(part_ids):
+    """Ids of open reservations that stock doesn't cover. The oldest reservation of a part
+    gets its stock first."""
+    part_ids = set(part_ids)
+    if not part_ids:
+        return set()
+    held = stock.on_hand_map(part_ids)
+    used = defaultdict(Decimal)
+    short = set()
+    for res in db.session.scalars(select(Reservation).where(
+            Reservation.part_id.in_(part_ids), Reservation.status == "reserved")
+            .order_by(Reservation.id)):
+        used[res.part_id] += res.qty
+        if used[res.part_id] > held.get(res.part_id, ZERO):
+            short.add(res.id)
+    return short
+
+
+def waiting_on(wo):
+    """What the WO still waits for, as short descriptions: the customer's parts on their
+    way, parts on order for its jobs, and parts set aside for it that aren't in stock."""
+    jobs = select(WoJob.id).where(WoJob.work_order_id == wo.id, WoJob.status != "cancelled")
+    out = [f"{x.description} (the customer's)" for x in awaiting_lines(wo)]
+    for line, part in db.session.execute(
+            select(PoLine, Part).join(Part, Part.id == PoLine.part_id)
+            .where(PoLine.wo_job_id.in_(jobs), PoLine.status.in_(OPEN_LINE_STATUSES))
+            .order_by(PoLine.id)):
+        out.append(f"{part.sku} × {stock.fmt_qty(line.qty)} "
+                   + ("to order" if line.status == "to_order" else "on order"))
+    held = db.session.execute(
+        select(Reservation, Part).join(Part, Part.id == Reservation.part_id)
+        .where(Reservation.wo_job_id.in_(jobs), Reservation.status == "reserved")
+        .order_by(Reservation.id)).all()
+    short = short_reservations(r.part_id for r, _ in held)
+    out += [f"{part.sku} × {stock.fmt_qty(r.qty)} set aside, not in stock"
+            for r, part in held if r.id in short]
+    return out
+
+
+def release_if_ready(wo):
+    """A WO waiting on parts goes back to In progress once nothing is outstanding, and
+    the board flags it (parts_arrived_at). The only status change the app makes by itself.
+    Returns True when it moved."""
+    if wo.status != "waiting_parts" or waiting_on(wo):
+        return False
+    set_status(wo, "in_progress")
+    wo.parts_arrived_at = utcnow()
+    db.session.flush()
+    return True
 
 
 def remove_line(line, part=None, wo_number=""):

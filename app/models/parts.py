@@ -107,6 +107,8 @@ class StockLot(StandardColumns, db.Model):
     date_code: Mapped[str | None] = mapped_column(String(20))
     vendor_lot: Mapped[str | None] = mapped_column(String(40))
     note: Mapped[str | None] = mapped_column(String(200))
+    # The PO line it was received against, when it came in on an order.
+    po_line_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("po_line.id"), index=True)
 
 
 class StockMove(StandardColumns, db.Model):
@@ -134,6 +136,7 @@ class StockMove(StandardColumns, db.Model):
     # The job a part was issued to or returned from: recall tracing ("which jobs got
     # caps from that lot?"). Jobs are never deleted, so this always resolves.
     wo_job_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("wo_job.id"), index=True)
+    po_line_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("po_line.id"), index=True)
 
 
 class PartLink(StandardColumns, db.Model):

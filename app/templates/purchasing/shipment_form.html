@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Tracking {{ shipment.tracking_number }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1 class="mono">{{ shipment.tracking_number }}</h1>
+  <p class="dim">{{ directions[shipment.direction] }}{% if url %} · <a href="{{ url }}" rel="noopener noreferrer nofollow" target="_blank">open the carrier's page</a>{% endif %}</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.status) }}{{ field(form.carrier_id) }}</div>
+    <div class="row two">{{ field(form.eta) }}{{ field(form.delivered_on) }}</div>
+    {% if can_see_costs %}{{ field(form.cost, inputmode="decimal") }}{% endif %}
+    {{ field(form.note) }}
+    <p class="dim small">Delivered isn't received: nothing goes into stock until someone counts it.</p>
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ back }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

@@ -39,6 +39,8 @@ from app.models import (
     ManualReading,
     Part,
     PartLink,
+    PoLine,
+    PurchaseOrder,
     Reservation,
     Service,
     Site,
@@ -135,6 +137,19 @@ def load_wo(wo_id):
 def load_job(job_id):
     job = get_or_404(WoJob, job_id)
     return job, db.session.get(WorkOrder, job.work_order_id)
+
+
+def job_order_form():
+    from app.purchasing.routes import job_order_form as make
+    return make()
+
+
+def job_po_lines(job):
+    """What's been bought (or is to be bought) for this job: [(line, part, PO number)]."""
+    return db.session.execute(
+        select(PoLine, Part, PurchaseOrder.number).join(Part, Part.id == PoLine.part_id)
+        .outerjoin(PurchaseOrder, PurchaseOrder.id == PoLine.po_id)
+        .where(PoLine.wo_job_id == job.id).order_by(PoLine.id)).all()
 
 
 def back_to_job(job_id, anchor=""):
@@ -238,7 +253,13 @@ def show(wo_id):
                                   .order_by(Invoice.id)).all() if sees_costs() else []
     unbilled = any(x.billable and x.invoice_id is None and x.qty > 0
                    for job, _ in jobs if job.status != "cancelled" for x in lines[job.id])
+    from app.purchasing import service as buying
+    from app.purchasing.routes import shipment_form
     return render_template("work/show.html", wo=wo, customer=customer, site=site, jobs=jobs,
+                           waiting=service.waiting_on(wo) if wo.status == "waiting_parts"
+                           else [], shipments=buying.shipments(wo=wo),
+                           ship_form=shipment_form() if current_user.role in EDIT_ROLES
+                           and service.is_open(wo) else None,
                            job_totals=job_totals, total=total, techs=techs, over_nte=over_nte,
                            status_form=StatusForm(status=wo.status), add_job=add_job,
                            warranty_of=warranty_of, costs=sees_costs(),
@@ -443,7 +464,9 @@ def job(job_id):
         fixed=service.fixed_price_rate(job, lines), invoices=billed_numbers(lines),
         warranty=lambda line: service.warranty_days(line, has_customer_part),
         amount=service.line_amount, line_cost=service.line_cost,
-        job_form=job_form(job) if edit else None, forms=job_forms(job, wo) if edit else None)
+        job_form=job_form(job) if edit else None, forms=job_forms(job, wo) if edit else None,
+        order_form=job_order_form() if edit and service.is_open(wo) else None,
+        po_lines=job_po_lines(job))
 
 
 @bp.route("/work/jobs/<int:job_id>/edit", methods=["POST"])

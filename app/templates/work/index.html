@@ -21,6 +21,7 @@
       <a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono tag">{{ wo.number }}</span></a>
       {{ customer.display_name }}
       {% if wo.priority in ('high', 'rush') %}<span class="badge {{ 'danger' if wo.priority == 'rush' else 'warn' }}">{{ wo.priority }}</span>{% endif %}
+      {% if wo.parts_arrived_at %}<span class="badge ok glow">parts in</span>{% endif %}
       <div>{{ wo.summary }}</div>
       <div class="dim">{{ kinds[wo.kind] }}{% if wo.promised_date %} · promised {{ wo.promised_date }}{% if wo.promised_date < today and wo.status not in ('completed', 'cancelled') %} <span class="badge danger">late</span>{% endif %}{% endif %}{% if techs %} · {{ techs }}{% endif %}</div>
     </li>

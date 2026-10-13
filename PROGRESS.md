@@ -127,7 +127,8 @@ push/PR → owner deploys (⏸).
         owner); gapless across a rolled-back issue; tax half-up at the frozen rate; Postgres
         checks subtotals and tax at the moment of issue
   - [x] Diff, tests, privacy output → OK (incl. the fixed-price design) → PR #10 (merged)
-  - [ ] ⏸ Owner deploys (migration 0009); writes "How customers pay you" in Settings → Business
+  - [x] ⏸ Owner deployed (migration 0009; confirmed by the 5a exit, which needs 0011)
+  - [ ] ⏸ Owner writes "How customers pay you" in Settings → Business
 - **4b: money in** (branch `phase/4b-payments`)
   - [x] Payments (receipts, reversals, refunds), applied to invoices or left as credit on
         account; deposits on estimates, applied when the job is invoiced
@@ -139,7 +140,7 @@ push/PR → owner deploys (⏸).
   - [x] DB tests: partial, over and reversed payments; refunds; credit memos; balances kept by
         trigger and checked against allocations after every step of a randomized run
   - [x] Diff, tests, privacy output → OK → PR #11 (merged)
-  - [ ] ⏸ Owner deploys (migration 0010)
+  - [x] ⏸ Owner deployed (migration 0010; confirmed by the 5a exit)
 - [ ] ⏸ Exit: editing an issued invoice line fails in the database (4a, tested); a partial +
       final payment closes the invoice (4b, tested); numbers gapless across a forced rollback
       (4a, tested). Then enter the partner's first real invoice with its true issue date
@@ -161,16 +162,23 @@ push/PR → owner deploys (⏸).
         `part_link_id`); the WO waits on them; Arrived puts it back In progress once
         nothing else is on its way; awaiting lines aren't offered for billing
   - [x] Send links from a WO: the phone's share sheet, then a comm-log entry
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0011)
-  - [ ] ⏸ Exit: share a page from Chrome into the app on the phone and save it; add it to an
+  - [x] Diff, tests, privacy output → OK → PR #12 (merged)
+  - [x] ⏸ Owner deployed (migration 0011)
+  - [x] ⏸ Exit (passed, owner, reported 2026-10-12): share a page from Chrome into the app on the phone and save it; add it to an
         estimate; the customer's page shows it tappable; after approve and convert the WO
         waits on it, and Arrived clears it
 - **5b: purchasing** (branch `phase/5b-purchasing`)
-  - [ ] Shopping list (reorder suggestions, Order for this job), POs (number at ordered),
-        lines tied to jobs, receipts (append-only), shipments
-  - [ ] Carrier tracking URL templates in settings (each verified by web search when seeded)
-  - [ ] Receive → lot + receive move + reservation + WO out of `waiting_parts` (tested)
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
+  - [x] Shopping list (reorder suggestions, Order for this job), POs (number at ordered),
+        lines tied to jobs, receipts (append-only), shipments on POs and WOs
+  - [x] Carrier tracking URL templates in Settings → Carriers (looked up by web search when
+        seeded; the carriers' sites weren't reachable from the build VM, so check each with
+        the first real number)
+  - [x] Receive → lot + receive move (both carry the PO line); the job's part was set aside
+        when it was ordered; WO out of `waiting_parts` (tested, incl. FIFO between jobs)
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0012, 0013)
+  - [ ] ⏸ Exit: receiving a line tied to a job reserves it and moves that WO out of
+        `waiting_parts` (tested: `test_order_for_job_then_receive_releases_the_wo`). On the
+        phone: Order for this job → Make draft POs → Mark ordered → add tracking → Receive
 
 ## Phase 6: Dashboard & books (branch `phase/6-dashboard-books`)
 
@@ -276,6 +284,11 @@ push/PR → owner deploys (⏸).
 | 2026-10-12 | Send links from a WO: the share sheet first, then a comm-log entry carrying the URLs, so each link's page lists who it was sent to | Owner (decision 4); the comm log is already append-only |
 | 2026-10-12 | Purchasing roles (5b): owners order and see costs; techs Order for this job, see what's on order and its tracking, receive, and use the link library; viewers read | Owner (decision 9) |
 | 2026-10-12 | 5b: PO number at "mark ordered"; every PO line a catalog part (quick-add); lot cost = the line's unit cost, shipping and tax paid stay on the PO (Phase 6 books them); Order for this job reserves at once | Owner (decisions 5, 6, 7) |
+| 2026-10-12 | A WO leaves Waiting on parts by itself when nothing is outstanding: no customer's part on its way, no open PO line for its jobs, and every part set aside for it covered by stock (the oldest reservation of a part gets the stock first). Checked after Arrived, receiving (on a PO or on the part's page), closing or cancelling a PO, and taking a line off the list; `work_order.parts_arrived_at` flags it on the board until someone sets the status by hand | Plan's "moves the WO from waiting_parts to in_progress once everything it waits on is in"; FIFO keeps two jobs from claiming one box |
+| 2026-10-12 | Order for this job sets the part aside at once (even before it's in stock, like converting an estimate), so receiving needs no new reservation; taking the line off the list releases it; cancelling an ordered PO keeps it (the job still needs the part, so it shows as short) | One path for job parts; no double count on the shopping list (projected = on hand + on order − set aside) |
+| 2026-10-12 | POs: draft → ordered (number from `doc_counter` at that moment, never in the future) → partly received → received, or closed short / cancelled. Lines to order may be deleted (trigger `po_line_guard`); after that only cancelled or closed. Receipts append-only; received = sum of receipts. Subtotal and total computed; shipping and tax paid entered from the receipt | Owner decisions 5–7; the stock ledger's "never a stored count" rule |
+| 2026-10-12 | Carriers (USPS, UPS, FedEx, DHL Express) seeded by a data migration with link templates from community-documented formats (none publishes one; DHL's `AWB=` parameter is the older form). Edited in Settings → Carriers; carrier guessed from the number by pattern; status set by hand | Plan: "a carrier changing its site is a settings edit, not a deploy" |
+| 2026-10-12 | Shipments sit on a PO (from the vendor) or a WO (to or from the customer). Techs add and update tracking; only owners and viewers see shipping cost. The job's older `inbound_tracking` field stays as it was | Owner decision 9 |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -438,3 +451,20 @@ push/PR → owner deploys (⏸).
 - 296 tests green, none skipped. Phone pass (Pixel 7 viewport): share target → save, search,
   pick for an estimate and a WO, the customer's estimate page, send links, Arrived; no page
   scrolls sideways, no console errors.
+
+### Session 3, Phase 5b (2026-10-12, same cloud session)
+
+- PR #12 (5a) merged. 5b on `phase/5b-purchasing`: migrations 0012 (carrier,
+  purchase_order, po_line, po_receipt, shipment; `po_line_id` on stock_lot and stock_move;
+  `work_order.parts_arrived_at`; `po_line_guard()`) and 0013 (seed carriers, data only).
+  Round-tripped; no drift.
+- `app/purchasing/`: the Buying page (running low, the shopping list by vendor, drafts, on
+  order), PO pages, phone receiving, tracking on POs and WOs, Settings → Carriers; Order for
+  this job on the job page; on order and "buy it here" links on the part page; POs and
+  tracking numbers in global search. `work.waiting_on()` / `release_if_ready()` now decide
+  every automatic move out of Waiting on parts (5a's Arrived included).
+- The carriers' tracking pages couldn't be fetched from the VM (proxy), so the templates
+  rest on web searches; flagged for the owner to check with real numbers.
+- The phone pass caught the settings tabs running off a phone screen once Carriers made
+  five; the tabs wrap now.
+

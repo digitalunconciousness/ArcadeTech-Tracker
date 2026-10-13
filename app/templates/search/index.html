@@ -33,6 +33,14 @@
   <h2>Parts</h2>
   <ul class="list">{% for p in results.parts %}<li{% if not p.active %} class="inactive"{% endif %}><a href="{{ url_for('parts.show', part_id=p.id) }}"><span class="mono">{{ p.sku }}</span></a> {{ p.name }} <span class="dim">{{ p.mpn or '' }}{% if p.equivalents %} · ≈ {{ p.equivalents | join(', ') }}{% endif %}{% if p.bin %} · bin {{ p.bin }}{% endif %}</span></li>{% endfor %}</ul>
   {% endif %}
+  {% if results.orders %}
+  <h2>Purchase orders</h2>
+  <ul class="list">{% for po, v in results.orders %}<li><a href="{{ url_for('purchasing.order', po_id=po.id) }}"><span class="mono tag">{{ po.number or 'Draft PO #' ~ po.id }}</span></a> {{ v.name }}{% if po.vendor_order_ref %} <span class="dim">their # {{ po.vendor_order_ref }}</span>{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if results.shipments %}
+  <h2>Tracking numbers</h2>
+  <ul class="list">{% for s, po_number, wo_number, cname in results.shipments %}<li><span class="mono">{{ s.tracking_number }}</span> · {% if s.po_id %}<a href="{{ url_for('purchasing.order', po_id=s.po_id) }}">{{ po_number }}</a>{% else %}<a href="{{ url_for('work.show', wo_id=s.work_order_id) }}">{{ wo_number }}</a> <span class="dim">{{ cname }}</span>{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
   {% if results.links %}
   <h2>Parts links</h2>
   <ul class="list">{% for link in results.links %}<li{% if not link.active %} class="inactive"{% endif %}><a href="{{ url_for('partlinks.show', link_id=link.id) }}">{{ link.title }}</a> <span class="dim">{{ link.domain }}{% if link.fits %} · fits {{ link.fits }}{% endif %}</span></li>{% endfor %}</ul>

@@ -8,8 +8,9 @@ from app.auth.decorators import requires_role
 from app.auth.forms import EmptyForm
 from app.billing.forms import JurisdictionForm, TaxSettingsForm
 from app.extensions import db
-from app.models import MarkupTier, ShopSetting, TaxJurisdiction, User
+from app.models import Carrier, MarkupTier, ShopSetting, TaxJurisdiction, User
 from app.pricing import multiplier_margin
+from app.purchasing.forms import CarrierForm
 from app.settings.forms import (
     BusinessForm,
     LaborPolicyForm,
@@ -278,3 +279,49 @@ def jurisdiction_edit(jurisdiction_id):
             return redirect(url_for("settings.tax"))
     _flash_errors(form)
     return render_template("settings/jurisdiction_form.html", form=form, j=j)
+
+
+# --- carriers -----------------------------------------------------------------------------
+
+def _save_carrier(form, carrier):
+    form.populate_obj(carrier)
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        db.session.rollback()
+        if not isinstance(e.orig, UniqueViolation):
+            raise
+        form.code.errors.append("Another carrier has that code.")
+        return False
+    return True
+
+
+@bp.route("/carriers", methods=["GET", "POST"])
+@requires_role("owner")
+def carriers():
+    """Each carrier's tracking page, as a template with {number} in it. A carrier moving
+    its page is an edit here, not a deploy."""
+    form = CarrierForm()
+    if form.validate_on_submit():
+        carrier = Carrier()
+        db.session.add(carrier)
+        if _save_carrier(form, carrier):
+            flash(f"Added {carrier.name}.", "ok")
+            return redirect(url_for("settings.carriers"))
+    _flash_errors(form)
+    rows = db.session.scalars(select(Carrier).order_by(Carrier.position, Carrier.id)).all()
+    return render_template("settings/carriers.html", carriers=rows, form=form)
+
+
+@bp.route("/carriers/<int:carrier_id>", methods=["GET", "POST"])
+@requires_role("owner")
+def carrier_edit(carrier_id):
+    carrier = db.session.get(Carrier, carrier_id) or abort(404)
+    form = CarrierForm(obj=carrier)
+    if form.validate_on_submit():
+        if _save_carrier(form, carrier):
+            flash(f"Saved {carrier.name}.", "ok")
+            return redirect(url_for("settings.carriers"))
+    _flash_errors(form)
+    return render_template("settings/carrier_form.html", form=form, carrier=carrier)
+
