@@ -194,8 +194,11 @@ def test_synthetic_year_adds_up_everywhere(app, signed_in, tdb):
     assert hashlib.sha256(zf.read(name)).hexdigest() == receipt
     for must in ("README.txt", "pnl-cash.pdf", "pnl-accrual.pdf", "payments.csv",
                  "partner-ledger.csv", "sales-tax.csv", "1099.csv", "1099-by-method.csv",
-                 f"inventory-{t}.csv", "sales-tax-filings.csv", "partners-cash.csv"):
+                 f"inventory-{t}.csv", "sales-tax-filings.csv", "partners-cash.csv",
+                 "general-journal.csv", "trial-balance.csv"):
         assert must in names, must
+    _, total = read_csv(zf, "trial-balance.csv")
+    assert D(total["Debits"]) == D(total["Credits"]) > 0 and D(total["Debits less credits"]) == 0
     assert zf.read("pnl-cash.pdf")[:5] == b"%PDF-"
     readme = zf.read("README.txt").decode()
     assert f"{y} (so far)" in readme and "MISSING" not in readme
@@ -418,7 +421,8 @@ def test_nav_sections_and_tabs(app, signed_in):
     page = text(owner.get("/invoices"))
     assert labels(page, top)[:6] == ["Dashboard", "Work", "Customers", "Money", "Parts",
                                      "Settings"]
-    assert labels(page, sub) == ["Invoices", "Payments", "Books", "Reports"]
+    assert labels(page, sub) == ["Invoices", "Statements", "Payments", "Books", "Bank",
+                                 "Reports"]
     assert 'class="active">Money<' in page and 'class="active">Invoices<' in page
     assert 'class="active">Payments<' in text(owner.get("/payments"))
     assert labels(text(owner.get("/purchasing")), sub) == ["Parts", "Links", "Buying",

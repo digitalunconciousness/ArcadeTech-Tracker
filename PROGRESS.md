@@ -281,7 +281,8 @@ push/PR → owner deploys (⏸).
         Ordered (dates) and Arrived on the work order page as well as the job; their own
         part can wait too ("Not here yet"); a work order waiting with nothing outstanding
         gets a one-tap Back to In progress
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0018, 0019)
+  - [x] Diff, tests, privacy output → OK → PR #17 (merged; the parts fix rode in with #19)
+  - [ ] ⏸ deploy (migrations 0018, 0019)
 - **9b: work in motion** (branch `phase/9b-work-in-motion`, on top of 9a's)
   - [x] Design → OK (owner, 2026-10-13: all eight as recommended; double-booking warns,
         with a setting to refuse it)
@@ -301,11 +302,29 @@ push/PR → owner deploys (⏸).
   - [x] As found against as left: one chart and the numbers side by side on the job and
         trace pages, an SVG on the service report; manual readings per test point against
         the spec on the job page
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR (after #17) → ⏸ deploy (migration 0020)
-- **9c: money at the desk**: bulk invoicing (preview, then issue), bulk statements, bank
-  reconciliation (CSV import, suggested matches confirmed by a person, locked when
-  reconciled), accountant export (account mapping + general journal CSV)
-  - [ ] Code + tests → ⏸ OK → PR → ⏸ deploy
+  - [x] Diff, tests, privacy output → OK → PR #19 (merged)
+  - [ ] ⏸ deploy (migration 0020)
+- **9c: money at the desk** (branch `phase/9c-money-desk`)
+  - [x] Design → OK (owner, 2026-10-13: all eleven as recommended; no accountant yet, so
+        the export uses generic journal columns)
+  - [x] Invoice ready work (`/invoices/bulk`, owners): Completed and Ready work orders (any
+        status can be ticked in), preview totals, then one invoice per work order, each
+        in its own transaction; one that can't be issued says why and the numbers stay
+        gapless; at most 50; then make links for the lot
+  - [x] Statements (`/statements`): everyone who owes or has credit, aging, payments from
+        the last 60 days; one PDF for the ticked (a page each) or a statement link per
+        customer (`/d/`, live, 30 days, noted in the comm log); migration 0021
+  - [x] Money → Bank: accounts (wallets too), CSV import with a remembered column mapping
+        (duplicates skipped by fingerprint), suggested matches (exact amount, date window,
+        deposits of 2-4 receipts) confirmed by a person, find, set aside, expense from a
+        line, reconcile against the statement, undo the latest with a reason; reconciled
+        lines locked by triggers; a matched record changed later is flagged; viewers
+        read only; migration 0022
+  - [x] For an accountant (Reports): the general journal (CSV) and trial balance for any
+        period, accrual double entry; Settings → Accounts names and numbers each account
+        (migration 0023); both CSVs in the year-end zip. Ties to the accrual P&L to the
+        cent (tested on the synthetic year, and shown on the page)
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0021-0023)
 
 ## Decisions
 
@@ -424,6 +443,9 @@ push/PR → owner deploys (⏸).
 | 2026-10-13 | Split view loads a record's page content alone (`X-Partial: 1`) into a pane beside its list; only record URLs (a fixed pattern) are fetched; `?pane=` keeps the state in the URL | Owner (decision 4): no single-page app |
 | 2026-10-13 | Power tables: one spec per list (`app/lists/specs.py`) drives the desktop table, its CSV and saved views; filters and sort run in SQL from the query string; phones keep their own list markup, and the old `all=1`/`mine=1` switches still work | Saved views per user (DB), columns per device (localStorage) — decision 5 |
 | 2026-10-13 | Nav regrouped: Dashboard · Work (Work orders, Estimates) · Customers (Customers, Assets) · Money (Invoices, Payments, Books, Reports; owners and viewers) · Parts (Parts, Links, Buying, Price book) · Settings (owners) | Owner (decision 1) |
+| 2026-10-13 | Bulk invoicing commits each invoice on its own: one refused doesn't stop the rest, and the gapless counter only moves for invoices that exist | Owner (9c design) |
+| 2026-10-13 | Bank: wallets are accounts; only the latest reconciliation can be undone, with a reason; reconciled lines and their matches are locked by triggers (even for the schema owner); a matched record edited later is flagged, not blocked | Owner (9c design) |
+| 2026-10-13 | Accountant export: accrual double entry, generic general-journal CSV and a trial balance; account names in `account_map` (only changes stored). Customers' credit stays in receivables; unmatched money goes to its payment method's account or Checking; stock is inventory when ordered and cost of goods when invoiced, as the P&L counts it | Owner (9c design); no accountant yet |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -689,3 +711,22 @@ push/PR → owner deploys (⏸).
   service report SVG; all three desktop themes; phones (the board stacks with Move menus,
   dispatch is a list); no console errors, nothing wider than the screen.
 - Shortcuts: `g o` board, `g l` dispatch (`g b` and `g d` were taken).
+- PR #19 merged; it carried the parts fix (`fa5d5b6`) too, so #18 has nothing left.
+- 9c design OK'd: all eleven as recommended; no accountant yet (maybe after the new year).
+
+### Session 3, Phase 9c (2026-10-13, same cloud session)
+
+- `phase/9c-money-desk` from main after #19.
+- `app/billing/desk.py` (bulk invoicing, statements, statement links), `app/bank/`
+  (service, forms, routes), `app/books/journal.py` (entries, chart, trial balance),
+  `app/settings/accounts.py`; migrations 0021 (doc_link.customer_id), 0022 (bank tables
+  and three guard triggers), 0023 (account_map).
+- Passes: bulk preview and issue, statements PDF and links, the public statement page;
+  bank import → suggestions → match, set aside, expense from a line → reconcile; the
+  export (ties) and Settings → Accounts; all three desktop themes; phones; no console
+  errors, nothing wider than the screen.
+- Found on the way: a settings field missing from a POST would have reset that account
+  to its built-in name (now left alone); PDF cells styled as flex rows broke the table
+  borders (fixed in the two new tables).
+- The worker restart lost the docker dev database (synthetic only); `devdb.sh start`
+  makes a fresh one.

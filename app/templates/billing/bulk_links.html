@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Invoice links{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Invoice links</h1>
+  <p class="dim">Each opens its invoice only (with how to pay and the PDF), works for {{ days }} days or until you withdraw it, and isn't shown again.</p>
+  <ul class="list">
+    {% for inv, customer, url in rows %}
+    <li>
+      <a class="mono" href="{{ url_for('billing.show', invoice_id=inv.id) }}">{{ inv.number }}</a> {{ customer.display_name }}{% if customer.phone %} <span class="dim">· {{ customer.phone }}</span>{% endif %} · {{ inv.balance | money }}
+      <div class="mono small break">{{ url }}</div>
+      <div class="actions">
+        <button class="btn small primary" type="button" data-share="{{ url }}" data-share-title="Invoice {{ inv.number }}">Share…</button>
+        <button class="btn small" type="button" data-copy="{{ url }}">Copy</button>
+      </div>
+    </li>
+    {% else %}
+    <li class="dim">No links made.</li>
+    {% endfor %}
+  </ul>
+  <p><a class="btn" href="{{ url_for('billing.index') }}">Invoices</a></p>
+</section>
+{% endblock %}

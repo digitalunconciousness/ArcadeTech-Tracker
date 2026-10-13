@@ -37,9 +37,23 @@ def receipt_pdf(payment, customer):
                       kinds=PAYMENT_KINDS)
 
 
-def statement_pdf(customer):
+def statement_context(customer):
     from app.billing import payments
-    return render_pdf("docs/statement.html", customer=customer, **payments.statement(customer))
+    return dict(customer=customer, payment_methods=PAYMENT_METHODS, payment_kinds=PAYMENT_KINDS,
+                **payments.statement(customer))
+
+
+def statement_pdf(customer):
+    return render_pdf("docs/statement.html", **statement_context(customer))
+
+
+def statements_pdf(customers):
+    """Several customers' statements in one PDF, a page (or more) each."""
+    from app.billing import payments
+    items = [(c, payments.statement(c)) for c in customers]
+    return render_pdf("docs/statements.html", items=items, payment_methods=PAYMENT_METHODS,
+                      payment_kinds=PAYMENT_KINDS, today=items[0][1]["today"] if items else None,
+                      shop=items[0][1]["shop"] if items else None)
 
 
 def filename(inv):

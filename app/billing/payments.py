@@ -410,8 +410,12 @@ def deposit_on(est):
     return received, left
 
 
+RECENT_DAYS = 60   # a statement lists the payments of this many days
+
+
 def statement(customer, today=None):
-    """Open invoices with how late each is, totals by age, credit, and what's owed."""
+    """Open invoices with how late each is, totals by age, credit, what's owed, and the
+    money received (or paid back) in the last RECENT_DAYS days."""
     today = today or local_today()
     rows, buckets = [], {label: ZERO for _, label in AGING}
     for inv in open_invoices(customer.id):
@@ -421,5 +425,10 @@ def statement(customer, today=None):
         buckets[label] += inv.balance
     owed = sum(buckets.values(), ZERO)
     credit = credit_available(customer.id)
+    recent = db.session.scalars(select(Payment).where(
+        Payment.customer_id == customer.id,
+        Payment.received_on >= today - timedelta(days=RECENT_DAYS))
+        .order_by(Payment.received_on.desc(), Payment.id.desc())).all()
     return {"rows": rows, "buckets": buckets, "owed": owed, "credit": credit,
-            "due": owed - credit, "today": today, "shop": shop()}
+            "due": owed - credit, "today": today, "shop": shop(), "recent": recent,
+            "recent_days": RECENT_DAYS}

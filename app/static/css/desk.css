@@ -104,7 +104,7 @@
   .timerbar { padding-left: 2rem; }
 
   /* Forms and facts read better with some width to them. */
-  .panel form:not(.inline-form):not(.filters):not(.actions):not(.bulk-form) { max-width: 46rem; }
+  .panel form:not(.inline-form):not(.filters):not(.actions):not(.bulk-form):not(.accounts-form) { max-width: 46rem; }
   .facts { grid-template-columns: minmax(10rem, max-content) 1fr; }
   .desk-only { display: block; }
   .phone-only { display: none; }

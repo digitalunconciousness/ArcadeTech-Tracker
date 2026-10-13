@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}{{ account.name }}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>{{ account.name }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.name) }}
+    {{ field(form.kind) }}
+    {{ field(form.last4, inputmode="numeric") }}
+    {{ field(form.opening_on) }}
+    {{ field(form.opening_balance, inputmode="decimal") }}
+    {% if locked %}<p class="dim small">It's been reconciled, so the starting date and balance stay as they are.</p>{% endif %}
+    {{ check(form.active) }}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('bank.account', account_id=account.id) }}">Back</a>
+  </form>
+</section>
+{% endblock %}

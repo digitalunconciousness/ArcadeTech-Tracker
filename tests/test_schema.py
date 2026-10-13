@@ -69,6 +69,12 @@ EXPECTED_GRANTS = {
     "reading": {"SELECT", "INSERT"},
     "wo_job_session": {"SELECT", "INSERT", "UPDATE", "DELETE"},
     "saved_view": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "bank_account": {"SELECT", "INSERT", "UPDATE"},
+    "bank_reconciliation": {"SELECT", "INSERT", "UPDATE"},
+    "bank_import": {"SELECT", "INSERT"},
+    "bank_line": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "bank_match": {"SELECT", "INSERT", "DELETE"},
+    "account_map": {"SELECT", "INSERT", "UPDATE", "DELETE"},
 }
 
 AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "service",
@@ -80,7 +86,8 @@ AUDITED = {"app_user", "shop_setting", "customer", "contact", "site", "asset", "
            "credit_memo", "credit_memo_line", "part_link", "estimate_part_link", "carrier",
            "purchase_order", "po_line", "po_receipt", "shipment", "expense_category", "expense",
            "mileage_rate", "trip", "partner_entry", "sales_tax_filing", "device",
-           "wo_job_session"}
+           "wo_job_session", "bank_account", "bank_reconciliation", "bank_import", "bank_line",
+           "bank_match", "account_map"}
 
 
 def q(app, sql, **params):
@@ -165,7 +172,8 @@ def test_app_role_sequence_privileges(app):
                   "estimate_part_link", "carrier", "purchase_order", "po_line", "po_receipt",
                   "shipment", "expense_category", "expense", "mileage_rate", "trip",
                   "partner_entry", "sales_tax_filing", "device", "rail_session", "reading",
-                  "wo_job_session", "saved_view")
+                  "wo_job_session", "saved_view", "bank_account", "bank_reconciliation",
+                  "bank_import", "bank_line", "bank_match", "account_map")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)
@@ -178,7 +186,8 @@ def test_app_role_sequence_privileges(app):
                                 "invoice_line_frozen", "wo_line_billed_guard", "payment_guard",
                                 "payment_reversal_complete", "allocation_guard",
                                 "allocation_apply", "credit_memo_frozen",
-                                "credit_memo_line_frozen", "po_line_guard"])
+                                "credit_memo_line_frozen", "po_line_guard", "bank_line_guard",
+                                "bank_match_guard", "bank_reconciliation_guard"])
 def test_trigger_functions_not_public(app, fn):
     rows = q(app, "SELECT has_function_privilege('shop_app', :f, 'EXECUTE')", f=f"{fn}()")
     assert rows == [(False,)]

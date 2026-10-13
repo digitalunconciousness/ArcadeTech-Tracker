@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Invoices issued{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Invoices issued</h1>
+    <a class="btn" href="{{ url_for('billing.bulk') }}">Invoice more</a>
+  </div>
+  <table class="grid">
+    <thead><tr><th>Invoice</th><th>Customer</th><th class="num">Total</th><th class="num">Still owed</th><th></th></tr></thead>
+    <tbody>
+    {% for inv, customer in rows %}
+    <tr>
+      <td><a class="mono" href="{{ url_for('billing.show', invoice_id=inv.id) }}">{{ inv.number }}</a> <span class="dim small">due {{ inv.due_date }}</span></td>
+      <td>{{ customer.display_name }}</td>
+      <td class="num">{{ inv.total | money }}</td>
+      <td class="num">{{ inv.balance | money }}</td>
+      <td class="nowrap"><a class="btn small" href="{{ url_for('billing.pdf', invoice_id=inv.id) }}">PDF</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if rows %}
+  <form method="post" action="{{ url_for('billing.bulk_links') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="ids" value="{{ ids }}">
+    <p class="dim small">Make a customer link for each to text or email from your phone (each works on its own, like Send on an invoice).</p>
+    <button class="btn primary" type="submit">Make links</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -9,6 +9,7 @@ from typing import NamedTuple
 from flask import url_for
 from sqlalchemy import select
 
+from app.books import journal
 from app.books import service as books
 from app.extensions import db
 from app.models import (
@@ -393,6 +394,23 @@ def filings_table():
         [[f.period_start, f.period_end, f.taxable_sales, f.tax_collected, f.tax_due,
           f.filed_on or "", f.paid_on or "", f.confirmation or ""]
          for f in books.filings()])
+
+
+def journal_table(es):
+    return Table("General journal", [("Date", "text"), ("Entry", "num"), ("Account", "text"),
+                                     ("Number", "text"), ("Debit", "money"),
+                                     ("Credit", "money"), ("Memo", "text"), ("Name", "text"),
+                                     ("Reference", "text")], journal.lines(es))
+
+
+def trial_balance_table(es, start, end):
+    rows = journal.trial_balance(es)
+    return Table(f"Trial balance, {start} to {end}",
+                 [("Account", "text"), ("Number", "text"), ("Debits", "money"),
+                  ("Credits", "money"), ("Debits less credits", "money")], rows,
+                 totals=["Total", "", _sum(rows, 2), _sum(rows, 3), _sum(rows, 4)],
+                 note="Activity in the period only, not opening balances: it starts from "
+                      "nothing on the first day.")
 
 
 def lot_for(lot_id):

@@ -1,5 +1,16 @@
 from app.models.asset import ASSET_KINDS, ASSET_STATUSES, Asset, AssetEvent
 from app.models.audit import AuditLog
+from app.models.bank import (
+    BANK_KINDS,
+    IGNORE_REASONS,
+    MATCH_TARGETS,
+    AccountMap,
+    BankAccount,
+    BankImport,
+    BankLine,
+    BankMatch,
+    BankReconciliation,
+)
 from app.models.billing import (
     INVOICE_STATUSES,
     OPEN_INVOICE_STATUSES,
@@ -116,4 +127,6 @@ __all__ = [
     "Carrier", "PoLine", "PoReceipt", "PurchaseOrder", "Shipment",
     "LEDGER_KINDS", "SPLIT_MODES",
     "Expense", "ExpenseCategory", "MileageRate", "PartnerEntry", "SalesTaxFiling", "Trip",
+    "BANK_KINDS", "IGNORE_REASONS", "MATCH_TARGETS",
+    "AccountMap", "BankAccount", "BankImport", "BankLine", "BankMatch", "BankReconciliation",
 ]

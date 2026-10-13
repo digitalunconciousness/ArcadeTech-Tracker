@@ -21,6 +21,7 @@ PUBLIC_ENDPOINTS = frozenset({
     # customer links and calendar feeds (/d/...): token-only, see app/public/routes.py
     "public.estimate", "public.approve", "public.decline", "public.estimate_pdf",
     "public.signature", "public.accent_css", "public.calendar_feed", "public.invoice_pdf",
+    "public.statement_pdf",
     "public.invoice_report", "public.invoice_receipt",
     # GATBOX picks a reachable address with it before it sends a token (contract v1)
     "api_v1.health",
@@ -53,6 +54,8 @@ def create_app(overrides=None):
     from app.api_v1.routes import bp as api_v1_bp
     from app.assets.routes import bp as assets_bp
     from app.auth.routes import bp as auth_bp
+    from app.bank.routes import bp as bank_bp
+    from app.billing import desk  # noqa: F401  (bulk invoicing, statements)
     from app.billing.routes import bp as billing_bp
     from app.books.routes import bp as books_bp
     from app.customers.routes import bp as customers_bp
@@ -68,14 +71,15 @@ def create_app(overrides=None):
     from app.purchasing.routes import bp as purchasing_bp
     from app.reports.routes import bp as reports_bp
     from app.search.routes import bp as search_bp
-    from app.settings import audit  # noqa: F401  (Settings → Audit, on settings_bp)
+    from app.settings import accounts, audit  # noqa: F401  (Settings → Accounts, Audit)
     from app.settings.routes import bp as settings_bp
     from app.work import planning  # noqa: F401  (the board and dispatch, on work_bp)
     from app.work.routes import bp as work_bp
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
                pricebook_bp, parts_bp, partlinks_bp, purchasing_bp, work_bp, estimates_bp,
-               billing_bp, books_bp, reports_bp, public_bp, api_v1_bp, traces_bp, lists_bp):
+               billing_bp, books_bp, reports_bp, public_bp, api_v1_bp, traces_bp, lists_bp,
+               bank_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)

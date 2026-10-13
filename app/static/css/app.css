@@ -324,3 +324,23 @@ ul.diff ins { color: var(--lime); text-decoration: none; }
 form.audit-filters { display: flex; flex-wrap: wrap; gap: 0 0.6rem; align-items: flex-end; }
 form.audit-filters .field { flex: 1 1 9rem; }
 .head .actions { margin-top: 0; }
+
+/* Money → Bank */
+.money-in { color: var(--lime); }
+.money-out { color: var(--text); }
+.warn-text { color: var(--amber); }
+form.suggestion { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: baseline; margin: 0.15rem 0; }
+details.inline-details { display: inline-block; }
+details.inline-details[open] { display: block; margin-top: 0.3rem; }
+details.inline-details > summary { list-style: none; display: inline-block; }
+details.inline-details > summary::-webkit-details-marker { display: none; }
+details.inline-details form { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
+details.inline-details form input[type=text], details.inline-details form select { width: auto; flex: 1 1 10rem; padding: 0.25rem 0.4rem; }
+.table-scroll { overflow-x: auto; margin-bottom: 1rem; }
+fieldset.inline-checks { display: flex; flex-wrap: wrap; gap: 0 0.8rem; border: 0; padding: 0; }
+fieldset.inline-checks legend { color: var(--dim); font-size: 0.9rem; margin-bottom: 0.2rem; }
+.accounts-form table.grid { table-layout: fixed; width: 100%; }
+.accounts-form col.for { width: 45%; }
+.accounts-form col.number { width: 8rem; }
+@media (max-width: 600px) { .accounts-form col.for { width: 40%; } .accounts-form col.number { width: 4.5rem; } }
+.accounts-form table.grid input[type="text"] { width: 100%; text-align: left; }

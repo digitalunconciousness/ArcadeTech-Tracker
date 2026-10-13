@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Statement links{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Statement links</h1>
+  <p class="dim">Each shows that customer's statement as it stands when they open it, for {{ days }} days. Not shown again: make a new one any time.</p>
+  <ul class="list">
+    {% for customer, due, url in rows %}
+    <li>
+      <a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a>{% if customer.phone %} <span class="dim">· {{ customer.phone }}</span>{% endif %} · {{ due | money }} due
+      <div class="mono small break">{{ url }}</div>
+      <div class="actions">
+        <button class="btn small primary" type="button" data-share="{{ url }}" data-share-title="Statement">Share…</button>
+        <button class="btn small" type="button" data-copy="{{ url }}">Copy</button>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <p><a class="btn" href="{{ url_for('billing.statements') }}">Statements</a></p>
+</section>
+{% endblock %}

@@ -35,7 +35,8 @@ def test_upgrade_downgrade_upgrade_from_empty(app, tdb, monkeypatch):
                 <= set(tables)
             assert functions == ["allocation_apply", "allocation_guard", "asset_no_cycle",
                                  "asset_tag_immutable", "audit_log_append_only", "audit_row",
-                                 "credit_memo_frozen", "credit_memo_line_frozen",
+                                 "bank_line_guard", "bank_match_guard",
+                                 "bank_reconciliation_guard", "credit_memo_frozen", "credit_memo_line_frozen",
                                  "estimate_child_frozen", "estimate_frozen", "invoice_frozen",
                                  "invoice_line_frozen", "payment_guard",
                                  "payment_reversal_complete", "po_line_guard", "set_updated_at",
@@ -92,8 +93,8 @@ def test_read_only_alembic_commands_work_from_a_fresh_cli(app):
 
     root = Path(__file__).resolve().parent.parent
     flask = str(Path(sys.executable).with_name("flask"))
-    for cmd, expect in (("heads", "0020_dispatch (head)"),
-                        ("current", "0020_dispatch (head)"),
+    for cmd, expect in (("heads", "0023_accounts (head)"),
+                        ("current", "0023_accounts (head)"),
                         ("history", "0001_foundation -> 0002_seed_settings")):
         run = subprocess.run([flask, "--app", "wsgi", "db", cmd], cwd=root, env=dict(os.environ),
                              capture_output=True, text=True, timeout=60)

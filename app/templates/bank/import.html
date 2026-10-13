@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Import · {{ account.name }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('bank.account', account_id=account.id) }}">{{ account.name }}</a></p>
+  <h1>Import a CSV</h1>
+  {% if step == 1 %}
+  <form method="post" enctype="multipart/form-data" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="field"><span>The CSV file your bank (or Venmo, PayPal…) exports</span><input type="file" name="file" accept=".csv,text/csv,text/plain"></label>
+    <p class="dim small">Lines already imported are skipped, so an export that overlaps the last one is fine. Lines from before {{ account.opening_on }} are left out. The file is kept on the server with the import.</p>
+    <button class="btn primary" type="submit">Next</button>
+  </form>
+  {% else %}
+  <p>{{ filename }}: say which column is which{% if account.mapping %} (filled in from last time){% endif %}.</p>
+  <div class="table-scroll">
+  <table class="grid">
+    <thead><tr>{% for h in header %}<th>{{ loop.index0 }}: {{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for row in sample %}<tr>{% for cell in row %}<td class="small">{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table>
+  </div>
+  <form method="post" novalidate class="mapping">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="step" value="2">
+    <input type="hidden" name="file_sha256" value="{{ sha }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+    {% macro pick(name, label, optional=True) %}
+    <label class="field"><span>{{ label }}</span>
+      <select name="{{ name }}">{% if optional %}<option value="">—</option>{% endif %}
+        {% for h in header %}<option value="{{ loop.index0 }}"{% if mapping.get(name) is not none and mapping.get(name) | string == loop.index0 | string %} selected{% endif %}>{{ loop.index0 }}: {{ h }}</option>{% endfor %}
+      </select></label>
+    {% endmacro %}
+    <div class="row two">{{ pick("date", "Date", False) }}{{ pick("description", "Description", False) }}</div>
+    <div class="row">{{ pick("amount", "Amount (one column, money out below zero)") }}{{ pick("debit", "Or: money out (debit)") }}{{ pick("credit", "and money in (credit)") }}</div>
+    <div class="row two">
+      <label class="field"><span>Dates look like</span>
+        <select name="date_format"><option value="">Work it out</option>{% for fmt, label in formats.items() %}<option value="{{ fmt }}"{% if mapping.get('date_format') == fmt %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="check"><input type="checkbox" name="flip" value="y"{% if mapping.get('flip') %} checked{% endif %}> <span>Money out shows as positive (most credit-card exports)</span></label>
+    </div>
+    <button class="btn primary" type="submit">Import</button>
+    <a class="btn" href="{{ url_for('bank.import_csv', account_id=account.id) }}">Start over</a>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}
