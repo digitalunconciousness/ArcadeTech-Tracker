@@ -33,6 +33,10 @@
   --dim: #9080b0;
   --display: "Chakra Petch", system-ui, sans-serif;
   --mono: "Share Tech Mono", ui-monospace, monospace;
+  --body: var(--mono);
+  --field: var(--bg);
+  --hover: rgba(255, 255, 255, 0.06);
+  --on-primary: var(--bg);
   --radius: 6px;
 }
 
@@ -45,7 +49,7 @@ body {
   min-height: 100vh;
   color: var(--text);
   background: linear-gradient(180deg, var(--bg2), var(--bg)) fixed;
-  font: 16px/1.5 var(--mono);
+  font: 16px/1.5 var(--body);
 }
 
 /* scanlines */
@@ -116,7 +120,7 @@ input, select, textarea {
   font: inherit;
   font-size: 1rem; /* 16px: no zoom-on-focus on phones */
   color: var(--text);
-  background: var(--bg);
+  background: var(--field);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }

@@ -1,10 +1,11 @@
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy import func, select
 
 from app.auth.decorators import ALL_ROLES, COST_ROLES, EDIT_ROLES, requires_role
 from app.customers.forms import CommLogForm, ContactForm, CustomerForm, SiteForm
 from app.extensions import db
+from app.lists import desk_list
 from app.models import (
     Asset,
     CommLog,
@@ -34,12 +35,15 @@ def get_or_404(model, ident):
 @bp.route("/customers")
 @requires_role(*ALL_ROLES)
 def index():
+    power = desk_list("customers")
+    if isinstance(power, Response):
+        return power
     show_all = request.args.get("all") == "1"
     q = select(Customer, func.count(Asset.id)).outerjoin(Asset, Asset.customer_id == Customer.id) \
         .group_by(Customer.id).order_by(Customer.is_shop.desc(), func.lower(Customer.name))
     if not show_all:
         q = q.where(Customer.active.is_(True))
-    return render_template("customers/index.html", rows=db.session.execute(q).all(),
+    return render_template("customers/index.html", power=power, rows=db.session.execute(q).all(),
                            show_all=show_all)
 
 

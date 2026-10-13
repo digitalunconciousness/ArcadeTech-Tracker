@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Assets{% endblock %}
 {% block content %}
+<div class="phone-only">
 <section class="panel">
   <div class="head">
     <h1>Assets</h1>
@@ -24,4 +25,6 @@
     {% endfor %}
   </ul>
 </section>
+</div>
+{% if power %}<div class="desk-only">{% include "lists/_page.html" %}</div>{% endif %}
 {% endblock %}

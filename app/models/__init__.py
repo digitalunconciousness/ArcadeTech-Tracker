@@ -69,7 +69,8 @@ from app.models.purchasing import (
     Shipment,
 )
 from app.models.settings import ShopSetting
-from app.models.user import ROLES, User
+from app.models.user import DESK_THEMES, ROLES, User
+from app.models.views import SavedView
 from app.models.work import (
     ALL_LABOR_MODES,
     JOB_STATUSES,
@@ -91,6 +92,7 @@ from app.models.work import (
 )
 
 __all__ = [
+    "DESK_THEMES", "SavedView",
     "LINK_SOURCES", "TRACE_PHASES", "Device", "RailSession", "Reading", "WoJobSession",
     "ASSET_KINDS", "ASSET_STATUSES", "COMM_KINDS", "DOC_KINDS", "MOVE_REASONS", "PAYMENT_TERMS",
     "ROLES", "SERVICE_KINDS", "SERVICE_UNITS",

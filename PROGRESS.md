@@ -240,10 +240,45 @@ push/PR → owner deploys (⏸).
       at test time); bad token → 401; unknown slug → rejected (tested:
       `test_posting_the_example_twice_gives_created_then_duplicate` and the rest of
       `tests/test_api_v1_contract.py`)
-- [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0017)
+- [x] Diff, tests, privacy output → OK → PR #16 (merged)
+- [ ] ⏸ Owner deploys (migration 0017)
 - [ ] ⏸ Mint a device token in Settings → Devices and run the smoke test (RUNBOOK §10).
       The token goes on the Pi only once GATBOX has `hubs.d` (plan Phase 8): its single
       `hub.conf` points at the barcade's hub today. No GATBOX code here
+
+## Phase 8: GATBOX multi-hub (in the GATBOX repo, not here)
+
+- [ ] ⏸ Owner runs a GATBOX session (prompt handed over 2026-10-13: housekeeping for its
+      Phase 6 and both bench exits, which are done; then `hubs.d`, per-hub caches and
+      routing, the conflict flag, picker by hub, `model_key` → manuals, the JOB card)
+- [ ] ⏸ Exit: on one Pi, a barcade trace lands in the tracker and a customer trace on the
+      shop job, and neither shows in the other
+
+## Phase 9: Desktop (three PRs)
+
+- [x] Design note → OK (owner, 2026-10-13: all eleven decisions as recommended; Ledger and
+      Graphite on the desktop, synthwave on phones)
+- **9a: desktop shell and speed** (branch `phase/9a-desktop-shell`)
+  - [x] 1024 px and up: a sidebar (sections with the open one's tabs), pages up to 96rem;
+        phones unchanged
+  - [x] Desktop themes per user (Account → Desktop look): Ledger (default), Graphite,
+        follow the system, or synthwave; IBM Plex Sans and Mono vendored from npm
+        (sha512 checked); migration 0018 (`app_user.desk_theme`, `saved_view`)
+  - [x] Split view: a list's record opens beside it (the page's content alone, by
+        `X-Partial`; `?pane=` in the URL, so reload, Back and Forward work)
+  - [x] Command bar (Ctrl K or `/`): global search as JSON (invoices too, for those who
+        see money) and role-aware actions; `g` then a letter to jump, `n` for new
+  - [x] Power tables on the eight lists: sort, filters, saved views (per user), columns
+        (per device), CSV of the view, bulk status and tech on work orders; cost columns
+        only for owners and viewers
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0018)
+- **9b: work in motion**: work board (drag between statuses), dispatch calendar (tech
+  lanes, drag to book, move and resize), audit log viewer, as-found vs as-left overlay
+  - [ ] Code + tests → ⏸ OK → PR → ⏸ deploy
+- **9c: money at the desk**: bulk invoicing (preview, then issue), bulk statements, bank
+  reconciliation (CSV import, suggested matches confirmed by a person, locked when
+  reconciled), accountant export (account mapping + general journal CSV)
+  - [ ] Code + tests → ⏸ OK → PR → ⏸ deploy
 
 ## Decisions
 
@@ -357,6 +392,10 @@ push/PR → owner deploys (⏸).
 | 2026-10-13 | GATBOX measurements are NUMERIC without a scale, exactly as sent (the body is parsed with `parse_float=Decimal`); times timestamptz; traces insert-only for the app role; readings and sessions not audited (machine-written, up to 2,000 rows), devices and links audited | Owner (decision 6); unlike the tracker's floats and naive times |
 | 2026-10-13 | Devices minted in Settings → Devices (token shown once on the page, never in a flash or the session) or `scripts/create_device.py`; switched off, never deleted; New token invalidates the old at once. "Last seen" is written at most every 15 minutes (or on a new address), because the device row is audited and gatbox-sync polls every couple of minutes | Owner (decision 7) |
 | 2026-10-13 | The service report lists a job's GATBOX traces (phase, rail, min/mean/max, % in window, verdict); the trace chart is on screen only | Owner (decision 8) |
+| 2026-10-13 | Desktop at 1024 px and up (a tablet held sideways included): sidebar, wider pages, the user's desktop theme. Below that nothing changes. Everything desktop is CSS in `desk.css` behind the media query, plus `desk.js`; every feature has a no-JS path | Owner (Phase 9 decisions 1, 4) |
+| 2026-10-13 | Desktop themes per user: Ledger (light, default), Graphite (dark), follow the system, or synthwave; phones always synthwave. IBM Plex Sans/Mono for both business themes. Customer documents unchanged | Owner (decisions 2, 3) |
+| 2026-10-13 | Split view loads a record's page content alone (`X-Partial: 1`) into a pane beside its list; only record URLs (a fixed pattern) are fetched; `?pane=` keeps the state in the URL | Owner (decision 4): no single-page app |
+| 2026-10-13 | Power tables: one spec per list (`app/lists/specs.py`) drives the desktop table, its CSV and saved views; filters and sort run in SQL from the query string; phones keep their own list markup, and the old `all=1`/`mine=1` switches still work | Saved views per user (DB), columns per device (localStorage) — decision 5 |
 | 2026-10-13 | Nav regrouped: Dashboard · Work (Work orders, Estimates) · Customers (Customers, Assets) · Money (Invoices, Payments, Books, Reports; owners and viewers) · Parts (Parts, Links, Buying, Price book) · Settings (owners) | Owner (decision 1) |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
@@ -587,3 +626,18 @@ push/PR → owner deploys (⏸).
 - Phone pass: mint a device, the example posted twice (created, then duplicate), roster and
   orders, the asset page, the trace page with its chart, phase on the job; no page scrolls
   sideways, no console errors.
+
+### Session 3, Phase 9a (2026-10-13, same cloud session)
+
+- PR #16 merged. Phase 9 design OK'd; 9a on `phase/9a-desktop-shell` from `main`.
+- Migration 0018 (`app_user.desk_theme`, `saved_view`); round-tripped, no drift. IBM Plex
+  Sans 1.1.0 and Mono 2.5.0 from npm, checked against npm's sha512, in `app/static/fonts/`
+  (OFL.txt updated).
+- `app/static/css/desk.css` (themes, sidebar, split view, power tables, command bar),
+  `app/static/js/desk.js`, `app/lists/` (engine, specs, saved views, bulk work orders),
+  the command bar in `base.html`, `/search?format=json`.
+- Passes: phone (Pixel 7) unchanged: synthwave, no sidebar, no desktop table, no page
+  scrolls sideways; desktop at 1440×900 in all three themes and at 1024×768; the pane, the
+  command bar, `g c`, a saved view and hidden columns surviving a reload; no console errors.
+- GATBOX Phase 8 prompt handed to the owner (run it locally in `~/gatbox`, where its
+  pre-push privacy hook lives).

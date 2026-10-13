@@ -60,6 +60,7 @@ def create_app(overrides=None):
     from app.estimates.routes import bp as estimates_bp
     from app.gatbox.routes import bp as traces_bp
     from app.health.routes import bp as health_bp
+    from app.lists.routes import bp as lists_bp
     from app.partlinks.routes import bp as partlinks_bp
     from app.parts.routes import bp as parts_bp
     from app.pricebook.routes import bp as pricebook_bp
@@ -72,7 +73,7 @@ def create_app(overrides=None):
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
                pricebook_bp, parts_bp, partlinks_bp, purchasing_bp, work_bp, estimates_bp,
-               billing_bp, books_bp, reports_bp, public_bp, api_v1_bp, traces_bp):
+               billing_bp, books_bp, reports_bp, public_bp, api_v1_bp, traces_bp, lists_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)
@@ -111,7 +112,10 @@ def _register_hooks(app):
 
         role = current_user.role if current_user.is_authenticated else None
         return {"can_edit": role in EDIT_ROLES, "can_see_costs": role in COST_ROLES,
-                "is_owner": role == "owner", "nav_for": nav.current}
+                "is_owner": role == "owner", "nav_for": nav.current,
+                "commands_for": nav.commands,
+                # the desktop split pane asks for a record's content alone
+                "partial": request.headers.get("X-Partial") == "1"}
 
     @app.context_processor
     def inject_timer():

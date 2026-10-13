@@ -48,3 +48,38 @@ def current(role):
         if len(section_tabs) > 1:
             tabs = [(label, ep, label == here[1]) for label, ep, _ in section_tabs]
     return {"sections": sections, "tabs": tabs}
+
+
+# The desktop command bar's actions (Ctrl K), by who may use them.
+EDIT = ("owner", "tech")
+COMMANDS = (
+    ("Dashboard", "dashboard.index", None, "g d"),
+    ("Work orders", "work.index", None, "g w"),
+    ("New work order", "work.new", EDIT, "n"),
+    ("Estimates", "estimates.index", None, "g e"),
+    ("New estimate", "estimates.new", EDIT, None),
+    ("Customers", "customers.index", None, "g c"),
+    ("New customer", "customers.new", EDIT, None),
+    ("Assets", "assets.index", None, "g a"),
+    ("Invoices", "billing.index", COST_ROLES, "g i"),
+    ("Payments", "billing.payment_list", COST_ROLES, None),
+    ("Books", "books.index", COST_ROLES, "g b"),
+    ("Add an expense", "books.expense_new", ("owner",), None),
+    ("Log a trip", "books.trip_new", ("owner",), None),
+    ("Reports", "reports.index", COST_ROLES, "g r"),
+    ("Parts", "parts.index", None, "g p"),
+    ("Add a part", "parts.new", EDIT, None),
+    ("Shopping list", "purchasing.index", None, "g s"),
+    ("Purchase orders", "purchasing.orders", None, None),
+    ("Parts links", "partlinks.index", None, None),
+    ("Price book", "pricebook.index", None, None),
+    ("Settings", "settings.index", ("owner",), None),
+    ("Devices (GATBOX)", "settings.devices", ("owner",), None),
+    ("My account", "auth.account", None, None),
+)
+
+
+def commands(role):
+    from flask import url_for
+    return [{"label": label, "url": url_for(endpoint), "keys": keys or ""}
+            for label, endpoint, roles, keys in COMMANDS if roles is None or role in roles]

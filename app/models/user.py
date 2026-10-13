@@ -28,6 +28,9 @@ ROLE_LABELS = {
     "tech": "Tech: work orders, time, parts; no costs, margins or money, no voids",
     "viewer": "Viewer: read-only, money, costs and exports (the accountant)",
 }
+DESK_THEMES = {"ledger": "Ledger (light)", "graphite": "Graphite (dark)",
+               "system": "Follow the system (Ledger or Graphite)",
+               "synthwave": "Synthwave, like the phone"}
 PASSWORD_MIN = 12
 PASSWORD_MAX = 256
 USERNAME_RE = r"^[a-z0-9][a-z0-9._-]{1,63}$"
@@ -45,6 +48,8 @@ class User(StandardColumns, UserMixin, db.Model):
         CheckConstraint("role IN ('owner', 'tech', 'viewer')", name="role"),
         CheckConstraint("split_pct >= 0 AND split_pct <= 100", name="split_pct_range"),
         CheckConstraint("session_version >= 1", name="session_version_positive"),
+        CheckConstraint("desk_theme IN ('ledger', 'graphite', 'system', 'synthwave')",
+                        name="desk_theme"),
     )
 
     id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
@@ -64,6 +69,9 @@ class User(StandardColumns, UserMixin, db.Model):
     session_version: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("1")
     )
+    # The look on a wide screen (1024 px and up); phones are always synthwave.
+    desk_theme: Mapped[str] = mapped_column(String(10), nullable=False,
+                                            server_default=text("'ledger'"))
 
     def get_id(self):
         return f"{self.id}:{self.session_version}"

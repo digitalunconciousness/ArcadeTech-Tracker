@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from flask import (
     Blueprint,
+    Response,
     abort,
     current_app,
     flash,
@@ -35,6 +36,7 @@ from app.billing.service import InvoiceError
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.formatting import money, rate_pct
+from app.lists import desk_list
 from app.models import (
     INVOICE_STATUSES,
     OPEN_INVOICE_STATUSES,
@@ -95,6 +97,9 @@ def load(invoice_id):
 @bp.route("/invoices")
 @requires_role(*READ_ROLES)
 def index():
+    power = desk_list("invoices")
+    if isinstance(power, Response):
+        return power
     show_all = request.args.get("all") == "1"
     q = select(Invoice, Customer).join(Customer, Customer.id == Invoice.customer_id) \
         .where(Invoice.status != "draft")
@@ -105,7 +110,7 @@ def index():
     today = local_today()
     owed = sum((inv.balance for inv, _ in rows if inv.status in OPEN_INVOICE_STATUSES),
                service.ZERO)
-    return render_template("billing/index.html", rows=rows, show_all=show_all, owed=owed,
+    return render_template("billing/index.html", power=power, rows=rows, show_all=show_all, owed=owed,
                            overdue={inv.id for inv, _ in rows if service.is_overdue(inv, today)})
 
 
@@ -365,10 +370,13 @@ def customer_payment(customer_id):
 @bp.route("/payments")
 @requires_role(*READ_ROLES)
 def payment_list():
+    power = desk_list("payments")
+    if isinstance(power, Response):
+        return power
     rows = db.session.execute(select(Payment, Customer).join(
         Customer, Customer.id == Payment.customer_id)
         .order_by(Payment.received_on.desc(), Payment.id.desc()).limit(300)).all()
-    return render_template("billing/payments.html", rows=rows)
+    return render_template("billing/payments.html", power=power, rows=rows)
 
 
 def load_payment(payment_id):

@@ -1,8 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import PasswordField, StringField
+from wtforms import PasswordField, SelectField, StringField
 from wtforms.validators import DataRequired, EqualTo, Length, Regexp
 
-from app.models.user import PASSWORD_MAX, PASSWORD_MIN
+from app.models.user import DESK_THEMES, PASSWORD_MAX, PASSWORD_MIN
 
 
 class LoginForm(FlaskForm):
@@ -37,3 +37,8 @@ class PasswordChangeForm(FlaskForm):
 
 class EmptyForm(FlaskForm):
     """A POST with nothing but the CSRF token (logout, reset buttons)."""
+
+
+class ThemeForm(FlaskForm):
+    desk_theme = SelectField("Desktop look (screens 1024 px and wider)",
+                             choices=list(DESK_THEMES.items()))

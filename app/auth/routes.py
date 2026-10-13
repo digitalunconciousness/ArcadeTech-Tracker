@@ -21,7 +21,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.actor import set_actor
 from app.auth import totp
 from app.auth.decorators import ALL_ROLES, requires_role
-from app.auth.forms import EmptyForm, LoginForm, PasswordChangeForm, TotpForm
+from app.auth.forms import EmptyForm, LoginForm, PasswordChangeForm, ThemeForm, TotpForm
 from app.extensions import db, limiter, login_manager
 from app.models import CalendarFeed, User
 from app.settings_store import get_settings
@@ -132,8 +132,26 @@ def logout():
 @bp.route("/account")
 @requires_role(*ALL_ROLES)
 def account():
-    return render_template("auth/account.html", form=PasswordChangeForm(), logout_form=EmptyForm(),
-                           feed=live_feed())
+    return render_account()
+
+
+def render_account(form=None, code=200, **extra):
+    return render_template("auth/account.html", form=form or PasswordChangeForm(),
+                           logout_form=EmptyForm(), feed=live_feed(),
+                           theme_form=ThemeForm(desk_theme=current_user.desk_theme),
+                           **extra), code
+
+
+@bp.route("/account/theme", methods=["POST"])
+@requires_role(*ALL_ROLES)
+def theme():
+    """The desktop look, per person. Phones are always synthwave."""
+    form = ThemeForm()
+    if form.validate_on_submit():
+        current_user.desk_theme = form.desk_theme.data
+        db.session.commit()
+        flash("Desktop look saved.", "ok")
+    return redirect(url_for("auth.account") + "#look")
 
 
 def live_feed():
@@ -157,8 +175,7 @@ def calendar_link():
                                 token_sha256=hashlib.sha256(token.encode()).hexdigest()))
     db.session.commit()
     url = current_app.config["SHOP_BASE_URL"] + url_for("public.calendar_feed", token=token)
-    return render_template("auth/account.html", form=PasswordChangeForm(),
-                           logout_form=EmptyForm(), feed=live_feed(), feed_url=url)
+    return render_account(feed_url=url)
 
 
 @bp.route("/account/password", methods=["POST"])
@@ -180,7 +197,7 @@ def change_password():
     for errors in form.errors.values():
         for error in errors:
             flash(error, "error")
-    return render_template("auth/account.html", form=form, logout_form=EmptyForm()), 400
+    return render_account(form, 400)
 
 
 @bp.route("/account/2fa", methods=["GET", "POST"])

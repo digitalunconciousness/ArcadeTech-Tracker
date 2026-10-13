@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Estimates{% endblock %}
 {% block content %}
+<div class="phone-only">
 <section class="panel">
   <div class="head">
     <h1>Estimates</h1>
@@ -24,4 +25,6 @@
   {% if not ns.any %}<p class="dim">No open estimates.</p>{% endif %}
   <p><a href="{{ url_for('estimates.index', all=None if show_all else 1) }}">{{ 'Open only' if show_all else 'Include declined, replaced and converted' }}</a></p>
 </section>
+</div>
+{% if power %}<div class="desk-only">{% include "lists/_page.html" %}</div>{% endif %}
 {% endblock %}

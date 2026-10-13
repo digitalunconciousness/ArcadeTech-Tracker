@@ -1,6 +1,6 @@
 import re
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, jsonify, render_template, request, url_for
 from sqlalchemy import func, or_, select
 
 from app.auth.decorators import ALL_ROLES, requires_role
@@ -93,5 +93,54 @@ def index():
         results["vendors"] = db.session.scalars(
             select(Vendor).where(or_(Vendor.name.ilike(pat), Vendor.account_ref.ilike(pat)))
             .order_by(Vendor.name).limit(LIMIT)).all()
+    if request.args.get("format") == "json":
+        return jsonify(items=json_items(q, results))
     return render_template("search/index.html", q=q, results=results,
                            found=any(results.values()))
+
+
+def json_items(q, results, per_kind=6):
+    """The same results, flattened for the desktop command bar (Ctrl K). Invoices too, for
+    those who see money."""
+    from flask_login import current_user
+
+    from app.auth.decorators import COST_ROLES
+    from app.models import Invoice
+
+    def take(key, make):
+        return [make(r) for r in results.get(key, [])[:per_kind]]
+
+    items = []
+    items += take("work", lambda r: {"kind": "Work order", "label": f"{r[0].number} {r[0].summary}",
+                                     "sub": r[1].display_name,
+                                     "url": url_for("work.show", wo_id=r[0].id)})
+    items += take("customers", lambda c: {"kind": "Customer", "label": c.display_name,
+                                          "sub": c.phone or "",
+                                          "url": url_for("customers.show", customer_id=c.id)})
+    items += take("assets", lambda r: {"kind": "Asset", "label": f"{r[0].tag} {r[0].name}",
+                                       "sub": r[1].display_name,
+                                       "url": url_for("assets.show", asset_id=r[0].id)})
+    items += take("estimates", lambda r: {"kind": "Estimate",
+                                          "label": f"{r[0].number} {r[0].summary or ''}",
+                                          "sub": r[1].display_name,
+                                          "url": url_for("estimates.show", est_id=r[0].id)})
+    if len(q) >= 2 and current_user.role in COST_ROLES:
+        for inv, c in db.session.execute(
+                select(Invoice, Customer).join(Customer, Customer.id == Invoice.customer_id)
+                .where(Invoice.status != "draft", Invoice.number.ilike(like(q)))
+                .order_by(Invoice.id.desc()).limit(per_kind)):
+            items.append({"kind": "Invoice", "label": inv.number, "sub": c.display_name,
+                          "url": url_for("billing.show", invoice_id=inv.id)})
+    items += take("parts", lambda p: {"kind": "Part", "label": f"{p.sku} {p.name}",
+                                      "sub": p.bin or "",
+                                      "url": url_for("parts.show", part_id=p.id)})
+    items += take("orders", lambda r: {"kind": "Purchase order",
+                                       "label": r[0].number or f"Draft PO #{r[0].id}",
+                                       "sub": r[1].name,
+                                       "url": url_for("purchasing.order", po_id=r[0].id)})
+    items += take("links", lambda link: {"kind": "Parts link", "label": link.title,
+                                         "sub": link.domain or "",
+                                         "url": url_for("partlinks.show", link_id=link.id)})
+    items += take("vendors", lambda v: {"kind": "Vendor", "label": v.name, "sub": "",
+                                        "url": url_for("parts.vendor_show", vendor_id=v.id)})
+    return items
