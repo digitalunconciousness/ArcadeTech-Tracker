@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Profit and loss{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Profit and loss</h1>
+    <div class="actions">
+      <a class="btn small" href="{{ csv_url() }}">CSV</a>
+      <a class="btn small" href="{{ url_for('reports.pnl_pdf', start=start, end=end, basis=basis) }}">PDF</a>
+      <a class="btn small" href="{{ url_for('reports.pnl_monthly', year=end.year, basis=basis) }}">By month</a>
+      <a class="btn small" href="{{ url_for('reports.index') }}">All reports</a>
+    </div>
+  </div>
+  {% set filters = "period" %}
+  {% include "reports/_filters.html" %}
+</section>
+
+<section class="panel">
+  <h2>{{ start }} to {{ end }} · {{ bases[basis] }}</h2>
+  <table class="grid">
+    {% for section, line, amount in table.rows %}
+    {% set cls = table.row_classes[loop.index0] %}
+    <tr{% if cls %} class="{{ cls }}"{% endif %}>
+      <td>{% if cls == "sub" %}{{ line }}{% elif line == "Total expenses" %}Total expenses{% else %}{{ section }}{% if line %} <div class="dim small">{{ line }}</div>{% endif %}{% endif %}</td>
+      <td class="num money">{{ amount | money }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <dl class="facts inline">
+    <dt>Collected</dt><dd class="money">{{ collected | money }}</dd>
+    <dt>Invoiced</dt><dd class="money">{{ invoiced | money }}</dd>
+    {% if set_aside is not none %}<dt>Set aside for tax ({{ pct | pct }})</dt><dd class="money">{{ set_aside | money }}</dd>{% endif %}
+    {% for user, share_pct, amount in shares %}
+    <dt>{{ user.display_name }} ({{ share_pct }}%)</dt><dd class="money">{{ amount | money }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+
+{% if chart.labels | length > 1 %}
+<section class="panel">
+  <figure class="chart">
+    <figcaption>Revenue, costs and net by month</figcaption>
+    <div class="chart-box money"><canvas data-chart="{{ chart_data }}" role="img" aria-label="Revenue, costs and net by month"></canvas></div>
+    <div class="print-chart">{{ chart_svg }}</div>
+  </figure>
+</section>
+{% endif %}
+{% endblock %}

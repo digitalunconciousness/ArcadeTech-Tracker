@@ -84,15 +84,38 @@ EXTERNAL_RE = re.compile(r"""(https?:)?//[a-z0-9.-]+\.[a-z]{2,}""", re.I)
 
 
 def test_no_external_assets():
-    """No CDN: templates, CSS and JS reference nothing off-site (license texts aside)."""
+    """No CDN: templates, CSS and JS reference nothing off-site (license texts aside).
+    Vendored libraries (app/static/vendor/) carry URLs in their comments and code but load
+    nothing; they're pinned by hash instead (below)."""
     hits = []
+    vendor = ROOT / "app/static/vendor"
     for base, patterns in (("app/templates", ["*.html"]), ("app/static", ["*.css", "*.js", "*.html"])):
         for pattern in patterns:
             for path in (ROOT / base).rglob(pattern):
+                if vendor in path.parents:
+                    continue
                 for n, line in enumerate(path.read_text().splitlines(), 1):
                     if EXTERNAL_RE.search(line):
                         hits.append(f"{path.relative_to(ROOT)}:{n}: {line.strip()}")
     assert hits == []
+
+
+def test_vendored_files_are_pinned():
+    """Every file under app/static/vendor/ is listed in VENDORED.txt and hashes to what's
+    recorded there: the exact upstream release, nothing edited or swapped."""
+    import hashlib
+
+    vendor = ROOT / "app/static/vendor"
+    pinned = {}
+    for line in (vendor / "VENDORED.txt").read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            path, sha, *_ = line.split()
+            pinned[path] = sha
+    present = {str(p.relative_to(vendor)) for p in vendor.rglob("*")
+               if p.is_file() and p.name != "VENDORED.txt"}
+    assert present == set(pinned)
+    for path, sha in pinned.items():
+        assert hashlib.sha256((vendor / path).read_bytes()).hexdigest() == sha, path
 
 
 def test_no_inline_scripts_or_styles():

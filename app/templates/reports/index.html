@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Reports</h1>
+  <p class="dim">Every report has a CSV; the P&amp;L also prints and saves as a PDF. The same numbers as the dashboard.</p>
+  <h2>Money</h2>
+  <ul class="list">
+    <li><a href="{{ url_for('reports.pnl') }}">Profit and loss</a> <span class="dim">· <a href="{{ url_for('reports.pnl_monthly') }}">by month</a></span></li>
+    <li><a href="{{ url_for('reports.aging') }}">Receivables aging</a></li>
+    <li><a href="{{ url_for('reports.sales_tax') }}">Sales tax</a></li>
+    <li><a href="{{ url_for('reports.expenses') }}">Expenses</a></li>
+    <li><a href="{{ url_for('reports.mileage') }}">Mileage</a></li>
+    <li><a href="{{ url_for('reports.partners') }}">Partners</a></li>
+    <li><a href="{{ url_for('reports.nec') }}">1099 reconciliation</a></li>
+  </ul>
+  <h2>Work</h2>
+  <ul class="list">
+    <li><a href="{{ url_for('reports.jobs') }}">Job profitability</a></li>
+    <li><a href="{{ url_for('reports.labor') }}">Labor by person</a></li>
+    <li><a href="{{ url_for('reports.turnaround') }}">Turnaround</a></li>
+    <li><a href="{{ url_for('reports.warranty') }}">Warranty and comebacks</a></li>
+  </ul>
+  <h2>Parts</h2>
+  <ul class="list">
+    <li><a href="{{ url_for('reports.inventory') }}">Inventory value</a> <span class="dim">· each lot traces to the jobs it went to</span></li>
+    <li><a href="{{ url_for('reports.usage') }}">Parts used</a></li>
+  </ul>
+</section>
+
+<section class="panel">
+  <h2>Year-end package</h2>
+  <p class="dim">One zip for your tax preparer: both P&amp;Ls (CSV and PDF), every invoice, payment, credit memo, expense and trip, the partner ledger, sales tax, 1099s, inventory at year end, and the PDFs and receipts behind them. Built when you ask, so it can take a moment.</p>
+  <ul class="list">
+    {% for y in years %}
+    <li><a href="{{ url_for('reports.year_end', y=y) }}">year-end-{{ y }}.zip</a>{% if y == this_year %} <span class="dim">(so far)</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

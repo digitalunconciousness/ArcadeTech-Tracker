@@ -1,9 +1,157 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
+{% block scripts %}{% if sees_money %}
+  <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}" defer></script>
+{% endif %}{% endblock %}
 {% block content %}
 <section class="panel">
-  <h1>Dashboard</h1>
-  <p>Signed in as <strong>{{ current_user.display_name }}</strong> <span class="badge">{{ current_user.role }}</span></p>
-  <p class="dim">Phase 0: the foundation. Customers, work orders and money arrive in later phases.</p>
+  <div class="head">
+    <h1>Dashboard</h1>
+    {% if sees_money %}
+    <div class="actions">
+      {% for key, label in bases.items() %}
+      <a class="btn small{% if key == basis %} primary{% endif %}" href="{{ url_for('dashboard.index', basis=key) }}" data-basis="{{ key }}">{{ label }}</a>
+      {% endfor %}
+      <button class="btn small" type="button" data-blur>Blur $</button>
+    </div>
+    {% endif %}
+  </div>
+  {% if sees_money %}
+  <div class="figures">
+    {% for now, then in rows %}
+    <article class="figure">
+      <h3>{{ now.period.label }}</h3>
+      <table class="grid">
+        <tr><th></th><th class="num">Now</th><th class="num">Last year</th></tr>
+        {% for key, label in [("collected", "Collected"), ("invoiced", "Invoiced"), ("cogs", "Parts cost"), ("gross", "Gross"), ("expenses", "Expenses"), ("mileage", "Mileage"), ("net", "Net")] %}
+        <tr{% if key == ("collected" if basis == "cash" else "invoiced") or key == "net" %} class="basis"{% endif %}>
+          <td>{{ label }}</td><td class="num money">{{ now[key] | money }}</td><td class="num money dim">{{ then[key] | money }}</td>
+        </tr>
+        {% endfor %}
+        {% if now.set_aside is not none %}
+        <tr><td>Set aside for tax</td><td class="num money">{{ now.set_aside | money }}</td><td></td></tr>
+        {% endif %}
+      </table>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="dim small">{{ bases[basis] }}: revenue is what was {{ "collected (without its sales tax)" if basis == "cash" else "invoiced (without tax, less credit memos)" }}. <a href="{{ url_for('reports.index') }}">Reports</a></p>
+  {% endif %}
 </section>
+
+{% if sees_money %}
+<section class="panel">
+  <h2>Money</h2>
+  <dl class="facts">
+    <dt>Owed to you</dt><dd><a class="money" href="{{ url_for('reports.aging') }}">{{ owed_total | money }}</a></dd>
+    {% for label, total in buckets.items() if total %}
+    <dt class="small">{{ label }}</dt><dd class="money small">{{ total | money }}</dd>
+    {% endfor %}
+    <dt>Overdue</dt><dd><span class="money">{{ money.overdue_total | money }}</span> <span class="dim">· {{ money.overdue | length }} invoice{{ "" if money.overdue | length == 1 else "s" }}</span></dd>
+    <dt>Due in 7 days</dt><dd><span class="money">{{ money.due_soon_total | money }}</span> <span class="dim">· {{ money.due_soon | length }}</span></dd>
+    <dt>Credit on account</dt><dd class="money">{{ money.credit | money }}</dd>
+    <dt>Owed to partners</dt><dd><a class="money" href="{{ url_for('books.partners') }}">{{ money.owed | money }}</a></dd>
+    <dt>Sales tax not yet filed</dt><dd><a class="money" href="{{ url_for('books.sales_tax') }}">{{ unfiled | money }}</a></dd>
+  </dl>
+  {% if money.overdue or money.due_soon %}
+  <ul class="list">
+    {% for inv in money.overdue %}
+    <li><a href="{{ url_for('billing.show', invoice_id=inv.id) }}">{{ inv.number }}</a> {{ inv.bill_to.name }} <span class="badge danger">due {{ inv.due_date }}</span> <span class="money">{{ inv.balance | money }}</span></li>
+    {% endfor %}
+    {% for inv in money.due_soon %}
+    <li><a href="{{ url_for('billing.show', invoice_id=inv.id) }}">{{ inv.number }}</a> {{ inv.bill_to.name }} <span class="badge warn">due {{ inv.due_date }}</span> <span class="money">{{ inv.balance | money }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Charts</h2>
+  {% for title, data, drawn in charts %}
+  <figure class="chart">
+    <figcaption>{{ title }}</figcaption>
+    <div class="chart-box money"><canvas data-chart="{{ data }}" role="img" aria-label="{{ title }}"></canvas></div>
+    <div class="print-chart">{{ drawn }}</div>
+  </figure>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Work</h2>
+  <dl class="facts">
+    {% for status, label, n in work.by_status if n %}
+    <dt>{{ label }}</dt><dd><a href="{{ url_for('work.index') }}#{{ status }}">{{ n }}</a></dd>
+    {% endfor %}
+    <dt>Estimates awaiting an answer</dt><dd><a href="{{ url_for('estimates.index') }}">{{ work.estimates }}</a></dd>
+    <dt>Unbilled hours</dt><dd>{{ work.unbilled_hours | qty }}</dd>
+  </dl>
+  {% if work.done_unbilled %}
+  <h3>Done, not yet invoiced</h3>
+  <ul class="list">{% for wo in work.done_unbilled %}<li><a href="{{ url_for('work.show', wo_id=wo.id) }}">{{ wo.number }}</a> {{ wo.summary or "" }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if work.parts_in %}
+  <h3>Parts are in</h3>
+  <ul class="list">{% for wo in work.parts_in %}<li><a href="{{ url_for('work.show', wo_id=wo.id) }}">{{ wo.number }}</a> {{ wo.summary or "" }}</li>{% endfor %}</ul>
+  {% endif %}
+  <h3>Appointments</h3>
+  <ul class="list">
+    {% for a, wo in work.today %}<li><span class="badge ok">today {{ a.starts_at | localdt("%H:%M") }}</span> <a href="{{ url_for('work.show', wo_id=wo.id) }}">{{ wo.number }}</a> {{ a.note or wo.summary or "" }}</li>{% endfor %}
+    {% for a, wo in work.week %}<li><span class="dim">{{ a.starts_at | localdt("%a %d %b %H:%M") }}</span> <a href="{{ url_for('work.show', wo_id=wo.id) }}">{{ wo.number }}</a> {{ a.note or wo.summary or "" }}</li>{% endfor %}
+    {% if not work.today and not work.week %}<li class="dim">Nothing in the next 7 days.</li>{% endif %}
+  </ul>
+  <h3>In the shop</h3>
+  <ul class="list">
+    {% for asset, days, overdue in work.boards %}
+    <li><a class="tag" href="{{ url_for('assets.show', asset_id=asset.id) }}">{{ asset.tag }}</a> {{ asset.name }}{% if asset.shop_location %} <span class="dim">· {{ asset.shop_location }}</span>{% endif %}
+      {% if days is not none %}<span class="badge{% if overdue %} warn{% endif %}">{{ days }} day{{ "" if days == 1 else "s" }}</span>{% endif %}</li>
+    {% else %}
+    <li class="dim">Nothing in the shop.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="panel">
+  <h2>Parts</h2>
+  <dl class="facts">
+    <dt>On the shopping list</dt><dd><a href="{{ url_for('purchasing.index') }}">{{ parts.to_order }}</a></dd>
+    <dt>Low on stock</dt><dd><a href="{{ url_for('purchasing.index') }}">{{ parts.low }}</a></dd>
+  </dl>
+  {% if parts.in_transit %}
+  <h3>On the way</h3>
+  <ul class="list">
+    {% for s, carrier, po, vendor, url in parts.in_transit %}
+    <li><a href="{{ url_for('purchasing.order', po_id=po.id) }}">{{ po.number }}</a> {{ vendor.name }}
+      {% if s.tracking_number %}· {% if url %}<a class="break" href="{{ url }}" rel="noopener noreferrer" target="_blank">{{ s.tracking_number }}</a>{% else %}<span class="break">{{ s.tracking_number }}</span>{% endif %}{% endif %}
+      {% if s.eta %}<span class="dim">· due {{ s.eta }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if parts.delivered %}
+  <h3>Delivered, not yet received</h3>
+  <ul class="list">
+    {% for s, po in parts.delivered %}
+    <li><a href="{{ url_for('purchasing.receive', po_id=po.id) }}">{{ po.number }}</a> <span class="dim">delivered {{ s.delivered_on or "" }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+{% if sees_money %}
+<section class="panel">
+  <h2>Warranty</h2>
+  <dl class="facts">
+    <dt>Comebacks, 90 days</dt><dd><a href="{{ url_for('reports.warranty') }}">{{ warranty.claims }} of {{ warranty.jobs }} jobs{% if warranty.rate is not none %} · {{ warranty.rate }}%{% endif %}</a></dd>
+  </dl>
+  {% if warranty.expiring %}
+  <h3>Warranties running out this month</h3>
+  <ul class="list">
+    {% for line, inv, customer in warranty.expiring %}
+    <li>{{ line.warranty_until }} · <a href="{{ url_for('billing.show', invoice_id=inv.id) }}">{{ inv.number }}</a> {{ customer.display_name }} <span class="dim">{{ line.description }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
 {% endblock %}

@@ -88,3 +88,7 @@ ul.scope li { margin: 0; }
 /* Parts the customer buys: links stay black on paper, underlined so they read as links. */
 table.buy a { color: inherit; text-decoration: underline; }
 .buy-note { margin-top: 6pt; }
+
+/* A report's chart (server-drawn SVG). */
+.chart { margin: 10pt 0 6pt; page-break-inside: avoid; }
+.chart svg { width: 100%; height: auto; }

@@ -1,0 +1,28 @@
+{# The period, year or as-of picker for a report, and the basis switch where it applies. #}
+{% if filters == "period" %}
+<p class="actions">
+  {% for key, label in presets.items() %}
+  <a class="btn small{% if request.args.get('p') == key %} primary{% endif %}" href="{{ here(p=key, start=None, end=None) }}">{{ label }}</a>
+  {% endfor %}
+</p>
+{% with keep = {"basis": request.args.get("basis")} %}{% include "books/_period.html" %}{% endwith %}
+{% elif filters == "year" %}
+<p class="actions">
+  <a class="btn small" href="{{ here(year=year - 1) }}">← {{ year - 1 }}</a>
+  <span class="btn small primary">{{ year }}</span>
+  {% if year < this_year() %}<a class="btn small" href="{{ here(year=year + 1) }}">{{ year + 1 }} →</a>{% endif %}
+</p>
+{% elif filters == "as_of" %}
+<form method="get" class="filters">
+  <label class="field"><span>At the end of</span><input type="date" name="as_of" value="{{ as_of }}"></label>
+  <button class="btn" type="submit">Show</button>
+</form>
+{% endif %}
+{% if bases is defined and bases %}
+<p class="actions">
+  {% for key, label in bases.items() %}
+  <a class="btn small{% if key == basis %} primary{% endif %}" data-basis="{{ key }}" href="{{ here(basis=key) }}">{{ label }}</a>
+  {% endfor %}
+  <button class="btn small" type="button" data-blur>Blur $</button>
+</p>
+{% endif %}

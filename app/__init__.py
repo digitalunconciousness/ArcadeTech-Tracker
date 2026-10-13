@@ -61,13 +61,14 @@ def create_app(overrides=None):
     from app.pricebook.routes import bp as pricebook_bp
     from app.public.routes import bp as public_bp
     from app.purchasing.routes import bp as purchasing_bp
+    from app.reports.routes import bp as reports_bp
     from app.search.routes import bp as search_bp
     from app.settings.routes import bp as settings_bp
     from app.work.routes import bp as work_bp
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
                pricebook_bp, parts_bp, partlinks_bp, purchasing_bp, work_bp, estimates_bp,
-               billing_bp, books_bp, public_bp):
+               billing_bp, books_bp, reports_bp, public_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)
@@ -86,11 +87,12 @@ def _register_hooks(app):
 
     @app.context_processor
     def inject_roles():
+        from app import nav
         from app.auth.decorators import COST_ROLES, EDIT_ROLES
 
         role = current_user.role if current_user.is_authenticated else None
         return {"can_edit": role in EDIT_ROLES, "can_see_costs": role in COST_ROLES,
-                "is_owner": role == "owner"}
+                "is_owner": role == "owner", "nav_for": nav.current}
 
     @app.context_processor
     def inject_timer():

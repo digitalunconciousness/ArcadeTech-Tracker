@@ -457,9 +457,10 @@ def test_who_sees_invoices(app, signed_in):
     assert "billed" in job_page and number not in job_page
     wo_page = text(tech.get(f"/work/{b['wo']}"))
     assert "Invoices" not in wo_page and number not in wo_page
-    assert ">Invoices<" not in text(tech.get("/"))
+    assert ">Money<" not in text(tech.get("/"))
     # viewers read, never act
-    assert number in text(viewer.get("/invoices")) and ">Invoices<" in text(viewer.get("/"))
+    assert number in text(viewer.get("/invoices")) and ">Money<" in text(viewer.get("/"))
+    assert ">Invoices<" in text(viewer.get("/invoices"))
     assert "Cost" in text(viewer.get(f"/invoices/{inv_id}"))
     assert number in text(viewer.get(f"/customers/{b['cid']}"))
     assert "Void this invoice" not in text(viewer.get(f"/invoices/{inv_id}"))

@@ -64,3 +64,25 @@ document.addEventListener('submit', async (event) => {
   }
   form.submit();
 });
+
+// Dashboard: blur the money (remembered on this device) and remember the basis.
+(function () {
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, val) { try { localStorage.setItem(k, val); } catch (e) { /* private mode */ } },
+  };
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-blur]')) {
+      const on = document.documentElement.classList.toggle('blurred');
+      store.set('blur', on ? '1' : '0');
+    }
+    const basis = event.target.closest('[data-basis]');
+    if (basis) store.set('basis', basis.dataset.basis);
+  });
+  const here = new URL(window.location.href);
+  const saved = store.get('basis');
+  if (document.querySelector('[data-basis]') && !here.searchParams.get('basis') && saved && saved !== 'cash') {
+    here.searchParams.set('basis', saved);
+    window.location.replace(here.toString());
+  }
+})();
