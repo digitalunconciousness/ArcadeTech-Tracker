@@ -348,6 +348,7 @@ INVOICES = Spec(
     ],
     sort=("issued", "desc"), tiebreak=Invoice.id.desc(),
     link=lambda r: url_for("billing.show", invoice_id=r[0].id),
+    new=("Invoice ready work", "billing.bulk", ("owner",)),
 )
 
 

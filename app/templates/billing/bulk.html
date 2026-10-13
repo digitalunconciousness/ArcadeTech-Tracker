@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Invoice ready work{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Invoice ready work</h1>
+    <a class="btn" href="{{ url_for('billing.index') }}">Invoices</a>
+  </div>
+  <form class="filters" method="get">
+    <fieldset class="field checks inline-checks">
+      <legend>Work orders that are</legend>
+      {% for key, label in all_statuses %}<label class="check"><input type="checkbox" name="status" value="{{ key }}"{% if key in statuses %} checked{% endif %}> <span>{{ label }}</span></label>{% endfor %}
+    </fieldset>
+    <label class="field"><span>Find</span><input type="search" name="q" value="{{ q }}" placeholder="WO, customer, summary"></label>
+    <button class="btn" type="submit">Show</button>
+  </form>
+  <p class="dim small">Each work order's unbilled lines go on one invoice, with the customer's own terms, the site's tax rate (else the shop's), and any credit on their account applied. One that can't be issued says why. At most {{ limit }} at a time.</p>
+</section>
+
+<form method="post" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for s in statuses %}<input type="hidden" name="status" value="{{ s }}">{% endfor %}
+  <input type="hidden" name="q" value="{{ q }}">
+  <section class="panel">
+    <table class="grid">
+      <thead><tr><th class="pick"><input type="checkbox" data-pick-all aria-label="Tick every one that can be issued"></th><th>Work order</th><th>Customer</th><th class="num">Total</th><th class="num">Credit</th><th class="num">Due</th></tr></thead>
+      <tbody>
+      {% for c in rows %}
+      <tr{% if c.error %} class="inactive"{% endif %}>
+        <td class="pick">{% if c.draft %}<input type="checkbox" name="wo" value="{{ c.wo.id }}"{% if c.wo.id in chosen %} checked{% endif %} aria-label="Invoice {{ c.wo.number }}">{% endif %}</td>
+        <td><a class="mono" href="{{ url_for('work.show', wo_id=c.wo.id) }}">{{ c.wo.number }}</a> <span class="dim small">{{ wo_statuses[c.wo.status] | lower }}</span>
+          <div class="small">{{ c.wo.summary }}</div>
+          {% if c.error %}<div class="small err">Can't issue: {{ c.error }}</div>{% else %}<div class="dim small">{{ c.line_ids | length }} line{{ 's' if c.line_ids | length != 1 }}{% if c.draft.tax %} · tax {{ c.draft.tax | money }}{% endif %}</div>{% endif %}</td>
+        <td>{{ c.customer.display_name }}</td>
+        <td class="num">{% if c.draft %}{{ c.draft.total | money }}{% endif %}</td>
+        <td class="num">{% if c.credit %}-{{ c.credit | money }}{% endif %}</td>
+        <td class="num">{% if c.draft %}<strong>{{ c.due | money }}</strong>{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="dim">Nothing to bill in those statuses.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% if rows %}
+  <section class="panel">
+    {% if previewing and picked %}<p><strong>{{ picked | length }}</strong> invoice{{ 's' if picked | length != 1 }}: {{ totals.total | money }}{% if totals.credit %}, {{ totals.credit | money }} paid from credit{% endif %}, {{ totals.due | money }} to collect.</p>{% endif %}
+    <div class="row two">
+      <label class="field"><span>Issue date</span><input type="date" name="issue_date" value="{{ issue_date.isoformat() }}" max="{{ today.isoformat() }}"></label>
+      <label class="field"><span>If it's before today, why</span><input type="text" name="backdate_reason" value="{{ reason }}" maxlength="300"></label>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit" name="action" value="preview">Preview totals</button>
+      <button class="btn primary" type="submit" name="action" value="issue" data-confirm="Issue an invoice for each ticked work order? Issued invoices can't be edited, only voided or credited.">Issue the invoices</button>
+    </div>
+  </section>
+  {% endif %}
+</form>
+{% endblock %}

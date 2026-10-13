@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Accounts{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Accounts</h1>
+  <p class="dim">The account each kind of money goes to in the <a href="{{ url_for('reports.accountant') }}">general journal</a>. When there's an accountant, give these the names and numbers in their chart of accounts; the export then imports as is. Clear a name to go back to the built-in one. Two lines with the same name and number are one account.</p>
+  <form method="post" class="accounts-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for label, rows in groups %}
+    <h2>{{ label }}</h2>
+    <div class="scroll">
+    <table class="grid">
+      <colgroup><col class="for"><col><col class="number"></colgroup>
+      <thead><tr><th>For</th><th>Account name</th><th>Number</th></tr></thead>
+      <tbody>
+      {% for key, default, purpose, name, number in rows %}
+      <tr>
+        <td>{{ purpose }}{% if name != default %}<div class="dim small">built in: {{ default }}</div>{% endif %}</td>
+        <td><input type="text" name="name-{{ key }}" value="{{ name }}" maxlength="120" placeholder="{{ default }}" aria-label="Account name: {{ purpose }}"></td>
+        <td><input type="text" name="number-{{ key }}" value="{{ number or '' }}" maxlength="20" aria-label="Account number: {{ purpose }}"></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endfor %}
+    <p class="actions"><button class="btn primary" type="submit">Save</button></p>
+  </form>
+</section>
+{% endblock %}

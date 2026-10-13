@@ -111,7 +111,7 @@
   document.addEventListener('change', (event) => {
     const all = event.target.closest('[data-pick-all]');
     if (!all) return;
-    all.closest('table').querySelectorAll('tbody input[name="ids"]').forEach((box) => { box.checked = all.checked; });
+    all.closest('table').querySelectorAll('tbody input[type="checkbox"][name]').forEach((box) => { box.checked = all.checked; });
   });
 
   // --- command bar -------------------------------------------------------------------------

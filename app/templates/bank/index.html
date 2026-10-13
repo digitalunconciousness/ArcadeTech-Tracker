@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Bank{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Bank</h1>
+  <p class="dim small">Import each account's CSV export, match its lines to the payments, expenses and purchase orders already here, and reconcile against the statement. Reconciled lines are locked.</p>
+  <table class="grid">
+    <thead><tr><th>Account</th><th class="num">Balance (by its lines)</th><th>Reconciled through</th><th class="num">Not reconciled</th></tr></thead>
+    <tbody>
+    {% for a, bal, last, open_count in rows %}
+    <tr{% if not a.active %} class="inactive"{% endif %}>
+      <td><a href="{{ url_for('bank.account', account_id=a.id) }}">{{ a.name }}</a> <span class="dim small">{{ kinds[a.kind] }}{% if a.last4 %} · …{{ a.last4 }}{% endif %}</span></td>
+      <td class="num">{{ bal | money }}</td>
+      <td>{% if last %}{{ last.statement_end }} <span class="dim small">({{ last.ending_balance | money }})</span>{% else %}<span class="dim">not yet</span>{% endif %}</td>
+      <td class="num">{{ open_count }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="dim">No accounts yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% if can_edit %}
+<section class="panel">
+  <details class="form"{% if not rows %} open{% endif %}>
+    <summary>Add an account</summary>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      <div class="row two">{{ field(form.name) }}{{ field(form.kind) }}</div>
+      <div class="row two">{{ field(form.opening_on) }}{{ field(form.opening_balance, inputmode="decimal") }}</div>
+      {{ field(form.last4, inputmode="numeric") }}
+      <p class="dim small">Start where you want reconciling to begin: the balance is what the account held at the end of the day before (a card that owes money is below zero). Wallets like Venmo, PayPal and Cash App are accounts too: import their CSVs, and match transfers to the bank as transfers.</p>
+      <button class="btn primary" type="submit">Add the account</button>
+    </form>
+  </details>
+</section>
+{% endif %}
+{% endblock %}

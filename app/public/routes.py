@@ -1,6 +1,6 @@
 """Customer links and calendar feeds: /d/... The only pages anyone can open without
 signing in, so: token only (32 random bytes; the database keeps a hash), one document
-per link (an estimate or an invoice), read-only except approving or declining an
+per link (an estimate, an invoice, or a customer's statement), read-only except approving or declining an
 estimate, rate-limited, never indexed. A bad, expired or withdrawn token gets the same
 404, so a guess learns nothing."""
 
@@ -86,7 +86,36 @@ def estimate(token):
     db.session.commit()
     if link.invoice_id is not None:
         return invoice_page(billing.find_link(token), token)
+    if link.customer_id is not None:
+        return statement_page(link, token)
     return page(service.find_link(token), token)
+
+
+def statement_link(token):
+    """The customer behind a live statement link, else None."""
+    link = live_link(token)
+    if link is None or link.customer_id is None:
+        return None
+    return db.session.get(Customer, link.customer_id)
+
+
+def statement_page(link, token):
+    customer = db.session.get(Customer, link.customer_id)
+    return render_template("public/statement.html", token=token,
+                           doc_css=url_for("static", filename="css/doc.css"),
+                           **invoice_docs.statement_context(customer))
+
+
+@bp.route("/<token>/statement.pdf")
+@limiter.limit(VIEW_LIMIT)
+def statement_pdf(token):
+    customer = statement_link(token)
+    if customer is None:
+        return gone()
+    response = make_response(invoice_docs.statement_pdf(customer))
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = 'inline; filename="statement.pdf"'
+    return response
 
 
 def invoice_page(found, token):

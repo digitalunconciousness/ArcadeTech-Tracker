@@ -185,19 +185,23 @@ class EstimatePartLink(StandardColumns, db.Model):
 class DocLink(StandardColumns, db.Model):
     """A customer link, /d/<token>. Only the token's sha256 is stored, so the database
     can't open a link; "Send link" mints a new token each time. One document per link: an
-    estimate or an invoice. Not audited: every view updates it."""
+    estimate, an invoice, or a customer's statement (customer_id). Not audited: every view
+    updates it."""
 
     __tablename__ = "doc_link"
     __table_args__ = (
         UniqueConstraint("token_sha256"),
         CheckConstraint("token_sha256 ~ '^[0-9a-f]{64}$'", name="token_sha256_hex"),
         CheckConstraint("view_count >= 0", name="views_nonnegative"),
-        CheckConstraint("num_nonnulls(estimate_id, invoice_id) = 1", name="one_document"),
+        CheckConstraint("num_nonnulls(estimate_id, invoice_id, customer_id) = 1",
+                        name="one_document"),
     )
 
     id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
     estimate_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("estimate.id"), index=True)
     invoice_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("invoice.id"), index=True)
+    customer_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("customer.id"),
+                                                    index=True)
     token_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

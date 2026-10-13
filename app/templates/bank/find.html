@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Match a line{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('bank.account', account_id=account.id) }}#line-{{ line.id }}">{{ account.name }}</a></p>
+  <h1>Match a line</h1>
+  <p><span class="mono">{{ line.posted_on }}</span> · {{ line.description }} · <strong>{{ line.amount | money }}</strong>{% if left != line.amount %} · <span class="warn-text">{{ left | money }} left</span>{% endif %}</p>
+  {% if matched %}<ul class="list">{% for m, (text, url) in matched %}<li class="small">Matched: {% if url %}<a href="{{ url }}">{{ text }}</a>{% else %}{{ text }}{% endif %} {{ m.amount | money }}</li>{% endfor %}</ul>{% endif %}
+  <form class="filters" method="get">
+    <label class="field"><span>Find</span><input type="search" name="q" value="{{ q }}" placeholder="name, payee, amount"></label>
+    <label class="field"><span>Days either side</span><input type="number" name="days" value="{{ days }}" min="1" max="365"></label>
+    <button class="btn" type="submit">Show</button>
+  </form>
+</section>
+<form method="post" action="{{ url_for('bank.match', line_id=line.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="from" value="find">
+  <section class="panel">
+    <table class="grid">
+      <thead><tr><th class="pick"></th><th>Date</th><th>What</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+      {% for r in pool %}
+      <tr><td class="pick"><input type="checkbox" name="key" value="{{ r.key }}" aria-label="{{ r.label }}"></td><td class="mono nowrap">{{ r.on }}</td><td>{{ r.label }}</td><td class="num">{{ r.amount | money }}</td></tr>
+      {% else %}
+      <tr><td colspan="4" class="dim">Nothing unmatched going the same way in that time. Widen the days, or add the record first (an expense, a payment).</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if pool %}<button class="btn primary" type="submit">Match the ticked</button>{% endif %}
+  </section>
+</form>
+{% endblock %}

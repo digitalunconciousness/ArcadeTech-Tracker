@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ account.name }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>{{ account.name }} <span class="dim">{{ kinds[account.kind] }}{% if account.last4 %} · …{{ account.last4 }}{% endif %}</span></h1>
+    <div class="actions">
+      {% if edit %}<a class="btn primary" href="{{ url_for('bank.import_csv', account_id=account.id) }}">Import a CSV</a>{% endif %}
+      <a class="btn" href="{{ url_for('bank.reconcile', account_id=account.id) }}">Reconcile</a>
+      {% if edit %}<a class="btn" href="{{ url_for('bank.edit', account_id=account.id) }}">Edit</a>{% endif %}
+    </div>
+  </div>
+  <p>Balance by its lines: <strong>{{ balance | money }}</strong> · {% if latest %}reconciled through {{ latest.statement_end }} ({{ latest.ending_balance | money }}){% else %}not reconciled yet (from {{ account.opening_on }}, {{ account.opening_balance | money }}){% endif %}</p>
+  <p class="actions">
+    <a class="btn small{{ ' primary' if show == 'todo' }}" href="{{ url_for('bank.account', account_id=account.id, show='todo') }}">To do</a>
+    <a class="btn small{{ ' primary' if show == 'open' }}" href="{{ url_for('bank.account', account_id=account.id, show='open') }}">Not reconciled</a>
+    <a class="btn small{{ ' primary' if show == 'all' }}" href="{{ url_for('bank.account', account_id=account.id, show='all') }}">Everything</a>
+  </p>
+</section>
+
+<section class="panel">
+  <table class="grid bank-lines">
+    <thead><tr><th>Date</th><th>What the bank says</th><th class="num">Amount</th><th>Here</th></tr></thead>
+    <tbody>
+    {% for x in lines %}
+    {% set ms = matches.get(x.id, []) %}
+    <tr id="line-{{ x.id }}"{% if x.reconciliation_id %} class="inactive"{% endif %}>
+      <td class="mono nowrap">{{ x.posted_on }}</td>
+      <td>{{ x.description }}</td>
+      <td class="num {{ 'money-in' if x.amount > 0 else 'money-out' }}">{{ x.amount | money }}</td>
+      <td>
+        {% if x.reconciliation_id %}<span class="badge ok">reconciled</span>{% endif %}
+        {% if x.ignored %}<span class="badge">set aside: {{ reasons[x.ignored] | lower }}</span>{% if x.ignored_note %} <span class="dim small">{{ x.ignored_note }}</span>{% endif %}
+          {% if edit and not x.reconciliation_id %}<form class="inline-form" method="post" action="{{ url_for('bank.put_back', line_id=x.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="show" value="{{ show }}"><button class="btn small" type="submit">Put back</button></form>{% endif %}
+        {% endif %}
+        {% for m in ms %}
+        {% set text, url = labels[m.id] %}
+        <div class="small">{% if url %}<a href="{{ url }}">{{ text }}</a>{% else %}{{ text }}{% endif %} <span class="dim">{{ m.amount | money }}</span>
+          {% if drift.get(m.id) is not none %}<span class="badge danger" title="Now {{ drift[m.id] | money }}">changed since reconciled</span>{% endif %}
+          {% if edit and not x.reconciliation_id %}<form class="inline-form" method="post" action="{{ url_for('bank.unmatch', match_id=m.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="show" value="{{ show }}"><button class="btn small" type="submit">Unmatch</button></form>{% endif %}
+        </div>
+        {% endfor %}
+        {% if not x.ignored and left[x.id] != 0 %}
+          {% if ms %}<div class="small warn-text">{{ left[x.id] | money }} not matched yet</div>{% endif %}
+          {% if edit and not x.reconciliation_id %}
+          {% for idea in ideas.get(x.id, []) %}
+          <form class="inline-form suggestion" method="post" action="{{ url_for('bank.match', line_id=x.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="show" value="{{ show }}">
+            <input type="hidden" name="keys" value="{{ idea | map(attribute='key') | join(',') }}">
+            <button class="btn small primary" type="submit">Match</button>
+            <span class="small">{% for r in idea %}{{ r.label }} <span class="dim">{{ r.on }}{% if idea | length > 1 %}, {{ r.amount | money }}{% endif %}</span>{% if not loop.last %} + {% endif %}{% endfor %}</span>
+          </form>
+          {% endfor %}
+          <div class="actions">
+            <a class="btn small" href="{{ url_for('bank.find', line_id=x.id) }}">Find…</a>
+            <details class="inline-details">
+              <summary class="btn small">Set aside</summary>
+              <form class="inline-form" method="post" action="{{ url_for('bank.aside', line_id=x.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="show" value="{{ show }}">
+                <select name="reason" aria-label="Why">{% for key, label in reasons.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+                <input type="text" name="note" maxlength="200" placeholder="Note (optional)" aria-label="Note">
+                <button class="btn small" type="submit">Set aside</button>
+              </form>
+            </details>
+            {% if x.amount < 0 %}
+            <details class="inline-details">
+              <summary class="btn small">Expense</summary>
+              <form class="inline-form" method="post" action="{{ url_for('bank.expense', line_id=x.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="show" value="{{ show }}">
+                <input type="text" name="payee" value="{{ x.description[:120] }}" maxlength="120" aria-label="Payee">
+                <select name="category_id" aria-label="Category"><option value="">Category…</option>{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
+                <button class="btn small" type="submit">Add the expense</button>
+              </form>
+            </details>
+            {% endif %}
+          </div>
+          {% elif not x.reconciliation_id %}<span class="dim small">not matched</span>{% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="dim">{% if show == 'todo' %}Nothing left to match.{% else %}No lines here yet: import a CSV.{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Reconciliations</h2>
+  <ul class="list">
+    {% for r in reconciliations %}
+    <li{% if r.undone_at %} class="inactive"{% endif %}>Through <strong>{{ r.statement_end }}</strong>: {{ r.opening_balance | money }} → {{ r.ending_balance | money }}
+      {% if r.undone_at %}<span class="badge">undone</span> <span class="dim small">{{ r.undo_reason }}</span>
+      {% elif edit and latest and r.id == latest.id %}
+      <details class="inline-details">
+        <summary class="btn small danger">Undo</summary>
+        <form class="inline-form" method="post" action="{{ url_for('bank.undo', rec_id=r.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="reason" maxlength="300" placeholder="Why" aria-label="Why" required>
+          <button class="btn small danger" type="submit" data-confirm="Undo this reconciliation? Its lines open up again.">Undo it</button>
+        </form>
+      </details>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="dim">None yet.</li>
+    {% endfor %}
+  </ul>
+  {% if imports %}<h3>Recent imports</h3>
+  <ul class="list">{% for i in imports %}<li>{{ i.created_at | localdt }} · {{ i.filename }} <span class="dim">{{ i.added }} added, {{ i.skipped }} skipped</span></li>{% endfor %}</ul>{% endif %}
+</section>
+{% endblock %}

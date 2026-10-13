@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from flask import Blueprint, Response, abort, render_template, request, url_for
 
 from app.auth.decorators import COST_ROLES, requires_role
+from app.books import journal
 from app.reports import figures, svg, yearend
 from app.reports import tables as t
 from app.reports.figures import BASES, chart_json
@@ -289,6 +290,27 @@ def warranty():
                    title="Warranty and comebacks",
                    facts=[("Comeback rate, 90 days", f"{rate}%" if rate is not None else "—",
                            "text")])
+
+
+# --- for an accountant ------------------------------------------------------------------------
+
+@bp.route("/reports/accountant")
+@requires_role(*COST_ROLES)
+def accountant():
+    """The general journal and trial balance for a period, double entry on the accrual
+    basis, under the account names in Settings → Accounts."""
+    start, end = period()
+    es = journal.entries(start, end)
+    if request.args.get("format") == "journal":
+        return csv_response(f"general-journal-{start}-{end}.csv", t.journal_table(es))
+    table = t.trial_balance_table(es, start, end)
+    if request.args.get("format") == "csv":
+        return csv_response(f"trial-balance-{start}-{end}.csv", table)
+    net, pnl_net = journal.net_income(es), figures.pnl(start, end, "accrual")["net"]
+    return render_template("reports/accountant.html", table=table, start=start, end=end,
+                           presets=PRESETS, filters="period", entries=len(es),
+                           unbalanced=sum(1 for e in es if not e.balanced),
+                           net=net, pnl_net=pnl_net)
 
 
 # --- the year-end package ---------------------------------------------------------------------

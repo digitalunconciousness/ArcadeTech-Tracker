@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Statements{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Statements</h1>
+    <a class="btn small" href="{{ url_for('billing.statements', overdue=None if overdue else 1) }}">{{ 'Everyone' if overdue else 'Overdue only' }}</a>
+  </div>
+  <p class="dim small">Everyone who owes you or has credit with you: {{ totals.owed | money }} owed{% if totals.credit %}, {{ totals.credit | money }} in credit{% endif %}. A statement lists what's open and how late, credit, what's due, and payments in the last 60 days.</p>
+</section>
+<form method="post" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if overdue %}<input type="hidden" name="overdue" value="1">{% endif %}
+  <section class="panel">
+    <table class="grid">
+      <thead><tr><th class="pick"><input type="checkbox" data-pick-all aria-label="Tick everyone"></th><th>Customer</th>{% for label in (rows[0][1].buckets.keys() if rows else []) %}<th class="num">{{ label }}</th>{% endfor %}<th class="num">Credit</th><th class="num">Due</th><th></th></tr></thead>
+      <tbody>
+      {% for customer, st in rows %}
+      <tr>
+        <td class="pick"><input type="checkbox" name="c" value="{{ customer.id }}" aria-label="{{ customer.display_name }}"></td>
+        <td><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a>{% if st.oldest_late %} <span class="badge {{ 'danger' if st.oldest_late > 30 else 'warn' }}">{{ st.oldest_late }} d late</span>{% endif %}
+          {% if customer.phone %}<div class="dim small">{{ customer.phone }}</div>{% endif %}</td>
+        {% for amount in st.buckets.values() %}<td class="num">{% if amount %}{{ amount | money }}{% endif %}</td>{% endfor %}
+        <td class="num">{% if st.credit %}-{{ st.credit | money }}{% endif %}</td>
+        <td class="num"><strong>{{ st.due | money }}</strong></td>
+        <td class="nowrap"><a class="btn small" href="{{ url_for('billing.statement_pdf', customer_id=customer.id) }}">PDF</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="dim">Nobody owes anything{% if overdue %} overdue{% endif %}.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if rows %}
+    <div class="actions">
+      <button class="btn" type="submit" name="action" value="pdf">One PDF of the ticked</button>
+      {% if can_bill %}<button class="btn primary" type="submit" name="action" value="links">Make links for the ticked</button>{% endif %}
+    </div>
+    {% if can_bill %}<p class="dim small">A statement link shows the customer's live statement for {{ days }} days; making one notes it on their comm log.</p>{% endif %}
+    {% endif %}
+  </section>
+</form>
+{% endblock %}

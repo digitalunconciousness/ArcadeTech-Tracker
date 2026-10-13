@@ -1,6 +1,6 @@
 """Customer links, /d/<token>: 32 random bytes, read-only, expiring and revocable. The
 database keeps only the token's sha256, so it can't open a link. One document per link:
-an estimate or an invoice."""
+an estimate, an invoice, or a customer's statement."""
 
 import hashlib
 import secrets

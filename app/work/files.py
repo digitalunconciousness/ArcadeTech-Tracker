@@ -144,3 +144,18 @@ def store_pdf(data):
     sha = hashlib.sha256(data).hexdigest()
     _write(path_for(sha, ".pdf"), data)
     return sha
+
+
+def store_csv(data):
+    """An imported bank export, kept as given (Settings → Bank keeps where it came from).
+    Returns the sha256."""
+    sha = hashlib.sha256(data).hexdigest()
+    _write(path_for(sha, ".csv"), data)
+    return sha
+
+
+def read_csv(sha256):
+    path = path_for(sha256, ".csv")
+    if not path.exists():
+        raise FileError("That file isn't on the server any more: upload it again.")
+    return path.read_bytes()

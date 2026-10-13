@@ -4,6 +4,7 @@
   <a href="{{ url_for('settings.pricing') }}" {% if request.endpoint in ('settings.pricing', 'settings.tier_add') %}class="active"{% endif %}>Pricing</a>
   <a href="{{ url_for('settings.tax') }}" {% if request.endpoint.startswith('settings.tax') or request.endpoint.startswith('settings.jurisdiction') %}class="active"{% endif %}>Tax</a>
   <a href="{{ url_for('settings.books') }}" {% if request.endpoint in ('settings.books', 'settings.rate_edit', 'settings.category_edit') %}class="active"{% endif %}>Books</a>
+  <a href="{{ url_for('settings.accounts') }}" {% if request.endpoint == 'settings.accounts' %}class="active"{% endif %}>Accounts</a>
   <a href="{{ url_for('settings.carriers') }}" {% if request.endpoint.startswith('settings.carrier') %}class="active"{% endif %}>Carriers</a>
   <a href="{{ url_for('settings.devices') }}" {% if request.endpoint.startswith('settings.device') %}class="active"{% endif %}>Devices</a>
   <a href="{{ url_for('settings.audit') }}" {% if request.endpoint == 'settings.audit' %}class="active"{% endif %}>Audit</a>

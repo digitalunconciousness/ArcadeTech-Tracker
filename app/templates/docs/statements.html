@@ -1,0 +1,33 @@
+{# Many customers' statements in one PDF, one per page (Money → Statements). `items`:
+   [(customer, payments.statement(customer))]. #}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Statements {{ today }}</title>
+  <link rel="stylesheet" href="{{ doc_css }}">
+</head>
+<body>
+{% for customer, st in items %}
+<div class="statement{% if not loop.first %} new-page{% endif %}">
+  <header class="masthead">
+    <div class="shop">
+      <strong>{{ shop.business_name }}</strong>
+      {% if shop.legal_name and shop.legal_name != shop.business_name %}{{ shop.legal_name }}<br>{% endif %}
+      {% if shop.address_line1 %}{{ shop.address_line1 }}<br>{% endif %}
+      {% if shop.address_line2 %}{{ shop.address_line2 }}<br>{% endif %}
+      {% if shop.city %}{{ shop.city }}{% if shop.region %}, {{ shop.region }}{% endif %} {{ shop.postal_code or '' }}<br>{% endif %}
+      {{ shop.phone or '' }}{% if shop.phone and shop.email %} · {% endif %}{{ shop.email or '' }}
+      {% if shop.website %}<br>{{ shop.website }}{% endif %}
+    </div>
+    <div class="doc">
+      <div>Statement</div>
+      <span class="docno">{{ today }}</span>
+      <div class="muted">{{ customer.display_name }}</div>
+    </div>
+  </header>
+  {% with rows=st.rows, buckets=st.buckets, credit=st.credit, due=st.due, recent=st.recent, recent_days=st.recent_days %}{% include "docs/_statement.html" %}{% endwith %}
+</div>
+{% endfor %}
+</body>
+</html>

@@ -93,3 +93,4 @@ table.buy a { color: inherit; text-decoration: underline; }
 .chart { margin: 10pt 0 6pt; page-break-inside: avoid; }
 .chart svg { width: 100%; height: auto; }
 figure.overlay { margin: 0.4rem 0 0.8rem; break-inside: avoid; }
+.new-page { break-before: page; }

@@ -9,6 +9,7 @@ from datetime import date
 
 from flask import current_app
 
+from app.books import journal
 from app.reports import tables as t
 from app.reports.figures import BASES
 from app.timeutil import local_today, localdt, utcnow
@@ -49,6 +50,12 @@ Raw rows
   1099.csv, 1099-by-method.csv             who should send a 1099-NEC; totals to match
                                            against 1099-Ks
   inventory-{inv_date}.csv                 stock on hand at cost (first in, first out)
+
+For the books
+  general-journal.csv                      the year as double entries, accrual basis,
+                                           under the names in Settings → Accounts
+  trial-balance.csv                        the year's activity by account; its income and
+                                           cost accounts net to the accrual P&L
 
 Documents
   invoices/        each issued invoice PDF, exactly as the customer got it (and the
@@ -110,6 +117,9 @@ def build(y, now=None):
         csv("1099.csv", people)
         csv("1099-by-method.csv", by_method)
         csv(f"inventory-{inv_date}.csv", t.inventory_table(inv_date))
+        es = journal.entries(start, end)
+        csv("general-journal.csv", t.journal_table(es))
+        csv("trial-balance.csv", t.trial_balance_table(es, start, end))
 
         for inv in t.issued_documents(start, end):
             _add_file(zf, f"invoices/{_slug(inv.number)}.pdf", inv.pdf_sha256, ".pdf", missing)

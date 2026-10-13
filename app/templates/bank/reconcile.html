@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Reconcile · {{ account.name }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="dim"><a href="{{ url_for('bank.account', account_id=account.id) }}">{{ account.name }}</a></p>
+  <h1>Reconcile</h1>
+  <p>Starting from {% if latest %}the reconciliation through {{ latest.statement_end }}: {{ latest.ending_balance | money }}{% else %}{{ account.opening_on }}: {{ account.opening_balance | money }}{% endif %}.</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.statement_end) }}{{ field(form.ending_balance, inputmode="decimal") }}</div>
+    <div class="actions">
+      <button class="btn" type="submit" name="action" value="check">Check</button>
+      {% if can_edit and check and not check.unresolved and check.difference == 0 %}<button class="btn primary" type="submit" name="action" value="reconcile" data-confirm="Reconcile? These lines and their matches lock.">Reconcile</button>{% endif %}
+    </div>
+  </form>
+  {% if error %}<p class="flash flash-error">{{ error }}</p>{% endif %}
+  {% if check %}
+  <dl class="facts">
+    <dt>Opening</dt><dd>{{ check.opening | money }}</dd>
+    <dt>Lines</dt><dd>{{ check.lines | length }}</dd>
+    <dt>Comes to</dt><dd>{{ check.computed | money }}</dd>
+    <dt>Statement says</dt><dd>{{ form.ending_balance.data | money }}</dd>
+    <dt>Difference</dt><dd>{% if check.difference == 0 %}<span class="badge ok">balances</span>{% else %}<strong class="err">{{ check.difference | money }}</strong>{% endif %}</dd>
+  </dl>
+  {% if check.unresolved %}
+  <h2>Not matched or set aside yet</h2>
+  <ul class="list">{% for x in check.unresolved %}<li><a href="{{ url_for('bank.account', account_id=account.id, show='todo') }}#line-{{ x.id }}">{{ x.posted_on }} · {{ x.description }}</a> {{ x.amount | money }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}
