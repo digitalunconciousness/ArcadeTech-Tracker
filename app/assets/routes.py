@@ -1,4 +1,4 @@
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 from sqlalchemy import func, select
 
 from app.assets import service
@@ -7,6 +7,7 @@ from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.gatbox import service as gatbox
+from app.lists import desk_list
 from app.models import Asset, AssetEvent, Customer, Site, WoJob, WorkOrder
 
 bp = Blueprint("assets", __name__)
@@ -29,6 +30,9 @@ def fill_choices(form, customer, asset=None):
 @bp.route("/assets")
 @requires_role(*ALL_ROLES)
 def index():
+    power = desk_list("assets")
+    if isinstance(power, Response):
+        return power
     status = request.args.get("status")
     q = select(Asset, Customer).join(Customer, Customer.id == Asset.customer_id)
     if status:
@@ -36,7 +40,7 @@ def index():
     elif request.args.get("all") != "1":
         q = q.where(Asset.status.in_(service.ACTIVE_STATUSES))
     rows = db.session.execute(q.order_by(Asset.tag)).all()
-    return render_template("assets/index.html", rows=rows, status=status)
+    return render_template("assets/index.html", power=power, rows=rows, status=status)
 
 
 @bp.route("/assets/new", methods=["GET", "POST"])

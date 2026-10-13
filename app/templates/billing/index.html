@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Invoices{% endblock %}
 {% block content %}
+<div class="phone-only">
 <section class="panel">
   <div class="head">
     <h1>Invoices</h1>
@@ -27,4 +28,6 @@
   </table>
   <p><a href="{{ url_for('billing.index', all=None if show_all else 1) }}">{{ 'Open only' if show_all else 'Include paid and void' }}</a></p>
 </section>
+</div>
+{% if power %}<div class="desk-only">{% include "lists/_page.html" %}</div>{% endif %}
 {% endblock %}

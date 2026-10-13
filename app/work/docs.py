@@ -18,6 +18,7 @@ from app.models import (
     WO_KINDS,
     Asset,
     ManualReading,
+    PartLink,
     Site,
     StockLot,
     TimeEntry,
@@ -96,8 +97,12 @@ def service_report(wo, customer):
             # As found first, then during, as left, and any without a phase last.
             order = {p: i for i, p in enumerate(("as_found", "during", "as_left"))}
             traces[job_id] = sorted(rows, key=lambda r: order.get(r[0].phase, 3))
+    # The customer's parts not here yet link to where they buy them.
+    part_links = {link.id: link for link in db.session.scalars(select(PartLink).where(
+        PartLink.id.in_([x.part_link_id for ls in lines.values() for x in ls
+                         if x.awaiting and x.part_link_id])))}
     return render_pdf("docs/service_report.html", wo=wo, customer=customer, jobs=jobs,
-                      traces=traces, trace_phases=READING_PHASES,
+                      traces=traces, trace_phases=READING_PHASES, part_links=part_links,
                       lines=lines, lots=lots, readings={k: reading_rows(v)
                                                         for k, v in readings.items()},
                       labor=labor, techs=techs, warranty=warranty,

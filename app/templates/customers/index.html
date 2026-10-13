@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Customers{% endblock %}
 {% block content %}
+<div class="phone-only">
 <section class="panel">
   <div class="head">
     <h1>Customers</h1>
@@ -20,4 +21,6 @@
   </ul>
   <p><a href="{{ url_for('customers.index', all=None if show_all else 1) }}">{{ 'Hide inactive' if show_all else 'Show inactive too' }}</a></p>
 </section>
+</div>
+{% if power %}<div class="desk-only">{% include "lists/_page.html" %}</div>{% endif %}
 {% endblock %}

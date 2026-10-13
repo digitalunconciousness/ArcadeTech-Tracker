@@ -1,0 +1,104 @@
+{# The desktop list (power table): filters, saved views, columns, the table with bulk
+   actions, and the pane a record opens in. `power` is an app.lists.engine.Result. #}
+{% macro cell(v, kind) -%}
+{%- if v is none or v == "" -%}
+{%- elif v.url is defined -%}<a href="{{ v.url }}">{{ v.text }}</a>
+{%- elif v is sequence and v is not string -%}<span class="badge{% if v[1] %} {{ v[1] }}{% endif %}">{{ v[0] }}</span>
+{%- elif kind == "money" -%}<span class="money">{{ v | money }}</span>
+{%- elif kind == "cost" -%}<span class="money">{{ v | unit_cost }}</span>
+{%- elif kind == "qty" -%}{{ v | qty }}
+{%- else -%}{{ v }}
+{%- endif -%}
+{%- endmacro %}
+{% set spec = power.spec %}
+<section class="panel power" data-page="{{ spec.page }}">
+  <div class="head">
+    <h1>{{ spec.title }}</h1>
+    <div class="actions">
+      {% if power.can_new() %}<a class="btn primary" href="{{ url_for(spec.new[1]) }}" data-new>{{ spec.new[0] }}</a>{% endif %}
+      <a class="btn" href="{{ csv_url() }}">CSV</a>
+      <details class="menu">
+        <summary class="btn">Views</summary>
+        <div class="menu-body">
+          {% set views = saved_views(spec.page) %}
+          {% for v in views %}
+          <div class="menu-row"><a href="{{ request.path }}{% if v.query %}?{{ v.query }}{% endif %}">{{ v.name }}</a>
+            <form class="inline-form" method="post" action="{{ url_for('lists.delete_view', view_id=v.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit" title="Delete" aria-label="Delete {{ v.name }}">×</button></form></div>
+          {% else %}
+          <p class="dim small">No saved views yet.</p>
+          {% endfor %}
+          <form method="post" action="{{ url_for('lists.save_view') }}" class="menu-save">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="page" value="{{ spec.page }}">
+            <input type="hidden" name="query" value="{{ power.query_string() }}">
+            <input type="text" name="name" maxlength="60" placeholder="Name this view" aria-label="View name">
+            <button class="btn small" type="submit">Save</button>
+          </form>
+        </div>
+      </details>
+      <details class="menu">
+        <summary class="btn">Columns</summary>
+        <div class="menu-body">
+          {% for c in power.columns %}<label class="check"><input type="checkbox" data-col-toggle="{{ c.key }}" checked> <span>{{ c.label }}</span></label>{% endfor %}
+        </div>
+      </details>
+    </div>
+  </div>
+  <form method="get" class="filters power-filters">
+    {% for f in spec.filters %}
+    <label class="field"><span>{{ f.label }}</span>
+      {% if f.kind == "select" %}
+      <select name="{{ f.key }}">{% for value, label in f.options() %}<option value="{{ value }}"{% if power.values[f.key] == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      {% elif f.kind == "date" %}<input type="date" name="{{ f.key }}" value="{{ power.values[f.key] }}">
+      {% else %}<input type="search" name="{{ f.key }}" value="{{ power.values[f.key] }}">{% endif %}
+    </label>
+    {% endfor %}
+    {% if request.args.get('sort') %}<input type="hidden" name="sort" value="{{ power.sort }}"><input type="hidden" name="dir" value="{{ power.direction }}">{% endif %}
+    <button class="btn" type="submit">Apply</button>
+    <a class="btn" href="{{ url_for(request.endpoint) }}">Reset</a>
+  </form>
+</section>
+<div class="split" data-split>
+  <section class="panel split-list" data-pane-links>
+    {% set bulk = power.can_bulk() %}
+    {% if bulk %}<form method="post" action="{{ url_for(spec.bulk_endpoint) }}" class="bulk-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="query" value="{{ power.query_string() }}">{% endif %}
+    <div class="scroll">
+    <table class="grid power-table" data-page="{{ spec.page }}">
+      <thead><tr>
+        {% if bulk %}<th class="pick"><input type="checkbox" data-pick-all aria-label="Tick all"></th>{% endif %}
+        {% for c in power.columns %}
+        <th data-col="{{ c.key }}" class="{{ 'num' if c.kind in ('money', 'cost', 'qty', 'num') else '' }}{{ '' if c.narrow else ' wide' }}"{% if power.sort == c.key %} aria-sort="{{ 'ascending' if power.direction == 'asc' else 'descending' }}"{% endif %}>
+          {% if c.sort is not none %}<a href="{{ power.sort_url(c) }}" data-no-pane>{{ c.label }}{% if power.sort == c.key %} {{ '▲' if power.direction == 'asc' else '▼' }}{% endif %}</a>{% else %}{{ c.label }}{% endif %}
+        </th>
+        {% endfor %}
+      </tr></thead>
+      <tbody>
+      {% for row in power.rows %}
+      <tr data-href="{{ power.link(row) }}">
+        {% if bulk %}<td class="pick"><input type="checkbox" name="ids" value="{{ row[0].id }}" aria-label="Tick"></td>{% endif %}
+        {% for c, v in power.cells(row) %}<td data-col="{{ c.key }}" class="{{ 'num' if c.kind in ('money', 'cost', 'qty', 'num') else '' }}{{ '' if c.narrow else ' wide' }}">{{ cell(v, c.kind) }}</td>{% endfor %}
+      </tr>
+      {% else %}
+      <tr><td colspan="{{ power.columns | length + (1 if bulk else 0) }}" class="dim">Nothing matches.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if power.truncated %}<p class="dim small">Showing the first {{ spec.limit }}. Narrow the filters, or take the CSV for all of them.</p>{% endif %}
+    {% if bulk and power.rows %}
+    <div class="bulk-bar">
+      <span class="dim small">With the ticked ones:</span>
+      {% for action, label, choices in power.bulk_actions() %}
+      <span class="bulk-action">
+        <select name="value_{{ action }}" aria-label="{{ label }}">{% for value, text in choices %}<option value="{{ value }}">{{ text }}</option>{% endfor %}</select>
+        <button class="btn small" type="submit" name="action" value="{{ action }}">{{ label }}</button>
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if bulk %}</form>{% endif %}
+  </section>
+  <div class="pane" id="pane" hidden></div>
+</div>

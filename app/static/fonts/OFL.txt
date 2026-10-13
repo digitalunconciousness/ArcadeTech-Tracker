@@ -1,7 +1,9 @@
-Fonts in this directory, served locally (no CDN). Both are licensed under the SIL Open
+Fonts in this directory, served locally (no CDN). All are licensed under the SIL Open
 Font License 1.1, whose text follows. Each .woff2 also carries its copyright notice in
-its name table (OFL clause 2). Converted from Google Fonts' TTF builds (Latin subset)
-to WOFF2 with fontTools, otherwise unmodified.
+its name table (OFL clause 2). Chakra Petch and Share Tech Mono: converted from Google
+Fonts' TTF builds (Latin subset) to WOFF2 with fontTools, otherwise unmodified. IBM Plex:
+the "complete" WOFF2 files, unmodified, from the npm packages @ibm/plex-sans 1.1.0 and
+@ibm/plex-mono 2.5.0 (tarballs checked against npm's sha512, 2026-10-13).
 
 ChakraPetch-Regular.woff2, ChakraPetch-Bold.woff2
   Copyright 2018 The Chakra Petch Project Authors (https://github.com/m4rc1e/Chakra-Petch.git)
@@ -9,6 +11,9 @@ ChakraPetch-Regular.woff2, ChakraPetch-Bold.woff2
 ShareTechMono-Regular.woff2
   Copyright (c) 2012, Carrois Type Design, Ralph du Carrois (post [at] carrois.com
   www.carrois.com), with Reserved Font Name 'Share'
+
+IBMPlexSans-Regular.woff2, IBMPlexSans-SemiBold.woff2, IBMPlexMono-Regular.woff2
+  Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
 
 -----------------------------------------------------------------------------------------
 

@@ -1,11 +1,19 @@
+{% if partial %}
+{# A record opened in the desktop split pane: just the page's content. #}
+<div class="pane-doc" data-title="{{ self.title() }}">
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<p class="flash flash-{{ category }}">{{ message }}</p>{% endfor %}{% endwith %}
+  {{ self.content() }}
+</div>
+{% else %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-desk="{{ current_user.desk_theme if current_user.is_authenticated else 'ledger' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}{% endblock %} · {{ shop.business_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/desk.css') }}">
   {# Cloudflare Access needs its cookie on the manifest fetch, which browsers send without
      credentials unless told to. #}
   <link rel="manifest" href="{{ url_for('partlinks.manifest') }}" crossorigin="use-credentials">
@@ -13,13 +21,38 @@
   <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" sizes="192x192">
   <script src="{{ url_for('static', filename='js/prefs.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/desk.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </head>
 <body>
+<div class="shell{% if current_user.is_authenticated %} signed-in{% endif %}">
+  {% if current_user.is_authenticated %}
+  {% set nav = nav_for(current_user.role) %}
+  <aside class="sidebar">
+    <a class="brand" href="{{ url_for('dashboard.index') }}">{{ shop.business_name }}</a>
+    <form class="search" action="{{ url_for('search.index') }}" method="get" role="search">
+      <input type="search" name="q" placeholder="Search" aria-label="Search" value="{{ request.args.get('q', '') if request.endpoint == 'search.index' else '' }}">
+    </form>
+    <nav class="side-nav" aria-label="Sections">
+      {% for label, endpoint, active in nav.sections %}
+      <a href="{{ url_for(endpoint) }}"{% if active %} class="active"{% endif %}>{{ label }}</a>
+      {% if active and nav.tabs %}
+      <div class="side-tabs">
+        {% for tab, tab_endpoint, tab_active in nav.tabs %}<a href="{{ url_for(tab_endpoint) }}"{% if tab_active %} class="active"{% endif %}>{{ tab }}</a>{% endfor %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </nav>
+    <div class="side-foot">
+      <a href="{{ url_for('auth.account') }}">{{ current_user.display_name }}</a>
+      <button class="kbd" type="button" data-cmd title="Command bar (Ctrl K)">Ctrl K</button>
+    </div>
+  </aside>
+  {% endif %}
+  <div class="main-col">
   <header class="topbar">
     <a class="brand" href="{{ url_for('dashboard.index') }}">{{ shop.business_name }}</a>
     {% if current_user.is_authenticated %}
-    {% set nav = nav_for(current_user.role) %}
     <nav class="nav">
       {% for label, endpoint, active in nav.sections %}
       <a href="{{ url_for(endpoint) }}"{% if active %} class="active"{% endif %}>{{ label }}</a>
@@ -48,6 +81,13 @@
     </form>
   </div>
   {% endif %}
+  {% if current_user.is_authenticated %}
+  <dialog class="cmd" id="cmd" aria-label="Command bar" data-commands="{{ commands_for(current_user.role) | tojson | forceescape }}" data-search="{{ url_for('search.index') }}">
+    <input type="search" id="cmd-input" placeholder="Jump to a customer, WO, tag, invoice, part… or an action" autocomplete="off" aria-label="Command">
+    <ul class="cmd-list" id="cmd-list" role="listbox"></ul>
+    <p class="cmd-help dim small">↑ ↓ to move · Enter to open · Esc to close · <span class="kbd">g</span> then <span class="kbd">w</span> work, <span class="kbd">c</span> customers, <span class="kbd">i</span> invoices, <span class="kbd">p</span> parts, <span class="kbd">d</span> dashboard · <span class="kbd">n</span> new on a list · <span class="kbd">/</span> or <span class="kbd">Ctrl K</span> here</p>
+  </dialog>
+  {% endif %}
   <main class="page">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
@@ -56,5 +96,8 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  </div>
+</div>
 </body>
 </html>
+{% endif %}

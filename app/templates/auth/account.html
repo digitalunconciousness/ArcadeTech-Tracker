@@ -11,6 +11,15 @@
     <dd>{% if current_user.totp_enabled %}<span class="badge ok">ON</span>{% else %}<span class="badge warn">OFF</span> <a href="{{ url_for('auth.totp_setup') }}">Turn on</a>{% endif %}</dd>
   </dl>
 </section>
+<section class="panel" id="look">
+  <h2>Desktop look</h2>
+  <p class="dim">On a computer or a tablet held sideways (1024 px and wider). Phones always use synthwave.</p>
+  <form method="post" action="{{ url_for('auth.theme') }}" novalidate>
+    {{ theme_form.csrf_token }}
+    {{ field(theme_form.desk_theme) }}
+    <button class="btn primary" type="submit">Save</button>
+  </form>
+</section>
 <section class="panel" id="calendar">
   <h2>Calendar</h2>
   <p class="dim">Your appointments as a private feed: in Google Calendar, Other calendars → + → From URL, and paste the link. Anyone with the link can read your appointments (customer names and addresses), so keep it to yourself.</p>

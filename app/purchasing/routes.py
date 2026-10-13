@@ -1,6 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -10,6 +10,7 @@ from app.auth.forms import EmptyForm
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.forms_common import QTY_MAX
+from app.lists import desk_list
 from app.models import (
     PO_LINE_STATUSES,
     PO_STATUSES,
@@ -238,12 +239,15 @@ def create_pos():
 @bp.route("/purchasing/orders")
 @requires_role(*ALL_ROLES)
 def orders():
+    power = desk_list("orders")
+    if isinstance(power, Response):
+        return power
     show_all = request.args.get("all") == "1"
     q = select(PurchaseOrder, Vendor).join(Vendor, Vendor.id == PurchaseOrder.vendor_id)
     if not show_all:
         q = q.where(PurchaseOrder.status.in_(("draft", "ordered", "partially_received")))
     rows = db.session.execute(q.order_by(PurchaseOrder.id.desc()).limit(300)).all()
-    return render_template("purchasing/orders.html", rows=rows, show_all=show_all,
+    return render_template("purchasing/orders.html", power=power, rows=rows, show_all=show_all,
                            label=service.label)
 
 

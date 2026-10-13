@@ -20,7 +20,7 @@
   <h2>On this work order</h2>
   <ul class="list">
     {% for line, link in rows %}
-    <li{% if not line.awaiting %} class="inactive"{% endif %}><a href="{{ url_for('partlinks.show', link_id=link.id) }}">{{ link.title }}</a> × {{ line.qty | qty }} <span class="dim">{{ link.domain }} · {{ 'on its way' if line.awaiting else 'here' }}</span></li>
+    <li{% if not line.awaiting %} class="inactive"{% endif %}><a href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ link.title }}</a> × {{ line.qty | qty }} <span class="dim">{{ link.domain }} · {{ 'on its way' if line.awaiting else 'here' }} · <a href="{{ url_for('partlinks.show', link_id=link.id) }}">details</a></span></li>
     {% endfor %}
   </ul>
 </section>

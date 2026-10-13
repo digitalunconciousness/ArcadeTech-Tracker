@@ -1,5 +1,6 @@
 from flask import (
     Blueprint,
+    Response,
     abort,
     current_app,
     flash,
@@ -33,6 +34,7 @@ from app.estimates.forms import (
 )
 from app.estimates.service import EstimateError
 from app.extensions import client_ip, db
+from app.lists import desk_list
 from app.models import (
     APPROVAL_METHODS,
     ESTIMATE_STATUSES,
@@ -88,6 +90,9 @@ def load(est_id):
 @bp.route("/estimates")
 @requires_role(*ALL_ROLES)
 def index():
+    power = desk_list("estimates")
+    if isinstance(power, Response):
+        return power
     show_all = request.args.get("all") == "1"
     q = select(Estimate, Customer).join(Customer, Customer.id == Estimate.customer_id)
     if not show_all:
@@ -96,7 +101,7 @@ def index():
     groups = {s: [] for s in ESTIMATE_STATUSES}
     for est, customer in rows:
         groups[est.status].append((est, customer))
-    return render_template("estimates/index.html", groups=groups, show_all=show_all,
+    return render_template("estimates/index.html", power=power, groups=groups, show_all=show_all,
                            label=service.label)
 
 

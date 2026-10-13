@@ -1,6 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -11,6 +11,7 @@ from app.extensions import db
 from app.formatting import qty as fmt_qty
 from app.formatting import unit_cost as fmt_cost
 from app.forms_common import QTY_MAX
+from app.lists import desk_list
 from app.models import Part, PartLink, StockLot, StockMove, User, Vendor
 from app.parts import stock
 from app.parts.forms import (
@@ -89,6 +90,9 @@ def release_waiting():
 @bp.route("/parts")
 @requires_role(*ALL_ROLES)
 def index():
+    power = desk_list("parts")
+    if isinstance(power, Response):
+        return power
     q = (request.args.get("q") or "").strip()[:100]
     low = request.args.get("low") == "1"
     show_all = request.args.get("all") == "1"
@@ -111,7 +115,7 @@ def index():
         if low and not is_low:
             continue
         rows.append((p, on_hand, is_low, part_price(p, tiers)))
-    return render_template("parts/index.html", rows=rows, q=q, low=low, show_all=show_all)
+    return render_template("parts/index.html", power=power, rows=rows, q=q, low=low, show_all=show_all)
 
 
 def part_form(part=None):

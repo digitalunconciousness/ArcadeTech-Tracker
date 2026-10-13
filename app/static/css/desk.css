@@ -1,0 +1,167 @@
+/* The desktop (1024 px and up): a sidebar, wider pages, and each user's desktop theme
+   (Ledger, Graphite, follow the system, or synthwave). Everything is inside the media
+   query, so phones see exactly what they did before. Customer documents have their own
+   print-first CSS and don't change. */
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("../fonts/IBMPlexSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("../fonts/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-weight: 600 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+.sidebar, .desk-only { display: none; }
+
+@media (min-width: 64rem) {
+  /* --- themes ------------------------------------------------------------------------ */
+  /* The synthwave token names stay (magenta = primary, cyan = links and headings). */
+  html[data-desk="ledger"], html[data-desk="system"] {
+    --bg: #f6f7f9; --bg2: #f6f7f9; --panel: #ffffff; --field: #ffffff; --border: #dfe3e8;
+    --magenta: #0f6e6e; --cyan: #0b5f8a; --lime: #1a7f37; --red: #b42318; --amber: #9a6700;
+    --text: #1f2328; --dim: #5f6b7a; --hover: #eef1f4; --on-primary: #ffffff;
+  }
+  html[data-desk="graphite"] {
+    --bg: #0f1216; --bg2: #0f1216; --panel: #171b21; --field: #0f1216; --border: #2a313b;
+    --magenta: #4f8cff; --cyan: #6ea8ff; --lime: #34c38f; --red: #ef5d5d; --amber: #f0b429;
+    --text: #e5e7eb; --dim: #8b93a1; --hover: #1f252d; --on-primary: #0f1216;
+  }
+  @media (prefers-color-scheme: dark) {
+    html[data-desk="system"] {
+      --bg: #0f1216; --bg2: #0f1216; --panel: #171b21; --field: #0f1216; --border: #2a313b;
+      --magenta: #4f8cff; --cyan: #6ea8ff; --lime: #34c38f; --red: #ef5d5d; --amber: #f0b429;
+      --text: #e5e7eb; --dim: #8b93a1; --hover: #1f252d; --on-primary: #0f1216;
+    }
+  }
+  html:not([data-desk="synthwave"]) {
+    --display: "IBM Plex Sans", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --radius: 4px;
+    background: var(--bg);
+  }
+  /* Business, not neon: no scanlines, no glow, filled primary buttons. */
+  html:not([data-desk="synthwave"]) body { font-size: 15px; }
+  html:not([data-desk="synthwave"]) body::before { display: none; }
+  html:not([data-desk="synthwave"]) h1,
+  html:not([data-desk="synthwave"]) h1.tag { text-shadow: none; letter-spacing: 0; }
+  html:not([data-desk="synthwave"]) h2, html:not([data-desk="synthwave"]) h3,
+  html:not([data-desk="synthwave"]) .brand { letter-spacing: 0; }
+  html:not([data-desk="synthwave"]) h2 { color: var(--text); }
+  html:not([data-desk="synthwave"]) .btn { font-weight: 600; padding: 0.45rem 0.9rem; }
+  html:not([data-desk="synthwave"]) .btn.small { padding: 0.2rem 0.55rem; }
+  html:not([data-desk="synthwave"]) .btn:hover { background: var(--hover); }
+  html:not([data-desk="synthwave"]) .btn.primary { background: var(--magenta); color: var(--on-primary); }
+  html:not([data-desk="synthwave"]) .btn.primary:hover { box-shadow: none; filter: brightness(1.08); }
+  html:not([data-desk="synthwave"]) .badge.ok,
+  html:not([data-desk="synthwave"]) .tabs a.active { box-shadow: none; }
+  html:not([data-desk="synthwave"]) .panel { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06); }
+  html:not([data-desk="synthwave"]) input,
+  html:not([data-desk="synthwave"]) select,
+  html:not([data-desk="synthwave"]) textarea { font-size: 0.95rem; padding: 0.45rem 0.6rem; }
+  html:not([data-desk="synthwave"]) table.grid tbody tr:hover { background: var(--hover); }
+
+  /* --- the shell: sidebar and page ---------------------------------------------------- */
+  .shell.signed-in { display: grid; grid-template-columns: 14.5rem minmax(0, 1fr); min-height: 100vh; }
+  .shell.signed-in .topbar, .shell.signed-in .subnav { display: none; }
+  .sidebar {
+    display: flex; flex-direction: column; gap: 0.75rem;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    padding: 1rem 0.75rem; background: var(--panel); border-right: 1px solid var(--border);
+  }
+  .sidebar .brand { font-size: 1.05rem; padding: 0 0.4rem; }
+  .sidebar .search { flex: none; }
+  .sidebar .search input { padding: 0.4rem 0.55rem; font-size: 0.9rem; }
+  .side-nav { display: flex; flex-direction: column; gap: 0.1rem; }
+  .side-nav a {
+    display: block; padding: 0.38rem 0.6rem; border-radius: var(--radius);
+    color: var(--text); text-decoration: none;
+  }
+  .side-nav a:hover { background: var(--hover, rgba(255, 255, 255, 0.06)); }
+  .side-nav a.active { color: var(--magenta); font-weight: 600; }
+  .side-tabs { display: flex; flex-direction: column; margin: 0.1rem 0 0.4rem 0.6rem;
+               padding-left: 0.5rem; border-left: 1px solid var(--border); }
+  .side-tabs a { padding: 0.28rem 0.6rem; font-size: 0.92rem; color: var(--dim); }
+  .side-tabs a.active { color: var(--text); background: var(--hover, transparent); font-weight: 600; }
+  .side-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between;
+               gap: 0.5rem; padding: 0.5rem 0.4rem 0; border-top: 1px solid var(--border); }
+  .side-foot a { color: var(--dim); text-decoration: none; }
+  .kbd { font-family: var(--mono); font-size: 0.75rem; color: var(--dim); border: 1px solid var(--border);
+         border-radius: 3px; padding: 0 0.3rem; background: transparent; cursor: pointer; }
+  .page { max-width: 96rem; padding: 1.25rem 2rem; margin: 0; }
+  .shell:not(.signed-in) .page { margin: 0 auto; }
+  .timerbar { padding-left: 2rem; }
+
+  /* Forms and facts read better with some width to them. */
+  .panel form:not(.inline-form):not(.filters):not(.actions):not(.bulk-form) { max-width: 46rem; }
+  .facts { grid-template-columns: minmax(10rem, max-content) 1fr; }
+  .desk-only { display: block; }
+  .phone-only { display: none; }
+}
+
+/* The command bar (Ctrl K): on any screen, though it's meant for a keyboard. */
+dialog.cmd {
+  width: min(40rem, calc(100vw - 2rem)); padding: 0; margin: 12vh auto auto;
+  color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+}
+dialog.cmd::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog.cmd input { border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 0.8rem 1rem; }
+.cmd-list { list-style: none; margin: 0; padding: 0.3rem; max-height: 55vh; overflow-y: auto; }
+.cmd-list li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; gap: 0.75rem; align-items: baseline;
+               padding: 0.45rem 0.7rem; border-radius: 4px; cursor: pointer; }
+.cmd-list li.active, .cmd-list li:hover { background: var(--hover); }
+.cmd-kind { color: var(--dim); font-size: 0.8rem; }
+.cmd-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd-sub { color: var(--dim); font-size: 0.85rem; white-space: nowrap; }
+.cmd-help { margin: 0; padding: 0.5rem 1rem; border-top: 1px solid var(--border); }
+
+@media (min-width: 64rem) {
+  /* --- power tables ------------------------------------------------------------------- */
+  .panel.power { overflow: visible; }           /* the Views and Columns menus drop out of it */
+  .power .head { align-items: center; }
+  .power-filters { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: flex-end; margin: 0; }
+  .power-filters .field { flex: 0 1 11rem; margin: 0; }
+  .power-filters .field:last-of-type { flex: 1 1 14rem; }
+  details.menu { position: relative; }
+  details.menu > summary { list-style: none; }
+  details.menu > summary::-webkit-details-marker { display: none; }
+  .menu-body { position: absolute; right: 0; z-index: 20; min-width: 16rem; margin-top: 0.3rem; padding: 0.6rem;
+               background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+               box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); }
+  .menu-body .check { margin-bottom: 0.3rem; }
+  .menu-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
+  .menu-save { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+  .menu-save input { padding: 0.3rem 0.45rem; }
+  table.power-table th, table.power-table td a, table.power-table .badge { white-space: nowrap; }
+  table.power-table th a { color: var(--dim); text-decoration: none; }
+  table.power-table th[aria-sort] a { color: var(--text); }
+  table.power-table thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+  table.power-table tbody tr[data-href] { cursor: pointer; }
+  table.power-table tbody tr.current { background: var(--hover); box-shadow: inset 3px 0 0 var(--magenta); }
+  table.power-table td.pick, table.power-table th.pick { width: 1.8rem; }
+  .split-list .scroll { max-height: calc(100vh - 16rem); overflow: auto; }
+  .bulk-bar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin-top: 0.75rem;
+              padding-top: 0.75rem; border-top: 1px solid var(--border); }
+  .bulk-action { display: inline-flex; gap: 0.35rem; align-items: center; }
+  .bulk-action select { width: auto; padding: 0.3rem 0.45rem; }
+
+  /* --- split view ----------------------------------------------------------------------- */
+  .split.open { display: grid; grid-template-columns: minmax(22rem, 34%) minmax(0, 1fr); gap: 1rem; align-items: start; }
+  .split.open .wide { display: none; }
+  .split.open .split-list { margin-bottom: 0; }
+  .pane { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+  .pane .panel { margin-bottom: 0.75rem; }
+  .pane-bar { display: flex; justify-content: flex-end; gap: 0.4rem; margin-bottom: 0.5rem; }
+  .pane .panel form:not(.inline-form):not(.filters):not(.actions) { max-width: none; }
+}

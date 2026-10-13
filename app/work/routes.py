@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from flask import (
     Blueprint,
+    Response,
     abort,
     flash,
     make_response,
@@ -21,6 +22,7 @@ from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.formatting import qty as fmt_qty
 from app.gatbox import service as gatbox
+from app.lists import desk_list
 from app.models import (
     ALL_LABOR_MODES,
     JOB_STATUSES,
@@ -164,6 +166,9 @@ def back_to_job(job_id, anchor=""):
 @bp.route("/work")
 @requires_role(*ALL_ROLES)
 def index():
+    power = desk_list("work")
+    if isinstance(power, Response):
+        return power
     show_all = request.args.get("all") == "1"
     mine = request.args.get("mine") == "1"
     q = select(WorkOrder, Customer).join(Customer, Customer.id == WorkOrder.customer_id)
@@ -182,7 +187,7 @@ def index():
     groups = {status: [] for status in WO_STATUSES}
     for wo, customer in rows:
         groups[wo.status].append((wo, customer, names.get(wo.id, "")))
-    return render_template("work/index.html", groups=groups, show_all=show_all, mine=mine,
+    return render_template("work/index.html", power=power, groups=groups, show_all=show_all, mine=mine,
                            today=to_local_naive(utcnow()).date())
 
 
@@ -278,7 +283,8 @@ def show(wo_id):
                            status_form=StatusForm(status=wo.status), add_job=add_job,
                            warranty_of=warranty_of, costs=sees_costs(),
                            appointments=appointments, who=who, estimates=estimates,
-                           invoices=invoices, unbilled=unbilled,
+                           invoices=invoices, unbilled=unbilled, buying=link_lines(wo),
+                           job_tags={job.id: asset.tag if asset else None for job, asset in jobs},
                            appointment_form=appointment_form(wo, customer)
                            if current_user.role in EDIT_ROLES else None)
 
