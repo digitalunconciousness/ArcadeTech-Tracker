@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% from "_forms.html" import field, check, checks %}
 {% block title %}{{ wo.number }}{% if asset %} · {{ asset.tag }}{% endif %}{% endblock %}
+{% block scripts %}{% if overlay or reading_charts %}
+  <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}" defer></script>
+{% endif %}{% endblock %}
 {% block content %}
 <section class="panel">
   <p class="dim"><a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono">{{ wo.number }}</span></a> · {{ customer.display_name }}</p>
@@ -134,7 +138,8 @@
     <form method="post" action="{{ url_for('work.line_customer_part', job_id=job.id) }}" novalidate>
       {{ forms.customer_part.csrf_token }}
       <div class="row two">{{ field(forms.customer_part.description) }}{{ field(forms.customer_part.qty, inputmode="decimal") }}</div>
-      <p class="dim">No charge, no warranty on it; labor on this job then carries 90 days.</p>
+      {{ check(forms.customer_part.wait) }}
+      <p class="dim">No charge, no warranty on it; labor on this job then carries 90 days. Not here yet? Tick the box: it shows under "Parts the customer is buying" until you press Arrived.</p>
       <button class="btn" type="submit">Add</button>
     </form>
   </details>
@@ -158,24 +163,9 @@
   <h2>Parts the customer is buying</h2>
   <ul class="list">
     {% for line in (waiting + buying) | unique(attribute='id') %}
-    {% set link = part_links.get(line.part_link_id) %}
-    <li{% if not line.awaiting %} class="inactive"{% endif %}>
-      <strong>{{ line.description }}</strong> × {{ line.qty | qty }}
-      {% if line.awaiting %}<span class="badge warn">on its way</span>{% else %}<span class="badge ok">here</span>{% endif %}
-      {% if link %}<div class="dim">{{ link.domain }}</div>{% endif %}
-      <div class="actions">
-        {% if link %}<a class="btn small" href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">Open</a>
-        <button class="btn small" type="button" data-share="{{ link.url }}" data-share-title="{{ link.title }}">Share</button>{% endif %}
-        {% if can_edit and line.awaiting %}
-        <form class="inline-form" method="post" action="{{ url_for('work.arrived', line_id=line.id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn small primary" type="submit">Arrived</button>
-        </form>
-        {% endif %}
-      </div>
-    </li>
+    {% with link = part_links.get(line.part_link_id), back = 'job', job_label = none %}{% include "work/_customer_part.html" %}{% endwith %}
     {% else %}
-    <li class="dim">None. Add one the customer will buy from a saved link; the work order can wait on it.</li>
+    <li class="dim">None. Add one the customer will buy from a saved link, or their own part that isn't here yet; the work order can wait on it.</li>
     {% endfor %}
   </ul>
   {% if forms %}
@@ -275,6 +265,7 @@
 
 <section class="panel traces" id="traces">
   <h2>GATBOX traces</h2>
+  {% if overlay %}{% include "traces/_compare.html" %}{% endif %}
   {% for link, s in traces %}
   <div class="trace">
     <a href="{{ url_for('traces.show', session_id=s.id) }}">{{ s.started_at | localdt }}</a> {{ s.profile_label or s.rail or '' }} {% include "traces/_verdict.html" %}
@@ -311,6 +302,12 @@
 
 <section class="panel" id="readings">
   <h2>Readings</h2>
+  {% for c in reading_charts %}
+  <figure class="chart">
+    <figcaption>As found → as left ({{ c.unit }}), against the spec</figcaption>
+    <div class="chart-box"><canvas data-chart="{{ c.json }}" role="img" aria-label="Readings, as found and as left"></canvas></div>
+  </figure>
+  {% endfor %}
   <table class="grid">
     <thead><tr><th>Test point</th><th class="num">Reading</th><th class="num">Spec</th></tr></thead>
     <tbody>

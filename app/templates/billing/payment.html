@@ -3,7 +3,7 @@
 {% block title %}Payment #{{ p.id }}{% endblock %}
 {% block content %}
 <section class="panel">
-  <div class="head"><h1 class="mono tag">Payment #{{ p.id }}</h1></div>
+  <div class="head"><h1 class="mono tag">Payment #{{ p.id }}</h1>{% if is_owner %}<a class="btn" href="{{ url_for('settings.audit', table='payment', row=p.id, related=1) }}">History</a>{% endif %}</div>
   <p class="lead">{{ customer.display_name }}
     {% if p.kind != 'receipt' %}<span class="badge {{ 'danger' if p.kind == 'reversal' else 'warn' }}">{{ kinds[p.kind] | lower }}</span>{% endif %}
     {% if reversal %}<span class="badge danger">reversed</span>{% endif %}</p>

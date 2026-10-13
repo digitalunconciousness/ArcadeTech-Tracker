@@ -5,7 +5,7 @@
 <section class="panel">
   <div class="head">
     <h1 class="mono tag">{{ part.sku }}</h1>
-    {% if can_edit %}<a class="btn" href="{{ url_for('parts.edit', part_id=part.id) }}">Edit</a>{% endif %}
+    <div class="actions">{% if can_edit %}<a class="btn" href="{{ url_for('parts.edit', part_id=part.id) }}">Edit</a>{% endif %}{% if is_owner %}<a class="btn" href="{{ url_for('settings.audit', table='part', row=part.id, related=1) }}">History</a>{% endif %}</div>
   </div>
   <p class="lead">{{ part.name }}{% if not part.active %} <span class="badge danger">inactive</span>{% endif %}</p>
   <dl class="facts">

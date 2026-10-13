@@ -38,7 +38,7 @@
       <a href="{{ url_for(endpoint) }}"{% if active %} class="active"{% endif %}>{{ label }}</a>
       {% if active and nav.tabs %}
       <div class="side-tabs">
-        {% for tab, tab_endpoint, tab_active in nav.tabs %}<a href="{{ url_for(tab_endpoint) }}"{% if tab_active %} class="active"{% endif %}>{{ tab }}</a>{% endfor %}
+        {% for tab, tab_endpoint, tab_active, _ in nav.tabs %}<a href="{{ url_for(tab_endpoint) }}"{% if tab_active %} class="active"{% endif %}>{{ tab }}</a>{% endfor %}
       </div>
       {% endif %}
       {% endfor %}
@@ -66,7 +66,7 @@
   </header>
   {% if current_user.is_authenticated and nav.tabs %}
   <nav class="subnav">
-    {% for label, endpoint, active in nav.tabs %}
+    {% for label, endpoint, active, desk in nav.tabs if not desk %}
     <a href="{{ url_for(endpoint) }}"{% if active %} class="active"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>

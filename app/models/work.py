@@ -179,6 +179,9 @@ class WoLine(StandardColumns, db.Model):
         CheckConstraint("stock_lot_id IS NULL OR kind = 'part'", name="lot_only_on_parts"),
         CheckConstraint("NOT awaiting OR customer_supplied", name="awaiting_customer_part"),
         CheckConstraint("part_link_id IS NULL OR customer_supplied", name="link_on_customer_part"),
+        CheckConstraint("ordered_on IS NULL OR customer_supplied", name="ordered_customer_part"),
+        CheckConstraint("expected_on IS NULL OR ordered_on IS NOT NULL",
+                        name="expected_after_ordered"),
         ForeignKeyConstraint(["stock_lot_id", "part_id"], ["stock_lot.id", "stock_lot.part_id"],
                              name="fk_wo_line_lot_same_part"),
         # Time on the job feeds one actual-time labor line.
@@ -213,6 +216,9 @@ class WoLine(StandardColumns, db.Model):
     part_link_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("part_link.id"),
                                                      index=True)
     awaiting: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    # While it's on its way: the day the customer ordered it, and when they expect it.
+    ordered_on: Mapped[date | None] = mapped_column(Date)
+    expected_on: Mapped[date | None] = mapped_column(Date)
 
 
 class TimeEntry(StandardColumns, db.Model):

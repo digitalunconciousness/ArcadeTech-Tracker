@@ -5,7 +5,7 @@
 <section class="panel">
   <div class="head">
     <h1 class="mono tag">{{ label }}</h1>
-    {% if editable %}<a class="btn" href="{{ url_for('estimates.edit', est_id=est.id) }}">Edit</a>{% endif %}
+    <div class="actions">{% if editable %}<a class="btn" href="{{ url_for('estimates.edit', est_id=est.id) }}">Edit</a>{% endif %}{% if is_owner %}<a class="btn" href="{{ url_for('settings.audit', table='estimate', row=est.id, related=1) }}">History</a>{% endif %}</div>
   </div>
   <p class="lead">{{ est.summary }}
     <span class="badge {{ 'ok' if est.status in ('approved', 'converted') else 'danger' if est.status == 'declined' else 'warn' if est.status == 'sent' else '' }}">{{ est_statuses[est.status] | lower }}</span>

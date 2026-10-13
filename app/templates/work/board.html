@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Board{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/board.js') }}" defer></script>{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Board</h1>
+    {% if can_edit %}<a class="btn primary" href="{{ url_for('work.new') }}" data-new>New work order</a>{% endif %}
+  </div>
+  <form class="filters" method="get">
+    <label class="field"><span>Tech</span>
+      <select name="tech">
+        <option value="">Everyone</option>
+        <option value="mine"{% if tech == 'mine' %} selected{% endif %}>Mine</option>
+        {% for uid, name in techs %}<option value="{{ uid }}"{% if tech == uid | string %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Find</span><input type="search" name="q" value="{{ q }}" placeholder="WO, customer, summary"></label>
+    <button class="btn" type="submit">Show</button>
+  </form>
+  <p class="dim small">{% if can_move %}Drag a card to another column, or use its Move menu. {% endif %}Completed work orders stay {{ done_days }} days.</p>
+  <p class="board-msg" data-board-msg role="status" aria-live="polite"></p>
+</section>
+
+<div class="board" data-board data-csrf="{{ csrf_token() }}">
+  {% for status, cards in columns.items() %}
+  <section class="board-col" data-column="{{ status }}" aria-label="{{ column_labels[status] }}">
+    <h2>{{ column_labels[status] }} <span class="dim" data-count>{{ cards | length }}</span></h2>
+    <div class="board-list">
+      {% for c in cards %}
+      {% set wo = c.wo %}
+      <article class="card{% if c.late %} late{% endif %}" data-id="{{ wo.id }}" data-status="{{ wo.status }}" data-number="{{ wo.number }}" data-action="{{ url_for('work.status', wo_id=wo.id) }}"{% if c.unbilled %} data-unbilled{% endif %}{% if can_move %} draggable="true"{% endif %}>
+        <div class="card-top">
+          <a class="mono" href="{{ url_for('work.show', wo_id=wo.id) }}" draggable="false">{{ wo.number }}</a>
+          {% if wo.priority in ('high', 'rush') %}<span class="badge {{ 'danger' if wo.priority == 'rush' else 'warn' }}">{{ wo.priority }}</span>{% endif %}
+          {% if wo.parts_arrived_at %}<span class="badge ok">parts in</span>{% endif %}
+          {% if c.late %}<span class="badge danger">late</span>{% endif %}
+        </div>
+        <div class="card-customer">{{ c.customer.display_name }}</div>
+        <div class="card-summary">{{ wo.summary }}</div>
+        <div class="dim small sep">
+          {%- if wo.promised_date %}<span>promised {{ wo.promised_date }}</span>{% endif -%}
+          {%- if c.techs %}<span title="{{ c.techs | join(', ') }}">{% for name in c.techs %}{{ initials(name) }}{% if not loop.last %} {% endif %}{% endfor %}</span>{% endif -%}
+          {%- if c.unbilled %}<span>not billed</span>{% endif -%}
+        </div>
+        {% if c.waiting %}<div class="dim small">Waiting on: {{ c.waiting[0] }}{% if c.waiting | length > 1 %} (+{{ c.waiting | length - 1 }}){% endif %}</div>{% endif %}
+        {% if can_move %}
+        <form class="card-move" method="post" action="{{ url_for('work.status', wo_id=wo.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="from" value="{{ wo.status }}">
+          <input type="hidden" name="back" value="board">
+          <select name="status" aria-label="Move {{ wo.number }} to">
+            {% for key, label in moves %}<option value="{{ key }}"{% if key == wo.status %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <button class="btn small" type="submit">Move</button>
+        </form>
+        {% endif %}
+      </article>
+      {% else %}
+      <p class="dim small board-empty">None.</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

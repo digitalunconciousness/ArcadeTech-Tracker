@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_forms.html" import field %}
+{% from "_forms.html" import field, check %}
 {% block title %}Settings{% endblock %}
 {% block content %}
 {% include "settings/_tabs.html" %}
@@ -27,6 +27,8 @@
     {{ field(form.claim_terms) }}
     {{ field(form.warranty_terms) }}
     {{ field(form.payment_instructions) }}
+    <h2>Dispatch</h2>
+    {{ check(form.dispatch_block_overlap) }}
     <p class="dim">Display time zone: <span class="mono">{{ config.SHOP_TZ }}</span> (set by SHOP_TZ in the server's environment).</p>
     <button class="btn primary" type="submit">Save</button>
   </form>

@@ -10,6 +10,9 @@ from app.auth.decorators import COST_ROLES
 SECTIONS = (
     ("dashboard", "Dashboard", None, [("Dashboard", "dashboard.index", ("dashboard",))]),
     ("work", "Work", None, [("Work orders", "work.index", ("work", "traces")),
+                            ("Board", "work.board", ("work.board",)),
+                            ("Dispatch", "work.dispatch", ("work.dispatch",
+                                                           "work.appointment_edit")),
                             ("Estimates", "estimates.index", ("estimates",))]),
     ("customers", "Customers", None, [("Customers", "customers.index", ("customers",)),
                                       ("Assets", "assets.index", ("assets",))]),
@@ -28,10 +31,15 @@ SECTIONS = (
 )
 
 
+# Tabs only the desktop sidebar shows: phones keep the grouped list and get a day agenda
+# at these addresses, but no tab for them.
+DESK_ONLY = frozenset({"work.board", "work.dispatch"})
+
+
 def current(role):
-    """{"sections": [(label, endpoint, active)], "tabs": [(label, endpoint, active)]}: the
-    sections this role sees, and the tabs of the one this page is in (when it has more
-    than one)."""
+    """{"sections": [(label, endpoint, active)], "tabs": [(label, endpoint, active, desk)]}:
+    the sections this role sees, and the tabs of the one this page is in (when it has more
+    than one); `desk` marks a tab for the desktop sidebar only."""
     endpoint, blueprint = request.endpoint or "", request.blueprint or ""
     visible = [s for s in SECTIONS if s[2] is None or role in s[2]]
     here = None
@@ -46,7 +54,8 @@ def current(role):
     if here is not None:
         section_tabs = next(tabs for key, _, _, tabs in visible if key == here[0])
         if len(section_tabs) > 1:
-            tabs = [(label, ep, label == here[1]) for label, ep, _ in section_tabs]
+            tabs = [(label, ep, label == here[1], ep in DESK_ONLY)
+                    for label, ep, _ in section_tabs]
     return {"sections": sections, "tabs": tabs}
 
 
@@ -55,6 +64,8 @@ EDIT = ("owner", "tech")
 COMMANDS = (
     ("Dashboard", "dashboard.index", None, "g d"),
     ("Work orders", "work.index", None, "g w"),
+    ("Work board", "work.board", None, "g o"),
+    ("Dispatch calendar", "work.dispatch", None, "g l"),
     ("New work order", "work.new", EDIT, "n"),
     ("Estimates", "estimates.index", None, "g e"),
     ("New estimate", "estimates.new", EDIT, None),

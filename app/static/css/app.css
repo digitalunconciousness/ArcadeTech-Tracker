@@ -189,6 +189,7 @@ h1.tag { font-family: var(--mono); font-size: 1.3rem; text-shadow: 0 0 8px rgba(
 .lead { font-size: 1.15rem; }
 .notes { white-space: pre-wrap; margin: 0.3rem 0 0; }
 .notes a { overflow-wrap: anywhere; }
+.sep > * + *::before { content: " · "; }
 .row.two { grid-template-columns: 1fr; }
 @media (min-width: 36rem) { .row.two { grid-template-columns: 1fr 1fr; } }
 textarea { min-height: 5rem; }
@@ -291,3 +292,35 @@ html.blurred .money { filter: blur(0.45em); }
 .trace-box { position: relative; height: 18rem; }
 .traces .trace { padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
 form.inline-form select, form.actions select { width: auto; max-width: 100%; padding: 0.3rem 0.4rem; }
+
+/* The work board: a column per status (stacked on a phone, side by side on a desktop). */
+.board { display: grid; gap: 0.8rem; margin-bottom: 1rem; }
+.board-col { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.6rem; }
+.board-col h2 { font-size: 1rem; margin: 0 0 0.5rem; display: flex; justify-content: space-between; }
+.board-col.drop { outline: 2px dashed var(--cyan); outline-offset: -2px; }
+.board-list { display: flex; flex-direction: column; gap: 0.5rem; min-height: 2.5rem; }
+.card { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.45rem 0.55rem; background: var(--bg2); }
+.card[draggable="true"] { cursor: grab; }
+.card.dragging { opacity: 0.45; }
+.card.late { border-left: 3px solid var(--red); }
+.card-top { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+.card-customer { font-weight: bold; margin-top: 0.15rem; }
+.card-summary { font-size: 0.92rem; overflow-wrap: anywhere; }
+form.card-move { display: flex; gap: 0.3rem; margin-top: 0.4rem; }
+form.card-move select { width: auto; flex: 1 1 auto; min-width: 0; padding: 0.25rem 0.35rem; font-size: 0.85rem; }
+.board-msg:empty { display: none; }
+.board-msg.ok { color: var(--lime); }
+.board-msg.error { color: var(--red); }
+.cal-nav { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; margin-bottom: 0.5rem; }
+.cal-nav input[type=date] { width: auto; padding: 0.25rem 0.4rem; }
+.list li.conflict { border-left: 3px solid var(--red); padding-left: 0.5rem; }
+
+/* Settings → Audit: what each change did. */
+ul.diff { margin: 0; padding-left: 1rem; font-size: 0.88rem; }
+ul.diff li { overflow-wrap: anywhere; }
+ul.diff del { color: var(--red); text-decoration: line-through; }
+ul.diff ins { color: var(--lime); text-decoration: none; }
+.nowrap { white-space: nowrap; }
+form.audit-filters { display: flex; flex-wrap: wrap; gap: 0 0.6rem; align-items: flex-end; }
+form.audit-filters .field { flex: 1 1 9rem; }
+.head .actions { margin-top: 0; }

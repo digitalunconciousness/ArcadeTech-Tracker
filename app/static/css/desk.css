@@ -165,3 +165,50 @@ dialog.cmd input { border: none; border-bottom: 1px solid var(--border); border-
   .pane-bar { display: flex; justify-content: flex-end; gap: 0.4rem; margin-bottom: 0.5rem; }
   .pane .panel form:not(.inline-form):not(.filters):not(.actions) { max-width: none; }
 }
+
+/* The work board: columns side by side, scrolling sideways inside the board when they
+   don't fit; each column as tall as its cards. */
+@media (min-width: 64rem) {
+  .board { grid-auto-flow: column; grid-auto-columns: minmax(15rem, 1fr); overflow-x: auto;
+           align-items: start; padding-bottom: 0.4rem; }
+  .board-col { max-height: calc(100vh - 13rem); display: flex; flex-direction: column; }
+  .board-list { overflow-y: auto; }
+  /* the Move menu shows on a card you point at or tab into; dragging is the usual way */
+  .card:not(:hover):not(:focus-within) form.card-move { display: none; }
+}
+
+/* The dispatch calendar: "To schedule" beside a time grid, a lane per tech (or a column
+   per day). 64 slots = 06:00-22:00 in 15 minutes (planning.DAY_START, DAY_END, SLOT);
+   dispatch.js places the bookings from their times. */
+@media (min-width: 64rem) {
+  .dispatch { --slot: 0.9rem; display: grid; grid-template-columns: 16rem minmax(0, 1fr);
+              gap: 1rem; align-items: start; }
+  .queue { max-height: calc(100vh - 13rem); overflow-y: auto; }
+  .queue-item[draggable="true"] { cursor: grab; }
+  .cal { padding: 0; overflow-x: auto; }
+  .cal-row { display: flex; min-width: max-content; }
+  .cal-head { border-bottom: 1px solid var(--border); }
+  .cal-label { flex: 1 0 9rem; padding: 0.45rem 0.5rem; font-weight: 600; border-left: 1px solid var(--border); }
+  .cal-label.today { color: var(--magenta); }
+  .cal-body { max-height: calc(100vh - 15rem); overflow-y: auto; }
+  .cal-times { flex: 0 0 3.4rem; }
+  .cal-body .cal-times { display: flex; flex-direction: column; height: calc(64 * var(--slot)); }
+  .cal-body .cal-times span { flex: 0 0 calc(4 * var(--slot)); font-size: 0.75rem; color: var(--dim);
+                              text-align: right; padding: 0.1rem 0.4rem 0 0; }
+  .cal-col { flex: 1 0 9rem; position: relative; height: calc(64 * var(--slot));
+             border-left: 1px solid var(--border);
+             background-image: repeating-linear-gradient(to bottom, var(--border) 0 1px,
+                               transparent 1px calc(4 * var(--slot))); }
+  .appt { position: absolute; left: 0; width: calc(100% - 3px); box-sizing: border-box; overflow: hidden;
+          background: var(--bg2); border: 1px solid var(--cyan); border-left-width: 3px;
+          border-radius: var(--radius); padding: 0.1rem 0.3rem 0.4rem; font-size: 0.82rem; line-height: 1.25; }
+  .appt[draggable="true"] { cursor: grab; }
+  .appt.conflict { border-color: var(--red); }
+  .appt.dragging { opacity: 0.4; }
+  .appt-who { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .appt-edit { position: absolute; top: 0.1rem; right: 0.3rem; }
+  .appt .resize { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; }
+  .appt-ghost { position: absolute; left: 2px; right: 2px; z-index: 2; pointer-events: none;
+                border: 2px dashed var(--magenta); border-radius: var(--radius); color: var(--magenta);
+                font-size: 0.75rem; padding: 0.1rem 0.3rem; background: var(--panel); }
+}

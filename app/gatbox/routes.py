@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.auth.forms import EmptyForm
 from app.extensions import db
-from app.gatbox import service
+from app.gatbox import charts, service
 from app.gatbox.service import TraceError
 from app.models import (
     LINK_SOURCES,
@@ -68,9 +68,17 @@ def show(session_id):
     count = db.session.scalar(select(func.count(Reading.id)).where(
         Reading.rail_session_id == session.id))
     edit = current_user.role in EDIT_ROLES
+    # This trace against its other half (as found / as left) on a job it's on.
+    cmp, cmp_wo = None, None
+    for _, job, wo in links:
+        found = service.compare(job.id)
+        if found and session.id in (found["found"].id, found["left"].id):
+            cmp, cmp_wo = found, wo
+            break
     return render_template("traces/show.html", session=session, asset=asset, device=device,
                            links=links, attachable=attachable if edit else [], count=count,
-                           chart=chart_json(session), action=EmptyForm(), edit=edit)
+                           chart=chart_json(session), action=EmptyForm(), edit=edit,
+                           cmp=cmp, cmp_wo=cmp_wo, overlay=charts.overlay_json(cmp))
 
 
 @bp.route("/traces/<int:session_id>/attach", methods=["POST"])

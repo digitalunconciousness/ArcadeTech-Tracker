@@ -68,7 +68,9 @@ def create_app(overrides=None):
     from app.purchasing.routes import bp as purchasing_bp
     from app.reports.routes import bp as reports_bp
     from app.search.routes import bp as search_bp
+    from app.settings import audit  # noqa: F401  (Settings → Audit, on settings_bp)
     from app.settings.routes import bp as settings_bp
+    from app.work import planning  # noqa: F401  (the board and dispatch, on work_bp)
     from app.work.routes import bp as work_bp
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,

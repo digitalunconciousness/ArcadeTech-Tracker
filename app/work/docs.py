@@ -11,6 +11,7 @@ from weasyprint import CSS, HTML
 
 from app.extensions import db
 from app.formatting import plain
+from app.gatbox import charts as trace_charts
 from app.gatbox import service as gatbox
 from app.models import (
     READING_PHASES,
@@ -101,7 +102,11 @@ def service_report(wo, customer):
     part_links = {link.id: link for link in db.session.scalars(select(PartLink).where(
         PartLink.id.in_([x.part_link_id for ls in lines.values() for x in ls
                          if x.awaiting and x.part_link_id])))}
+    accent = get_settings().doc_accent_color
+    overlays = {job_id: trace_charts.overlay_svg(gatbox.compare(job_id), accent=accent)
+                for job_id in traces}
     return render_pdf("docs/service_report.html", wo=wo, customer=customer, jobs=jobs,
+                      overlays={k: v for k, v in overlays.items() if v},
                       traces=traces, trace_phases=READING_PHASES, part_links=part_links,
                       lines=lines, lots=lots, readings={k: reading_rows(v)
                                                         for k, v in readings.items()},

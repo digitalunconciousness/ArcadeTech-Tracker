@@ -1,10 +1,9 @@
-from datetime import timedelta
-
 from flask import (
     Blueprint,
     Response,
     abort,
     flash,
+    jsonify,
     make_response,
     redirect,
     render_template,
@@ -21,6 +20,7 @@ from app.auth.forms import EmptyForm
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.formatting import qty as fmt_qty
+from app.gatbox import charts as trace_charts
 from app.gatbox import service as gatbox
 from app.lists import desk_list
 from app.models import (
@@ -61,7 +61,7 @@ from app.partlinks import service as links
 from app.partlinks.forms import AddLinkForm, SendLinksForm
 from app.parts import stock
 from app.parts.stock import StockError
-from app.timeutil import from_local_naive, to_local_naive, utcnow
+from app.timeutil import from_local_naive, local_today, to_local_naive, utcnow
 from app.work import docs, files, service
 from app.work.forms import (
     AddJobForm,
@@ -72,6 +72,7 @@ from app.work.forms import (
     JobForm,
     LineEditForm,
     NewWorkOrderForm,
+    OrderedForm,
     PartLineForm,
     PhotoForm,
     ReadingForm,
@@ -283,7 +284,8 @@ def show(wo_id):
                            status_form=StatusForm(status=wo.status), add_job=add_job,
                            warranty_of=warranty_of, costs=sees_costs(),
                            appointments=appointments, who=who, estimates=estimates,
-                           invoices=invoices, unbilled=unbilled, buying=link_lines(wo),
+                           invoices=invoices, unbilled=unbilled, buying=customer_parts(wo),
+                           today=local_today(),
                            job_tags={job.id: asset.tag if asset else None for job, asset in jobs},
                            appointment_form=appointment_form(wo, customer)
                            if current_user.role in EDIT_ROLES else None)
@@ -312,14 +314,38 @@ def edit(wo_id):
 @bp.route("/work/<int:wo_id>/status", methods=["POST"])
 @requires_role(*EDIT_ROLES)
 def status(wo_id):
+    """Set a WO's status: the form on its page, or a card moved on the board. A card says
+    which status it was in (`from`); if someone changed it meanwhile, nothing is saved.
+    The board asks for JSON (Accept: application/json) and gets it back."""
     wo, _ = load_wo(wo_id)
     form = StatusForm()
-    if form.validate_on_submit():
-        attempt(lambda: service.set_status(wo, form.status.data),
-                f"{wo.number}: {WO_STATUSES[form.status.data].lower()}.")
-    else:
+    as_json = request.headers.get("Accept") == "application/json"
+    back = url_for("work.board") if request.form.get("back") == "board" else \
+        url_for("work.show", wo_id=wo.id)
+    if not form.validate_on_submit():
+        if as_json:
+            return jsonify(error="That didn't save. Reload the page and try again.",
+                           status=wo.status), 400
         flash_errors(form)
-    return redirect(url_for("work.show", wo_id=wo.id))
+        return redirect(back)
+    seen = request.form.get("from")
+    if seen and seen != wo.status:
+        message = f"{wo.number} changed meanwhile: it's {WO_STATUSES[wo.status].lower()} now."
+        if as_json:
+            return jsonify(error=message, status=wo.status), 409
+        flash(message, "error")
+        return redirect(back)
+    message = f"{wo.number}: {WO_STATUSES[form.status.data].lower()}."
+    if as_json:
+        try:
+            service.set_status(wo, form.status.data)
+            db.session.commit()
+        except WorkError as e:
+            db.session.rollback()
+            return jsonify(error=str(e), status=wo.status), 409
+        return jsonify(message=message, status=wo.status)
+    attempt(lambda: service.set_status(wo, form.status.data), message)
+    return redirect(back)
 
 
 @bp.route("/work/<int:wo_id>/hold", methods=["POST"])
@@ -364,19 +390,17 @@ def appointment_add(wo_id):
     wo, customer = load_wo(wo_id)
     form = appointment_form(wo, customer)
     if form.validate_on_submit():
-        def add():
-            start = from_local_naive(form.starts_at.data)
-            appt = Appointment(work_order_id=wo.id, starts_at=start,
-                               ends_at=start + timedelta(minutes=form.minutes.data),
-                               site_id=form.site_id.data, note=form.note.data)
-            db.session.add(appt)
-            db.session.flush()
-            for uid in form.users.data:
-                db.session.add(AppointmentUser(appointment_id=appt.id, user_id=uid))
-            if wo.status == "new":
-                wo.status = "scheduled"
+        warnings = []
 
-        attempt(add, "Appointment added.")
+        def add():
+            _, found = service.book(wo, start=from_local_naive(form.starts_at.data),
+                                    minutes=form.minutes.data, user_ids=form.users.data,
+                                    site_id=form.site_id.data, note=form.note.data)
+            warnings.extend(found)
+
+        if attempt(add, "Appointment added."):
+            for warning in warnings:
+                flash(f"Heads up: {warning}.", "error")
     else:
         flash_errors(form)
     return redirect(url_for("work.show", wo_id=wo.id) + "#appointments")
@@ -395,6 +419,9 @@ def appointment_delete(appt_id):
             db.session.delete(appt)
 
         attempt(remove, "Appointment removed.")
+    back = request.form.get("next") or ""
+    if back.startswith("/") and not back.startswith("//"):      # from the dispatch calendar
+        return redirect(back)
     return redirect(url_for("work.show", wo_id=appt.work_order_id) + "#appointments")
 
 
@@ -474,9 +501,10 @@ def job(job_id):
     edit = current_user.role in EDIT_ROLES
     part_links = {link.id: link for link in db.session.scalars(select(PartLink).where(
         PartLink.id.in_([x.part_link_id for x in lines if x.part_link_id])))}
+    compared = gatbox.compare(job.id)
     return render_template(
         "work/job.html", job=job, wo=wo, customer=customer, asset=asset, lines=lines,
-        part_links=part_links,
+        part_links=part_links, today=local_today(),
         totals=service.totals(lines), has_customer_part=has_customer_part, lots=lots,
         users=users, entries=entries, my_timer=mine, reservations=reservations,
         readings=readings, photos=photos, costs=sees_costs(),
@@ -487,6 +515,8 @@ def job(job_id):
         job_form=job_form(job) if edit else None, forms=job_forms(job, wo) if edit else None,
         order_form=job_order_form() if edit and service.is_open(wo) else None,
         po_lines=job_po_lines(job), traces=gatbox.traces_for_job(job.id),
+        cmp=compared, overlay=trace_charts.overlay_json(compared),
+        reading_charts=trace_charts.readings_json(docs.reading_rows(readings)),
         loose_traces=gatbox.unattached(job.asset_id) if edit and job.asset_id else [])
 
 
@@ -614,9 +644,12 @@ def line_customer_part(job_id):
     job, _ = load_job(job_id)
     form = CustomerPartForm()
     if form.validate_on_submit():
-        attempt(lambda: service.add_customer_part(job, description=form.description.data,
-                                                  qty=form.qty.data),
-                "Added the customer's part (no charge, no warranty).")
+        wait = form.wait.data
+        if attempt(lambda: service.add_own_part(job, description=form.description.data,
+                                                qty=form.qty.data, wait=wait),
+                   "Added the customer's part: waiting for it to arrive." if wait else
+                   "Added the customer's part (no charge, no warranty)."):
+            return back_to_job(job.id, "#customer-parts" if wait else "#lines")
     else:
         flash_errors(form)
     return back_to_job(job.id, "#lines")
@@ -724,6 +757,29 @@ def add_part_link(job_id):
     return redirect(url_for("partlinks.pick", **{"for": f"wo:{job.id}"}))
 
 
+def back_to_parts(job, wo):
+    """Back to the customer's parts on the page the button was pressed on."""
+    if request.form.get("back") == "wo":
+        return redirect(url_for("work.show", wo_id=wo.id) + "#customer-parts")
+    return back_to_job(job.id, "#customer-parts")
+
+
+@bp.route("/work/lines/<int:line_id>/ordered", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def ordered(line_id):
+    """The customer says they've ordered their part: when, and when they expect it."""
+    line = get_or_404(WoLine, line_id)
+    job, wo = load_job(line.wo_job_id)
+    form = OrderedForm()
+    if form.validate_on_submit():
+        attempt(lambda: service.mark_ordered(line, ordered_on=form.ordered_on.data,
+                                             expected_on=form.expected_on.data),
+                f"“{line.description}”: ordered.")
+    else:
+        flash_errors(form)
+    return back_to_parts(job, wo)
+
+
 @bp.route("/work/lines/<int:line_id>/arrived", methods=["POST"])
 @requires_role(*EDIT_ROLES)
 def arrived(line_id):
@@ -731,10 +787,23 @@ def arrived(line_id):
     job, wo = load_job(line.wo_job_id)
     holder = {}
     if EmptyForm().validate_on_submit() and \
-            attempt(lambda: holder.update(moved=service.mark_arrived(line)), "Marked arrived."):
+            attempt(lambda: holder.update(moved=service.mark_arrived(line)),
+                    f"“{line.description}” is here."):
         if holder["moved"]:
             flash(f"Nothing else is on its way: {wo.number} is back In progress.", "ok")
-    return back_to_job(job.id, "#customer-parts")
+    return back_to_parts(job, wo)
+
+
+def customer_parts(wo):
+    """The customer's parts on this WO that are on their way or came from a saved link,
+    each with its link (or None)."""
+    return db.session.execute(
+        select(WoLine, PartLink).outerjoin(PartLink, PartLink.id == WoLine.part_link_id)
+        .join(WoJob, WoJob.id == WoLine.wo_job_id)
+        .where(WoJob.work_order_id == wo.id, WoJob.status != "cancelled",
+               WoLine.customer_supplied.is_(True),
+               or_(WoLine.awaiting.is_(True), WoLine.part_link_id.is_not(None)))
+        .order_by(WoLine.awaiting.desc(), WoLine.id)).all()
 
 
 def link_lines(wo):

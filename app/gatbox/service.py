@@ -197,6 +197,28 @@ def traces_for_job(job_id):
         .order_by(RailSession.started_at.nulls_last(), RailSession.id)).all()
 
 
+def compare(job_id):
+    """The job's latest as-found and as-left traces, to draw one over the other: a dict
+    (found, left: sessions; found_points, left_points; unit; lo, hi, alarm from the as-left
+    trace, else the as-found one), or None without both or when their units differ."""
+    rows = traces_for_job(job_id)
+    found = [s for link, s in rows if link.phase == "as_found"]
+    left = [s for link, s in rows if link.phase == "as_left"]
+    if not found or not left:
+        return None
+    before, after = found[-1], left[-1]
+    if (before.window_unit or "V") != (after.window_unit or "V"):
+        return None
+
+    def pick(name):
+        value = getattr(after, name)
+        return value if value is not None else getattr(before, name)
+
+    return {"found": before, "left": after, "found_points": trace(before.id),
+            "left_points": trace(after.id), "unit": after.window_unit or "V",
+            "lo": pick("window_lo"), "hi": pick("window_hi"), "alarm": pick("alarm_hi")}
+
+
 def traces_for_asset(asset_id):
     """[(session, [job ids it's on])], newest first."""
     sessions = db.session.scalars(select(RailSession).where(RailSession.asset_id == asset_id)

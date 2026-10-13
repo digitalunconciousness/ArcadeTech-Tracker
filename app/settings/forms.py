@@ -59,6 +59,8 @@ class BusinessForm(FlaskForm):
     payment_instructions = TextAreaField(
         "How customers pay you (Zelle, Venmo, checks payable to…; printed on invoices)",
         filters=[blank_to_none], validators=[Optional(), Length(max=2000)])
+    dispatch_block_overlap = BooleanField(
+        "Refuse to book a tech twice at the same time (otherwise it's flagged in red)")
 
 
 ROLE_CHOICES = [(role, label) for role, label in ROLE_LABELS.items()]
