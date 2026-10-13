@@ -74,7 +74,7 @@
     <tbody>
     {% for x, days in warranty[job.id] if x.kind == 'part' %}
     <tr>
-      <td>{% set link = part_links.get(x.part_link_id) if x.awaiting else none %}{% if link %}<a href="{{ link.url }}">{{ x.description }}</a>{% else %}{{ x.description }}{% endif %}{% if x.awaiting %} <span class="muted">(the customer's; not here yet)</span>{% if link %}<div class="muted small">{{ link.url | site }}</div>{% endif %}{% elif x.customer_supplied %} <span class="muted">(supplied by the customer)</span>{% endif %}</td>
+      <td>{% set link = part_links.get(x.part_link_id) if x.awaiting else none %}{% if link %}<a href="{{ link.url }}">{{ x.description }}</a>{% else %}{{ x.description }}{% endif %}{% if x.awaiting %} <span class="muted">(the customer's; {% if x.ordered_on %}ordered {{ x.ordered_on }}{% if x.expected_on %}, expected {{ x.expected_on }}{% endif %}{% else %}not here yet{% endif %})</span>{% if link %}<div class="muted small">{{ link.url | site }}</div>{% endif %}{% elif x.customer_supplied %} <span class="muted">(supplied by the customer)</span>{% endif %}</td>
       <td class="num">{{ x.qty | qty }}</td>
       <td class="mono">{{ lots.get(x.stock_lot_id) or '' }}</td>
       <td class="num">{{ days ~ ' days' if days else 'none' }}</td>

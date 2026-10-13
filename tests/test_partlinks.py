@@ -327,6 +327,83 @@ def test_every_part_they_buy_links_to_the_site(app, signed_in, monkeypatch):
     report = seen["docs/service_report.html"]
     assert lock_href in report and "not here yet" in report and cap_href not in report
 
+
+def test_customer_parts_go_to_order_ordered_here(app, signed_in):
+    """A part the customer is getting: to order, then ordered (when, expected when), then
+    here. Buttons on the work order page come back to it; the last arrival frees the WO."""
+    tech, viewer = signed_in("tech"), signed_in("viewer")
+    cid = customer(tech, "Order Step Arcade")
+    wo_id = new_wo(tech, cid, asset(tech, cid, "Galaga"))
+    job = first_job(app, wo_id)
+    lock = save(tech, "https://example.org/lock", "Coin door lock")
+    tech.post(f"/work/jobs/{job}/part-links", data={"part_link_id": str(lock), "qty": "1",
+                                                    "wait": "y"})
+    # their own part that isn't here yet waits too (no link needed)
+    resp = tech.post(f"/work/jobs/{job}/lines/customer-part",
+                     data={"description": "Spare monitor chassis", "qty": "1", "wait": "y"})
+    assert resp.status_code == 302 and resp.location.endswith("#customer-parts")
+    tech.post(f"/work/jobs/{job}/lines/customer-part",
+              data={"description": "Marquee light", "qty": "1"})        # brought in: here
+    rows = dict(db_query(app, "SELECT description, id FROM wo_line"))
+    lock_line, chassis = rows["Coin door lock"], rows["Spare monitor chassis"]
+    assert db_query(app, "SELECT status FROM work_order") == [("waiting_parts",)]
+    assert db_query(app, "SELECT description FROM wo_line WHERE awaiting ORDER BY id") == [
+        ("Coin door lock",), ("Spare monitor chassis",)]
+    page = text(tech.get(f"/work/{wo_id}"))
+    panel = page[page.index('id="customer-parts"'):]
+    assert panel.count("to order") == 2 and "Marquee light" not in panel
+    assert f'action="/work/lines/{chassis}/ordered"' in panel and "Arrived" in panel
+    assert "Update the customer's parts" in page
+    assert 'name="ordered_on"' not in text(viewer.get(f"/work/{wo_id}"))
+    # ordered, from the work order page: back to it, with the dates
+    resp = tech.post(f"/work/lines/{lock_line}/ordered",
+                     data={"ordered_on": "2026-10-13", "expected_on": "2026-10-20", "back": "wo"})
+    assert resp.status_code == 302 and resp.location.endswith(f"/work/{wo_id}#customer-parts")
+    assert db_query(app, "SELECT ordered_on::text, expected_on::text FROM wo_line WHERE id = :i",
+                    i=lock_line) == [("2026-10-13", "2026-10-20")]
+    page = text(tech.get(f"/work/{wo_id}"))
+    assert "Coin door lock (the customer's; ordered 2026-10-13, expected 2026-10-20)" in page
+    assert "Spare monitor chassis (the customer's; to order)" in page
+    resp = tech.post(f"/work/lines/{chassis}/ordered",
+                     data={"ordered_on": "2026-10-13", "expected_on": "2026-10-01"},
+                     follow_redirects=True)
+    assert "can't be expected before it was ordered" in text(resp)
+    assert db_query(app, "SELECT ordered_on FROM wo_line WHERE id = :i", i=chassis) == [(None,)]
+    assert viewer.post(f"/work/lines/{chassis}/ordered",
+                       data={"ordered_on": "2026-10-13"}).status_code == 403
+    # here: one, then the other frees the work order
+    resp = tech.post(f"/work/lines/{lock_line}/arrived", data={"back": "wo"})
+    assert resp.location.endswith(f"/work/{wo_id}#customer-parts")
+    assert db_query(app, "SELECT status FROM work_order") == [("waiting_parts",)]
+    resp = tech.post(f"/work/lines/{chassis}/arrived", follow_redirects=True)
+    assert "back In progress" in text(resp)
+    assert db_query(app, "SELECT status FROM work_order") == [("in_progress",)]
+    resp = tech.post(f"/work/lines/{chassis}/ordered", data={"ordered_on": "2026-10-13"},
+                     follow_redirects=True)
+    assert "already here" in text(resp)
+
+
+def test_a_wait_with_nothing_outstanding_has_a_way_out(app, signed_in, tdb):
+    tech = signed_in("tech")
+    cid = customer(tech, "Stuck Test Arcade")
+    wo_id = new_wo(tech, cid)
+    tech.post(f"/work/{wo_id}/status", data={"status": "waiting_parts"})
+    page = text(tech.get(f"/work/{wo_id}"))
+    assert "nothing is outstanding" in page and "Back to In progress" in page
+    tech.post(f"/work/{wo_id}/status", data={"status": "in_progress"})
+    assert db_query(app, "SELECT status FROM work_order") == [("in_progress",)]
+    # order dates only ever sit on a customer's part, and expected only once ordered
+    job = first_job(app, wo_id)
+    with psycopg.connect(libpq(tdb.url("app"))) as c:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            c.execute("INSERT INTO wo_line (wo_job_id, kind, description, qty, labor_mode, "
+                      "ordered_on) VALUES (%s, 'labor', 'x', 1, 'flat', current_date)", (job,))
+        c.rollback()
+        with pytest.raises(psycopg.errors.CheckViolation):
+            c.execute("INSERT INTO wo_line (wo_job_id, kind, description, qty, "
+                      "customer_supplied, expected_on) "
+                      "VALUES (%s, 'part', 'x', 1, true, current_date)", (job,))
+
 def test_switched_off_links_and_closed_targets(app, signed_in):
     owner = signed_in("owner")
     cid, aid, pid, est_id = built(owner, app)

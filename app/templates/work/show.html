@@ -8,7 +8,12 @@
     {% if can_edit %}<a class="btn" href="{{ url_for('work.edit', wo_id=wo.id) }}">Edit</a>{% endif %}
   </div>
   <p class="lead">{{ wo.summary }} <span class="badge {{ 'ok' if wo.status == 'completed' else 'danger' if wo.status == 'cancelled' else 'warn' if wo.status.startswith('waiting') else '' }}">{{ statuses[wo.status] | lower }}</span>{% if wo.parts_arrived_at %} <span class="badge ok glow">parts in</span>{% endif %}</p>
-  {% if waiting %}<div class="small"><span class="dim">Waiting on:</span> {{ waiting | join(' · ') }}</div>{% elif wo.status == 'waiting_parts' %}<div class="small dim">Waiting on parts, but nothing is outstanding: set the status by hand.</div>{% endif %}
+  {% if waiting %}<div class="small"><span class="dim">Waiting on:</span> {{ waiting | join(' · ') }}{% if buying | selectattr('0.awaiting') | list %} <a href="#customer-parts">Update the customer's parts</a>{% endif %}</div>{% elif wo.status == 'waiting_parts' %}<div class="small dim">Waiting on parts, but nothing is outstanding.{% if can_edit %}
+    <form class="inline-form" method="post" action="{{ url_for('work.status', wo_id=wo.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="status" value="in_progress">
+      <button class="btn small primary" type="submit">Back to In progress</button>
+    </form>{% endif %}</div>{% endif %}
   <dl class="facts">
     <dt>Customer</dt><dd><a href="{{ url_for('customers.show', customer_id=customer.id) }}">{{ customer.display_name }}</a>{% if customer.phone %} · <a href="tel:{{ customer.phone }}">{{ customer.phone }}</a>{% endif %}</dd>
     {% if site %}<dt>Site</dt><dd>{{ site.name }}{% if site.city %}, {{ site.city }}{% endif %}</dd>{% endif %}
@@ -69,14 +74,10 @@
   <h2>Parts the customer is buying</h2>
   <ul class="list">
     {% for line, link in buying %}
-    <li{% if not line.awaiting %} class="inactive"{% endif %}>
-      <a href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank"><strong>{{ line.description }}</strong></a> × {{ line.qty | qty }}
-      {% if line.awaiting %}<span class="badge warn">on its way</span>{% else %}<span class="badge ok">here</span>{% endif %}
-      <div class="dim">{{ link.domain }} · <a href="{{ url_for('work.job', job_id=line.wo_job_id) }}#customer-parts">{% if job_tags.get(line.wo_job_id) %}<span class="mono">{{ job_tags[line.wo_job_id] }}</span>{% else %}consult{% endif %}</a></div>
-    </li>
+    {% with back = 'wo', job_label = job_tags.get(line.wo_job_id) or 'consult' %}{% include "work/_customer_part.html" %}{% endwith %}
     {% endfor %}
   </ul>
-  {% if can_edit %}<div class="actions"><a class="btn" href="{{ url_for('work.send_links', wo_id=wo.id) }}">Send links to the customer</a></div>{% endif %}
+  {% if can_edit and buying | map(attribute=1) | select | list %}<div class="actions"><a class="btn" href="{{ url_for('work.send_links', wo_id=wo.id) }}">Send links to the customer</a></div>{% endif %}
 </section>
 {% endif %}
 

@@ -274,9 +274,26 @@ def add_part_link(job, link, *, qty, wait=True):
         raise WorkError(f"“{link.title}” is switched off.")
     line = add_customer_part(job, description=link.title[:200], qty=qty, part_link_id=link.id,
                              awaiting=True)
-    if wait and wo.status != "waiting_parts":
-        set_status(wo, "waiting_parts")
+    if wait:
+        wait_for_parts(wo)
     return line
+
+
+def add_own_part(job, *, description, qty, wait=False):
+    """A part the customer brought, or (`wait`) one they're getting that isn't here yet:
+    then it's on its way and the WO waits on parts."""
+    wo = db.session.get(WorkOrder, job.work_order_id)
+    if wait and not is_open(wo):
+        raise WorkError(f"{wo.number} is {wo.status}.")
+    line = add_customer_part(job, description=description, qty=qty, awaiting=wait)
+    if wait:
+        wait_for_parts(wo)
+    return line
+
+
+def wait_for_parts(wo):
+    if wo.status != "waiting_parts":
+        set_status(wo, "waiting_parts")
 
 
 def awaiting_lines(wo):
@@ -285,6 +302,26 @@ def awaiting_lines(wo):
         select(WoLine).join(WoJob, WoJob.id == WoLine.wo_job_id)
         .where(WoJob.work_order_id == wo.id, WoJob.status != "cancelled",
                WoLine.awaiting.is_(True)).order_by(WoLine.id)).all()
+
+
+def mark_ordered(line, *, ordered_on, expected_on=None):
+    """The customer has ordered their part: when, and when they expect it. It's still on
+    its way, so the WO keeps waiting."""
+    if not line.awaiting:
+        raise WorkError("That part is already here.")
+    if expected_on is not None and expected_on < ordered_on:
+        raise WorkError("It can't be expected before it was ordered.")
+    ensure_unbilled(line)
+    line.ordered_on, line.expected_on = ordered_on, expected_on
+    db.session.flush()
+
+
+def on_its_way(line):
+    """'to order' or 'ordered 2026-10-13, expected 2026-10-20': where a customer's part is."""
+    if line.ordered_on is None:
+        return "to order"
+    return f"ordered {line.ordered_on}" + \
+        (f", expected {line.expected_on}" if line.expected_on else "")
 
 
 def mark_arrived(line):
@@ -322,7 +359,7 @@ def waiting_on(wo):
     """What the WO still waits for, as short descriptions: the customer's parts on their
     way, parts on order for its jobs, and parts set aside for it that aren't in stock."""
     jobs = select(WoJob.id).where(WoJob.work_order_id == wo.id, WoJob.status != "cancelled")
-    out = [f"{x.description} (the customer's)" for x in awaiting_lines(wo)]
+    out = [f"{x.description} (the customer's; {on_its_way(x)})" for x in awaiting_lines(wo)]
     for line, part in db.session.execute(
             select(PoLine, Part).join(Part, Part.id == PoLine.part_id)
             .where(PoLine.wo_job_id.in_(jobs), PoLine.status.in_(OPEN_LINE_STATUSES))

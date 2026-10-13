@@ -61,7 +61,7 @@ from app.partlinks import service as links
 from app.partlinks.forms import AddLinkForm, SendLinksForm
 from app.parts import stock
 from app.parts.stock import StockError
-from app.timeutil import from_local_naive, to_local_naive, utcnow
+from app.timeutil import from_local_naive, local_today, to_local_naive, utcnow
 from app.work import docs, files, service
 from app.work.forms import (
     AddJobForm,
@@ -72,6 +72,7 @@ from app.work.forms import (
     JobForm,
     LineEditForm,
     NewWorkOrderForm,
+    OrderedForm,
     PartLineForm,
     PhotoForm,
     ReadingForm,
@@ -283,7 +284,8 @@ def show(wo_id):
                            status_form=StatusForm(status=wo.status), add_job=add_job,
                            warranty_of=warranty_of, costs=sees_costs(),
                            appointments=appointments, who=who, estimates=estimates,
-                           invoices=invoices, unbilled=unbilled, buying=link_lines(wo),
+                           invoices=invoices, unbilled=unbilled, buying=customer_parts(wo),
+                           today=local_today(),
                            job_tags={job.id: asset.tag if asset else None for job, asset in jobs},
                            appointment_form=appointment_form(wo, customer)
                            if current_user.role in EDIT_ROLES else None)
@@ -476,7 +478,7 @@ def job(job_id):
         PartLink.id.in_([x.part_link_id for x in lines if x.part_link_id])))}
     return render_template(
         "work/job.html", job=job, wo=wo, customer=customer, asset=asset, lines=lines,
-        part_links=part_links,
+        part_links=part_links, today=local_today(),
         totals=service.totals(lines), has_customer_part=has_customer_part, lots=lots,
         users=users, entries=entries, my_timer=mine, reservations=reservations,
         readings=readings, photos=photos, costs=sees_costs(),
@@ -614,9 +616,12 @@ def line_customer_part(job_id):
     job, _ = load_job(job_id)
     form = CustomerPartForm()
     if form.validate_on_submit():
-        attempt(lambda: service.add_customer_part(job, description=form.description.data,
-                                                  qty=form.qty.data),
-                "Added the customer's part (no charge, no warranty).")
+        wait = form.wait.data
+        if attempt(lambda: service.add_own_part(job, description=form.description.data,
+                                                qty=form.qty.data, wait=wait),
+                   "Added the customer's part: waiting for it to arrive." if wait else
+                   "Added the customer's part (no charge, no warranty)."):
+            return back_to_job(job.id, "#customer-parts" if wait else "#lines")
     else:
         flash_errors(form)
     return back_to_job(job.id, "#lines")
@@ -724,6 +729,29 @@ def add_part_link(job_id):
     return redirect(url_for("partlinks.pick", **{"for": f"wo:{job.id}"}))
 
 
+def back_to_parts(job, wo):
+    """Back to the customer's parts on the page the button was pressed on."""
+    if request.form.get("back") == "wo":
+        return redirect(url_for("work.show", wo_id=wo.id) + "#customer-parts")
+    return back_to_job(job.id, "#customer-parts")
+
+
+@bp.route("/work/lines/<int:line_id>/ordered", methods=["POST"])
+@requires_role(*EDIT_ROLES)
+def ordered(line_id):
+    """The customer says they've ordered their part: when, and when they expect it."""
+    line = get_or_404(WoLine, line_id)
+    job, wo = load_job(line.wo_job_id)
+    form = OrderedForm()
+    if form.validate_on_submit():
+        attempt(lambda: service.mark_ordered(line, ordered_on=form.ordered_on.data,
+                                             expected_on=form.expected_on.data),
+                f"“{line.description}”: ordered.")
+    else:
+        flash_errors(form)
+    return back_to_parts(job, wo)
+
+
 @bp.route("/work/lines/<int:line_id>/arrived", methods=["POST"])
 @requires_role(*EDIT_ROLES)
 def arrived(line_id):
@@ -731,10 +759,23 @@ def arrived(line_id):
     job, wo = load_job(line.wo_job_id)
     holder = {}
     if EmptyForm().validate_on_submit() and \
-            attempt(lambda: holder.update(moved=service.mark_arrived(line)), "Marked arrived."):
+            attempt(lambda: holder.update(moved=service.mark_arrived(line)),
+                    f"“{line.description}” is here."):
         if holder["moved"]:
             flash(f"Nothing else is on its way: {wo.number} is back In progress.", "ok")
-    return back_to_job(job.id, "#customer-parts")
+    return back_to_parts(job, wo)
+
+
+def customer_parts(wo):
+    """The customer's parts on this WO that are on their way or came from a saved link,
+    each with its link (or None)."""
+    return db.session.execute(
+        select(WoLine, PartLink).outerjoin(PartLink, PartLink.id == WoLine.part_link_id)
+        .join(WoJob, WoJob.id == WoLine.wo_job_id)
+        .where(WoJob.work_order_id == wo.id, WoJob.status != "cancelled",
+               WoLine.customer_supplied.is_(True),
+               or_(WoLine.awaiting.is_(True), WoLine.part_link_id.is_not(None)))
+        .order_by(WoLine.awaiting.desc(), WoLine.id)).all()
 
 
 def link_lines(wo):

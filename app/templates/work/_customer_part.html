@@ -1,0 +1,37 @@
+{# One customer's part: where it stands (to order, ordered, here), where to buy it, and the
+   buttons that move it along. `line`, `link` (or none), `back` ('wo' or 'job'), `today`,
+   and on the work order page `job_label` (the job it's on). #}
+<li{% if not line.awaiting %} class="inactive"{% endif %}>
+  {% if link %}<a href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank"><strong>{{ line.description }}</strong></a>{% else %}<strong>{{ line.description }}</strong>{% endif %} × {{ line.qty | qty }}
+  {% if not line.awaiting %}<span class="badge ok">here</span>{% elif line.ordered_on %}<span class="badge">ordered</span>{% else %}<span class="badge warn">to order</span>{% endif %}
+  <div class="dim sep">
+    {%- if link %}<span>{{ link.domain }}</span>{% endif -%}
+    {%- if line.awaiting and line.ordered_on %}<span>ordered {{ line.ordered_on }}{% if line.expected_on %}, expected {{ line.expected_on }}{% endif %}</span>{% endif -%}
+    {%- if job_label %}<span><a href="{{ url_for('work.job', job_id=line.wo_job_id) }}#customer-parts">{{ job_label }}</a></span>{% endif -%}
+  </div>
+  <div class="actions">
+    {% if link %}<a class="btn small" href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">Open</a>
+    <button class="btn small" type="button" data-share="{{ link.url }}" data-share-title="{{ link.title }}">Share</button>{% endif %}
+    {% if can_edit and line.awaiting %}
+    <form class="inline-form" method="post" action="{{ url_for('work.arrived', line_id=line.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="back" value="{{ back }}">
+      <button class="btn small primary" type="submit">Arrived</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if can_edit and line.awaiting %}
+  <details class="form">
+    <summary>{{ "Change the order dates" if line.ordered_on else "The customer ordered it" }}</summary>
+    <form method="post" action="{{ url_for('work.ordered', line_id=line.id) }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="back" value="{{ back }}">
+      <div class="row two">
+        <label class="field"><span>Ordered</span><input type="date" name="ordered_on" value="{{ line.ordered_on or today }}" required></label>
+        <label class="field"><span>Expected (if they know)</span><input type="date" name="expected_on" value="{{ line.expected_on or '' }}"></label>
+      </div>
+      <button class="btn small" type="submit">Save</button>
+    </form>
+  </details>
+  {% endif %}
+</li>

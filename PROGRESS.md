@@ -276,7 +276,12 @@ push/PR → owner deploys (⏸).
         list, the service report (parts not here yet), and web addresses in the customer's
         comm log (escaped text; only http(s) becomes a link). Already linked: the estimate
         (staff, PDF, `/d/`) and the job's customer-parts panel
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0018)
+  - [x] Customer's parts, to order → ordered → here (owner, 2026-10-13: "no way to update
+        to ordered and received"): migration 0019 (`wo_line.ordered_on`, `expected_on`);
+        Ordered (dates) and Arrived on the work order page as well as the job; their own
+        part can wait too ("Not here yet"); a work order waiting with nothing outstanding
+        gets a one-tap Back to In progress
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0018, 0019)
 - **9b: work in motion**: work board (drag between statuses), dispatch calendar (tech
   lanes, drag to book, move and resize), audit log viewer, as-found vs as-left overlay
   - [ ] Code + tests → ⏸ OK → PR → ⏸ deploy
@@ -648,3 +653,8 @@ push/PR → owner deploys (⏸).
   pre-push privacy hook lives).
 - Buy links added to the 9a PR as their own commit (no migration), comm-log addresses as
   links included (owner). Stored service reports keep what they had.
+- PR #17 opened (9a + buy links). The owner couldn't find how to move a customer's part
+  past "waiting": Arrived lived only on the job page, there was no ordered step, and a
+  hand-set wait had no way out but the status form at the bottom. Fixed as a third commit
+  on #17 (migration 0019).
+- 9b design OK'd (all eight as recommended; double-booking warns, with a setting to block).

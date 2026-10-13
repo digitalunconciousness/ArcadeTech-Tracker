@@ -118,6 +118,18 @@ class CustomerPartForm(FlaskForm):
     description = StringField("What they brought", filters=[blank_to_none],
                               validators=[DataRequired(), Length(max=200)])
     qty = qty_field("Quantity", required=True)
+    wait = BooleanField("Not here yet: put the work order on Waiting on parts until it is")
+
+
+class OrderedForm(FlaskForm):
+    """The customer says they've ordered their part. Rendered by hand, once per line."""
+
+    ordered_on = DateField("Ordered", validators=[DataRequired()])
+    expected_on = DateField("Expected", validators=[Optional()])
+
+    def validate_expected_on(self, field):
+        if field.data and self.ordered_on.data and field.data < self.ordered_on.data:
+            raise ValidationError("It can't be expected before it was ordered.")
 
 
 SCOPE_LABEL = "What it covers (one item per line; printed under the price)"

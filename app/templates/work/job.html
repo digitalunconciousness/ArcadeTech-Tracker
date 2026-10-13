@@ -134,7 +134,8 @@
     <form method="post" action="{{ url_for('work.line_customer_part', job_id=job.id) }}" novalidate>
       {{ forms.customer_part.csrf_token }}
       <div class="row two">{{ field(forms.customer_part.description) }}{{ field(forms.customer_part.qty, inputmode="decimal") }}</div>
-      <p class="dim">No charge, no warranty on it; labor on this job then carries 90 days.</p>
+      {{ check(forms.customer_part.wait) }}
+      <p class="dim">No charge, no warranty on it; labor on this job then carries 90 days. Not here yet? Tick the box: it shows under "Parts the customer is buying" until you press Arrived.</p>
       <button class="btn" type="submit">Add</button>
     </form>
   </details>
@@ -158,24 +159,9 @@
   <h2>Parts the customer is buying</h2>
   <ul class="list">
     {% for line in (waiting + buying) | unique(attribute='id') %}
-    {% set link = part_links.get(line.part_link_id) %}
-    <li{% if not line.awaiting %} class="inactive"{% endif %}>
-      <strong>{{ line.description }}</strong> × {{ line.qty | qty }}
-      {% if line.awaiting %}<span class="badge warn">on its way</span>{% else %}<span class="badge ok">here</span>{% endif %}
-      {% if link %}<div class="dim">{{ link.domain }}</div>{% endif %}
-      <div class="actions">
-        {% if link %}<a class="btn small" href="{{ link.url }}" rel="noopener noreferrer nofollow" target="_blank">Open</a>
-        <button class="btn small" type="button" data-share="{{ link.url }}" data-share-title="{{ link.title }}">Share</button>{% endif %}
-        {% if can_edit and line.awaiting %}
-        <form class="inline-form" method="post" action="{{ url_for('work.arrived', line_id=line.id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn small primary" type="submit">Arrived</button>
-        </form>
-        {% endif %}
-      </div>
-    </li>
+    {% with link = part_links.get(line.part_link_id), back = 'job', job_label = none %}{% include "work/_customer_part.html" %}{% endwith %}
     {% else %}
-    <li class="dim">None. Add one the customer will buy from a saved link; the work order can wait on it.</li>
+    <li class="dim">None. Add one the customer will buy from a saved link, or their own part that isn't here yet; the work order can wait on it.</li>
     {% endfor %}
   </ul>
   {% if forms %}
