@@ -35,6 +35,7 @@ from app.models import (
     CommLog,
     Customer,
     Estimate,
+    Expense,
     Invoice,
     ManualReading,
     Part,
@@ -46,6 +47,7 @@ from app.models import (
     Site,
     StockLot,
     TimeEntry,
+    Trip,
     User,
     WoJob,
     WoLine,
@@ -253,9 +255,20 @@ def show(wo_id):
                                   .order_by(Invoice.id)).all() if sees_costs() else []
     unbilled = any(x.billable and x.invoice_id is None and x.qty > 0
                    for job, _ in jobs if job.status != "cancelled" for x in lines[job.id])
+    from app.books import service as books
     from app.purchasing import service as buying
     from app.purchasing.routes import shipment_form
+    book_rows = None
+    if sees_costs():
+        book_rows = {
+            "expenses": db.session.scalars(select(Expense).where(
+                Expense.work_order_id == wo.id, Expense.voided_at.is_(None))
+                .order_by(Expense.spent_on)).all(),
+            "trips": [(t, books.trip_value(t)) for t in db.session.scalars(select(Trip).where(
+                Trip.work_order_id == wo.id, Trip.voided_at.is_(None)).order_by(Trip.trip_on))],
+        }
     return render_template("work/show.html", wo=wo, customer=customer, site=site, jobs=jobs,
+                           book_rows=book_rows,
                            waiting=service.waiting_on(wo) if wo.status == "waiting_parts"
                            else [], shipments=buying.shipments(wo=wo),
                            ship_form=shipment_form() if current_user.role in EDIT_ROLES

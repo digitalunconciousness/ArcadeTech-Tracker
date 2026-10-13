@@ -160,6 +160,7 @@ def app(tdb, tmp_path_factory):
 
 SEED_SERVICES = migration("0006_seed_services").SEED_SQL
 SEED_CARRIERS = migration("0013_seed_carriers").SEED_SQL
+SEED_BOOKS = migration("0015_seed_books").SEED_SQL
 
 
 @pytest.fixture(autouse=True)
@@ -189,6 +190,7 @@ def _clean(request, tdb):
                   "SELECT 'business', business_name, true FROM shop_setting")
         c.execute(SEED_SERVICES)
         c.execute(SEED_CARRIERS)
+        c.execute(SEED_BOOKS)
 
 
 @pytest.fixture

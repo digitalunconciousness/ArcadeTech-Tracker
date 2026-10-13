@@ -14,6 +14,16 @@ from app.models.billing import (
     PaymentAllocation,
     TaxJurisdiction,
 )
+from app.models.books import (
+    LEDGER_KINDS,
+    SPLIT_MODES,
+    Expense,
+    ExpenseCategory,
+    MileageRate,
+    PartnerEntry,
+    SalesTaxFiling,
+    Trip,
+)
 from app.models.customer import COMM_KINDS, PAYMENT_TERMS, CommLog, Contact, Customer, Site
 from app.models.doc_counter import DOC_KINDS, DocCounter
 from app.models.estimate import (
@@ -93,4 +103,6 @@ __all__ = [
     "OPEN_LINE_STATUSES", "OPEN_PO_STATUSES", "PO_LINE_STATUSES", "PO_STATUSES",
     "SHIPMENT_DIRECTIONS", "SHIPMENT_STATUSES",
     "Carrier", "PoLine", "PoReceipt", "PurchaseOrder", "Shipment",
+    "LEDGER_KINDS", "SPLIT_MODES",
+    "Expense", "ExpenseCategory", "MileageRate", "PartnerEntry", "SalesTaxFiling", "Trip",
 ]

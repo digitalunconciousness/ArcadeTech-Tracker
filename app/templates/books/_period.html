@@ -1,0 +1,7 @@
+{# A from/to filter on the current page. `start`, `end`; extra hidden fields in `keep`. #}
+<form method="get" class="filters">
+  <label class="field"><span>From</span><input type="date" name="start" value="{{ start }}"></label>
+  <label class="field"><span>To</span><input type="date" name="end" value="{{ end }}"></label>
+  {% for name, value in (keep or {}).items() %}{% if value %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endif %}{% endfor %}
+  <button class="btn" type="submit">Show</button>
+</form>

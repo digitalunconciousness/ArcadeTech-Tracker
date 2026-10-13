@@ -243,3 +243,6 @@ form.add-link { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5r
 form.add-link .field { margin-bottom: 0; }
 form.add-link .field.qty input { width: 5.5rem; }
 form.add-link .check { margin-bottom: 0.35rem; }
+
+/* An expense's receipt photo. */
+img.receipt { max-width: 100%; height: auto; max-height: 28rem; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; }

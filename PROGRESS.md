@@ -175,18 +175,39 @@ push/PR → owner deploys (⏸).
         the first real number)
   - [x] Receive → lot + receive move (both carry the PO line); the job's part was set aside
         when it was ordered; WO out of `waiting_parts` (tested, incl. FIFO between jobs)
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0012, 0013)
+  - [x] Diff, tests, privacy output → OK → PR #13
+  - [ ] ⏸ Owner merges and deploys (migrations 0012, 0013)
   - [ ] ⏸ Exit: receiving a line tied to a job reserves it and moves that WO out of
         `waiting_parts` (tested: `test_order_for_job_then_receive_releases_the_wo`). On the
         phone: Order for this job → Make draft POs → Mark ordered → add tracking → Receive
 
-## Phase 6: Dashboard & books (branch `phase/6-dashboard-books`)
+## Phase 6: Dashboard & books
 
-- [ ] Design note → ⏸ OK
-- [ ] Dashboard, reports, CSV exports, expenses, mileage, partner ledger, sales-tax filings
-- [ ] Year-end package + 1099 reconciliation; reconciles to the dashboard to the cent on a
-      synthetic year (tested)
-- [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
+- [x] Design note → OK (owner, 2026-10-13, all decisions as recommended except charts:
+      Chart.js on screen, server-drawn for print, from one data source)
+- **6a: books** (branch `phase/6a-books`, stacked on 5b until PR #13 merges)
+  - [x] Expenses (categories near the Schedule C lines, receipts as photo or PDF, paid by
+        the business or a partner, voids not deletes); what POs spend booked automatically
+        (shipping, sales tax paid, stock not tracked); vendor receipts on POs
+  - [x] Mileage: trips (from a WO too) valued at the rate on the day; dated rates, 2026's
+        two IRS rates seeded (72.5¢ to June 30, 76¢ from July 1)
+  - [x] Partner ledger: owed = expenses + POs on their card + own-vehicle trips − paid back;
+        contributions, draws, distributions; voids
+  - [x] Sales tax by period and jurisdiction (with what wasn't collected while it's off);
+        filings recorded with the period's figures copied in; no overlapping periods
+  - [x] Settings → Books (split, set-aside, storage days, internal labor cost, 1099
+        threshold, mileage rates, categories); restore drill re-hashes receipts
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0014, 0015)
+  - [ ] ⏸ Exit: an expense, a trip and a PO paid by a partner each show on that partner's
+        statement as owed; recording a reimbursement clears it (tested:
+        `test_what_a_partner_is_owed_and_paying_it_back`). On the phone: mark both owners as
+        partners (Settings → Users), confirm the mileage rates (Settings → Books)
+- **6b: numbers** (dashboard, reports, CSV, year-end package)
+  - [ ] Dashboard (cash/accrual), charts (Chart.js on screen; server-drawn for PDFs and
+        print), reports with CSV exports, partner shares of profit
+  - [ ] Year-end package + 1099 reconciliation; reconciles to the dashboard to the cent on a
+        synthetic year (tested)
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
 
 ## Phase 7: GATBOX link, hub side (branch `phase/7-gatbox-link`)
 
@@ -289,6 +310,14 @@ push/PR → owner deploys (⏸).
 | 2026-10-12 | POs: draft → ordered (number from `doc_counter` at that moment, never in the future) → partly received → received, or closed short / cancelled. Lines to order may be deleted (trigger `po_line_guard`); after that only cancelled or closed. Receipts append-only; received = sum of receipts. Subtotal and total computed; shipping and tax paid entered from the receipt | Owner decisions 5–7; the stock ledger's "never a stored count" rule |
 | 2026-10-12 | Carriers (USPS, UPS, FedEx, DHL Express) seeded by a data migration with link templates from community-documented formats (none publishes one; DHL's `AWB=` parameter is the older form). Edited in Settings → Carriers; carrier guessed from the number by pattern; status set by hand | Plan: "a carrier changing its site is a settings edit, not a deploy" |
 | 2026-10-12 | Shipments sit on a PO (from the vendor) or a WO (to or from the customer). Techs add and update tracking; only owners and viewers see shipping cost. The job's older `inbound_tracking` field stays as it was | Owner decision 9 |
+| 2026-10-13 | Phase 6 in two PRs: 6a books (expenses, mileage, partner ledger, sales-tax filings), 6b numbers (dashboard, reports, CSV, year-end package) | Owner |
+| 2026-10-13 | Charts: Chart.js 4.5.1 (vendored) on screen; the same data drawn as server-side SVG for PDFs, the year-end package and the browser's print. One function per chart feeds both | Owner: Chart.js's interaction, without its poor printing |
+| 2026-10-13 | Purchase orders feed the books with no second entry: shipping, sales tax paid and lines for parts not stocked show as expenses on the order date; a PO on a partner's card is owed to them in full. Stocked parts are cost of the job when sold | Owner (decision 3); the plan's "inventory parts are not expenses" |
+| 2026-10-13 | A partner's trips in their own vehicle are owed to them at the IRS rate in effect on the day; rates are dated rows (the IRS changed 2026's mid-year) | Owner (decision 4; CPA to confirm the arrangement) |
+| 2026-10-13 | Nothing in the books is deleted: expenses, trips and ledger entries are voided with a reason; categories switched off; rates edited (audited). Reimbursing more than is owed is refused (record the rest as a draw) | Owner (decision 5) |
+| 2026-10-13 | Owners keep the books; viewers (the accountant, later) read them; techs see none of it | Owner (decision 6) |
+| 2026-10-13 | 2026 mileage rates seeded from the IRS (Notice 2026-10: 72.5¢; Announcement 2026-11: 76¢ from July 1), labelled with their source; the 1099-NEC threshold is a setting, $2,000 for 2026 payments | Owner (decisions 7, 8); checked 2026-10-12 |
+| 2026-10-13 | Sales-tax filings copy the period's taxable sales and tax collected when recorded; periods can't overlap (exclusion constraint). "Collected and not yet filed" counts from the day after the last filed period | A later void can't change what was filed |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -467,4 +496,18 @@ push/PR → owner deploys (⏸).
   rest on web searches; flagged for the owner to check with real numbers.
 - The phone pass caught the settings tabs running off a phone screen once Carriers made
   five; the tabs wrap now.
+
+### Session 3, Phase 6a (2026-10-13, same cloud session)
+
+- Phase 6 design OK'd. The 2026 IRS mileage rate changed mid-year (72.5¢ → 76¢ from July 1,
+  Announcement 2026-11), so rates are dated rows; the 1099-NEC threshold is $2,000 for 2026
+  (OBBBA) and indexed from 2027, so it's a setting. Chart.js 4.5.1 is current on npm.
+- 6a on `phase/6a-books`, branched from `phase/5b-purchasing` (PR #13 not merged yet):
+  migrations 0014 (six tables, books settings, PO receipts, the filings exclusion
+  constraint) and 0015 (categories, rates; data only). Round-tripped; no drift.
+- `app/books/`: Books (overview, expenses, mileage, partners, sales tax), Settings → Books,
+  receipts on POs, a costs panel and "Log a trip" on work orders. The restore drill checks
+  receipt files too.
+- Phone pass: expense with a receipt photo, a trip from a WO, the partner page, expenses,
+  sales tax, settings; no page scrolls sideways, no console errors.
 

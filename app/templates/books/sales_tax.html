@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Sales tax{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Sales tax</h1>
+  {% include "books/_period.html" %}
+  {% if not shop.collect_sales_tax %}<p class="dim">Tax collection is off (Settings → Tax), so nothing was collected. "Not collected" is what it would have been at each invoice's recorded rate, for the CPA.</p>{% endif %}
+  <table class="grid">
+    <thead><tr><th>Where</th><th class="num">Taxable</th><th class="num">Tax</th>{% if not shop.collect_sales_tax %}<th class="num">Not collected</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr><td>{{ r.jurisdiction }}<div class="dim small">{{ r.invoices }} invoice(s) · {{ r.nontaxable | money }} not taxable</div></td><td class="num">{{ r.taxable | money }}</td><td class="num">{{ r.tax | money }}</td>{% if not shop.collect_sales_tax %}<td class="num">{{ r.untaxed | money }}</td>{% endif %}</tr>
+    {% else %}
+    <tr><td colspan="4" class="dim">No invoices in this period.</td></tr>
+    {% endfor %}
+    {% if rows %}<tr class="total"><td>Total</td><td class="num">{{ totals.taxable | money }}</td><td class="num"><strong>{{ totals.tax | money }}</strong></td>{% if not shop.collect_sales_tax %}<td class="num">{{ totals.untaxed | money }}</td>{% endif %}</tr>{% endif %}
+    </tbody>
+  </table>
+  <p class="dim small">Invoices by their issue date, less credit memos issued in the period. Collected and not yet filed: {{ unfiled | money }}.</p>
+</section>
+<section class="panel">
+  <h2>Filings</h2>
+  <ul class="list">
+    {% for f in filings %}
+    <li>{{ f.period_start }} to {{ f.period_end }} · due <strong>{{ f.tax_due | money }}</strong>
+      <div class="dim small">taxable {{ f.taxable_sales | money }} · collected {{ f.tax_collected | money }}{% if f.filed_on %} · filed {{ f.filed_on }}{% endif %}{% if f.paid_on %} · paid {{ f.paid_on }}{% endif %}{% if f.confirmation %} · #{{ f.confirmation }}{% endif %}</div></li>
+    {% else %}
+    <li class="dim">None recorded.</li>
+    {% endfor %}
+  </ul>
+  {% if keeps %}
+  <details class="form">
+    <summary>Record a filing</summary>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      <div class="row two">{{ field(form.period_start) }}{{ field(form.period_end) }}</div>
+      {{ field(form.tax_due, inputmode="decimal") }}
+      <div class="row two">{{ field(form.filed_on) }}{{ field(form.paid_on) }}</div>
+      {{ field(form.confirmation) }}
+      {{ field(form.note) }}
+      <p class="dim small">The period's taxable sales and tax collected are copied in as they stand now.</p>
+      <button class="btn primary" type="submit">Record</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+{% endblock %}

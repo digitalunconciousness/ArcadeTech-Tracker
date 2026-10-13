@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Mileage rate{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Mileage rate from {{ rate.effective_from }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.effective_from) }}{{ field(form.rate, inputmode="decimal") }}</div>
+    {{ field(form.source) }}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('settings.books') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

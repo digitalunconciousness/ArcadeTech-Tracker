@@ -7,8 +7,17 @@ from sqlalchemy.exc import IntegrityError
 from app.auth.decorators import requires_role
 from app.auth.forms import EmptyForm
 from app.billing.forms import JurisdictionForm, TaxSettingsForm
+from app.books.forms import BooksSettingsForm, CategoryForm, RateForm
 from app.extensions import db
-from app.models import Carrier, MarkupTier, ShopSetting, TaxJurisdiction, User
+from app.models import (
+    Carrier,
+    ExpenseCategory,
+    MarkupTier,
+    MileageRate,
+    ShopSetting,
+    TaxJurisdiction,
+    User,
+)
 from app.pricing import multiplier_margin
 from app.purchasing.forms import CarrierForm
 from app.settings.forms import (
@@ -324,4 +333,87 @@ def carrier_edit(carrier_id):
             return redirect(url_for("settings.carriers"))
     _flash_errors(form)
     return render_template("settings/carrier_form.html", form=form, carrier=carrier)
+
+
+# --- books --------------------------------------------------------------------------------
+
+@bp.route("/books", methods=["GET", "POST"])
+@requires_role("owner")
+def books():
+    row = db.session.get(ShopSetting, True)
+    form = BooksSettingsForm(obj=row)
+    if form.validate_on_submit():
+        form.populate_obj(row)
+        db.session.commit()
+        flash("Saved.", "ok")
+        return redirect(url_for("settings.books"))
+    _flash_errors(form)
+    return render_template(
+        "settings/books.html", form=form, rate_form=RateForm(), category_form=CategoryForm(),
+        rates=db.session.scalars(select(MileageRate).order_by(MileageRate.effective_from)).all(),
+        categories=db.session.scalars(select(ExpenseCategory).order_by(
+            ExpenseCategory.position, ExpenseCategory.name)).all())
+
+
+def _save_unique(form, obj, field):
+    form.populate_obj(obj)
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        db.session.rollback()
+        if not isinstance(e.orig, UniqueViolation):
+            raise
+        getattr(form, field).errors.append("There's one already.")
+        return False
+    return True
+
+
+@bp.route("/books/rates", methods=["POST"])
+@requires_role("owner")
+def rate_new():
+    form = RateForm()
+    if form.validate_on_submit():
+        rate = MileageRate()
+        db.session.add(rate)
+        if _save_unique(form, rate, "effective_from"):
+            flash("Rate added. Trips from that date on use it.", "ok")
+    _flash_errors(form)
+    return redirect(url_for("settings.books"))
+
+
+@bp.route("/books/rates/<int:rate_id>", methods=["GET", "POST"])
+@requires_role("owner")
+def rate_edit(rate_id):
+    rate = db.session.get(MileageRate, rate_id) or abort(404)
+    form = RateForm(obj=rate)
+    if form.validate_on_submit() and _save_unique(form, rate, "effective_from"):
+        flash("Saved. Trips on those dates are valued at the new rate.", "ok")
+        return redirect(url_for("settings.books"))
+    _flash_errors(form)
+    return render_template("settings/rate_form.html", form=form, rate=rate)
+
+
+@bp.route("/books/categories", methods=["POST"])
+@requires_role("owner")
+def category_new():
+    form = CategoryForm()
+    if form.validate_on_submit():
+        cat = ExpenseCategory()
+        db.session.add(cat)
+        if _save_unique(form, cat, "name"):
+            flash(f"Added {cat.name}.", "ok")
+    _flash_errors(form)
+    return redirect(url_for("settings.books"))
+
+
+@bp.route("/books/categories/<int:category_id>", methods=["GET", "POST"])
+@requires_role("owner")
+def category_edit(category_id):
+    cat = db.session.get(ExpenseCategory, category_id) or abort(404)
+    form = CategoryForm(obj=cat)
+    if form.validate_on_submit() and _save_unique(form, cat, "name"):
+        flash("Saved.", "ok")
+        return redirect(url_for("settings.books"))
+    _flash_errors(form)
+    return render_template("settings/category_form.html", form=form, cat=cat)
 

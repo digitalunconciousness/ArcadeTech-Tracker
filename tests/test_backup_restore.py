@@ -163,3 +163,38 @@ def test_drill_rehashes_issued_invoice_pdfs(app, tdb, signed_in, pg_tools, tmp_p
     invoice_pdf.unlink()
     missing = drill("missing")
     assert missing.returncode != 0 and f"{shas[0]}.pdf: not in the archive" in missing.stderr
+
+
+def test_drill_rehashes_receipts(app, tdb, signed_in, pg_tools, tmp_path):
+    """Receipts behind expenses (a photo, a PDF) are checked like issued documents."""
+    import io
+
+    from test_books import add_expense, png
+
+    from conftest import db_query
+
+    owner = signed_in("owner")
+    add_expense(owner, app, receipt=(png(), "r.png", "image/png"))
+    add_expense(owner, app, receipt=(io.BytesIO(b"%PDF-1.4 a receipt"), "r.pdf",
+                                     "application/pdf"))
+    rows = db_query(app, "SELECT receipt_sha256, receipt_type FROM expense ORDER BY id")
+    store, files_dir = Path(app.config["SHOP_FILES_DIR"]), tmp_path / "files"
+    names = [f"{sha}{'.pdf' if kind == 'application/pdf' else '.jpg'}" for sha, kind in rows]
+    for name in names:
+        (files_dir / name[:2]).mkdir(parents=True, exist_ok=True)
+        shutil.copy(store / name[:2] / name, files_dir / name[:2] / name)
+    restore_db = f"{tdb.name}_receipt_restore"
+    tdb.create_database(restore_db)
+    url = tdb.url("owner", restore_db)
+
+    def drill(run):
+        env = _env(tmp_path, SHOP_BACKUP_DIR=str(tmp_path / run))
+        assert _run("backup.sh", env).returncode == 0
+        return _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": url})
+
+    ok = drill("good")
+    assert ok.returncode == 0 and "receipt re-hash ok (2 files)" in ok.stdout, \
+        ok.stdout + ok.stderr
+    (files_dir / names[0][:2] / names[0]).write_bytes(b"swapped photo")
+    bad = drill("changed")
+    assert bad.returncode != 0 and f"{names[0]}: hashes to" in bad.stderr

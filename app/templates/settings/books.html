@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, check %}
+{% block title %}Books settings{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Books</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    {{ field(form.split_mode) }}
+    <p class="dim small">Custom percentages are set on each partner in Users.</p>
+    <div class="row two">{{ field(form.set_aside_pct, inputmode="decimal") }}{{ field(form.storage_days, inputmode="numeric") }}</div>
+    <div class="row two">{{ field(form.labor_cost_rate, inputmode="decimal") }}{{ field(form.nec_threshold, inputmode="decimal") }}</div>
+    <p class="dim small">The 1099-NEC threshold is $2,000 for payments made in 2026, adjusted for inflation from 2027. The set-aside is a percentage you choose with your CPA; blank shows nothing.</p>
+    <button class="btn primary" type="submit">Save</button>
+  </form>
+</section>
+<section class="panel">
+  <h2>Mileage rates</h2>
+  <ul class="list">{% for r in rates %}<li><a href="{{ url_for('settings.rate_edit', rate_id=r.id) }}">From {{ r.effective_from }}</a>: {{ (r.rate * 100) | qty }}¢ a mile <span class="dim small">{{ r.source or '' }}</span></li>{% else %}<li class="dim">None.</li>{% endfor %}</ul>
+  <p class="dim small">The IRS sets the business rate and can change it mid-year (it did on 2026-07-01). Confirm these against IRS.gov.</p>
+  <details class="form">
+    <summary>Add a rate</summary>
+    <form method="post" action="{{ url_for('settings.rate_new') }}" novalidate>
+      {{ rate_form.csrf_token }}
+      <div class="row two">{{ field(rate_form.effective_from) }}{{ field(rate_form.rate, inputmode="decimal") }}</div>
+      {{ field(rate_form.source) }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+</section>
+<section class="panel">
+  <h2>Expense categories</h2>
+  <ul class="list">{% for c in categories %}<li{% if not c.active %} class="inactive"{% endif %}><a href="{{ url_for('settings.category_edit', category_id=c.id) }}">{{ c.name }}</a> <span class="dim small">{{ c.schedule_c or '' }}{% if c.code %} · used for purchase orders{% endif %}</span></li>{% endfor %}</ul>
+  <details class="form">
+    <summary>Add a category</summary>
+    <form method="post" action="{{ url_for('settings.category_new') }}" novalidate>
+      {{ category_form.csrf_token }}
+      {{ field(category_form.name) }}
+      {{ field(category_form.schedule_c) }}
+      {{ field(category_form.position, inputmode="numeric") }}
+      <button class="btn" type="submit">Add</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

@@ -119,6 +119,21 @@
 </section>
 {% endif %}
 
+{% if book_rows is not none %}
+<section class="panel" id="costs">
+  <h2>Costs on this job</h2>
+  <ul class="list">
+    {% for e in book_rows.expenses %}<li>{{ e.spent_on }} · <a href="{{ url_for('books.expense', expense_id=e.id) }}">{{ e.payee }}</a> <span class="dim">{{ e.amount | money }}</span></li>{% endfor %}
+    {% for t, v in book_rows.trips %}<li>{{ t.trip_on }} · {{ t.miles | qty }} mi <span class="dim">{{ v | money if v is not none else 'no rate' }}</span></li>{% endfor %}
+    {% if not (book_rows.expenses or book_rows.trips) %}<li class="dim">No expenses or trips on it.</li>{% endif %}
+  </ul>
+  {% if current_user.role == 'owner' %}<div class="actions">
+    <a class="btn small" href="{{ url_for('books.trip_new', wo=wo.number) }}">Log a trip</a>
+    <a class="btn small" href="{{ url_for('books.expense_new', wo=wo.number) }}">Add an expense</a>
+  </div>{% endif %}
+</section>
+{% endif %}
+
 {% if shipments or ship_form %}
 <section class="panel" id="shipments">
   <h2>Tracking</h2>

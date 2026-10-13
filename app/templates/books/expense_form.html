@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}{{ 'Edit expense' if expense else 'Add an expense' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>{{ 'Edit expense' if expense else 'Add an expense' }}</h1>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {{ form.csrf_token }}
+    <div class="row two">{{ field(form.spent_on) }}{{ field(form.amount, inputmode="decimal") }}</div>
+    {{ field(form.payee, autofocus=not expense) }}
+    {{ field(form.category_id) }}
+    <div class="row two">{{ field(form.tax_included, inputmode="decimal") }}{{ field(form.paid_by_user_id) }}</div>
+    {{ field(form.wo) }}
+    {{ field(form.note) }}
+    <label class="field"><span>{{ form.receipt.label.text }}{% if expense and expense.receipt_sha256 %} (replaces the one on file){% endif %}</span>{{ form.receipt(accept="image/*,application/pdf") }}</label>
+    <p class="dim small">Using the mileage rate? Then gas and car repairs aren't expenses; parking and tolls are. Parts kept in stock go through purchase orders, not here.</p>
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ url_for('books.expense', expense_id=expense.id) if expense else url_for('books.expenses') }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}
