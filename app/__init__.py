@@ -22,6 +22,8 @@ PUBLIC_ENDPOINTS = frozenset({
     "public.estimate", "public.approve", "public.decline", "public.estimate_pdf",
     "public.signature", "public.accent_css", "public.calendar_feed", "public.invoice_pdf",
     "public.invoice_report", "public.invoice_receipt",
+    # GATBOX picks a reachable address with it before it sends a token (contract v1)
+    "api_v1.health",
 })
 # Reachable by an owner who hasn't enrolled 2FA yet.
 ENROLLMENT_ENDPOINTS = frozenset({"auth.totp_setup", "auth.logout", "static"})
@@ -48,6 +50,7 @@ def create_app(overrides=None):
     login_manager.login_message = None
 
     from app import models  # noqa: F401
+    from app.api_v1.routes import bp as api_v1_bp
     from app.assets.routes import bp as assets_bp
     from app.auth.routes import bp as auth_bp
     from app.billing.routes import bp as billing_bp
@@ -55,6 +58,7 @@ def create_app(overrides=None):
     from app.customers.routes import bp as customers_bp
     from app.dashboard.routes import bp as dashboard_bp
     from app.estimates.routes import bp as estimates_bp
+    from app.gatbox.routes import bp as traces_bp
     from app.health.routes import bp as health_bp
     from app.partlinks.routes import bp as partlinks_bp
     from app.parts.routes import bp as parts_bp
@@ -68,11 +72,26 @@ def create_app(overrides=None):
 
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
                pricebook_bp, parts_bp, partlinks_bp, purchasing_bp, work_bp, estimates_bp,
-               billing_bp, books_bp, reports_bp, public_bp):
+               billing_bp, books_bp, reports_bp, public_bp, api_v1_bp, traces_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)
     return app
+
+
+def is_api():
+    """The GATBOX device API: its own auth (a token), JSON errors."""
+    return request.path == "/api/v1" or request.path.startswith("/api/v1/")
+
+
+def api_error(error):
+    from flask import jsonify
+
+    code = getattr(error, "code", None) or 500
+    text = {404: "no such path", 405: "method not allowed", 429: "rate limited",
+            500: "unhandled error"}.get(code) or getattr(error, "description", None) or "error"
+    db.session.rollback()
+    return jsonify(error=text), code
 
 
 def _register_hooks(app):
@@ -126,7 +145,7 @@ def _register_hooks(app):
     @app.before_request
     def gate():
         endpoint = request.endpoint
-        if endpoint in PUBLIC_ENDPOINTS:
+        if endpoint in PUBLIC_ENDPOINTS or is_api():
             return None
         if not current_user.is_authenticated:
             if endpoint is None:
@@ -170,6 +189,8 @@ def _register_hooks(app):
     @app.errorhandler(500)
     def error_page(error):
         code = getattr(error, "code", 500)
+        if is_api():
+            return api_error(error)
         messages = {
             403: "Your role can't open this page.",
             404: "Nothing here.",
@@ -177,3 +198,13 @@ def _register_hooks(app):
             500: "Something broke. It's been logged.",
         }
         return render_template("errors/error.html", code=code, message=messages.get(code, "")), code
+
+    @app.errorhandler(400)
+    @app.errorhandler(401)
+    @app.errorhandler(405)
+    @app.errorhandler(413)
+    @app.errorhandler(415)
+    def plain_error(error):
+        """JSON under /api/v1 (contract v1: every error is {"error": ...}); elsewhere
+        Werkzeug's own page, as before."""
+        return api_error(error) if is_api() else error

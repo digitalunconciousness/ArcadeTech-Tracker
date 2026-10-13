@@ -124,6 +124,9 @@ class WoJob(StandardColumns, db.Model):
         CheckConstraint(_in("status", JOB_STATUSES), name="status"),
         CheckConstraint("received_via IS NULL OR " + _in("received_via", RECEIVED_VIA),
                         name="received_via"),
+        UniqueConstraint("external_id"),
+        CheckConstraint("external_id IS NULL OR external_id ~ '^[0-9a-f]{32}$'",
+                        name="external_id_format"),
     )
 
     id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
@@ -143,6 +146,10 @@ class WoJob(StandardColumns, db.Model):
     accessories_note: Mapped[str | None] = mapped_column(String(200))
     inbound_tracking: Mapped[str | None] = mapped_column(String(60))
     done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # A job raised at the bench on GATBOX (an "order" in contract v1): the order's uid,
+    # and when it was raised there (the Pi may have been offline for days).
+    external_id: Mapped[str | None] = mapped_column(String(32))
+    reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class WoLine(StandardColumns, db.Model):

@@ -38,6 +38,14 @@ from app.models.estimate import (
     EstimateLine,
     EstimatePartLink,
 )
+from app.models.gatbox import (
+    LINK_SOURCES,
+    TRACE_PHASES,
+    Device,
+    RailSession,
+    Reading,
+    WoJobSession,
+)
 from app.models.parts import MOVE_REASONS, Part, PartLink, StockLot, StockMove, Vendor
 from app.models.pricebook import (
     SERVICE_KINDS,
@@ -83,6 +91,7 @@ from app.models.work import (
 )
 
 __all__ = [
+    "LINK_SOURCES", "TRACE_PHASES", "Device", "RailSession", "Reading", "WoJobSession",
     "ASSET_KINDS", "ASSET_STATUSES", "COMM_KINDS", "DOC_KINDS", "MOVE_REASONS", "PAYMENT_TERMS",
     "ROLES", "SERVICE_KINDS", "SERVICE_UNITS",
     "Asset", "AssetEvent", "AuditLog", "CommLog", "Contact", "Customer", "DocCounter",

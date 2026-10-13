@@ -220,22 +220,30 @@ push/PR → owner deploys (⏸).
         `test_synthetic_year_adds_up_everywhere`)
   - [x] Nav in six sections with a tab row: Dashboard · Work · Customers · Money · Parts ·
         Settings
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0016)
+  - [x] Diff, tests, privacy output → OK → PR #15 (merged)
+  - [ ] ⏸ Owner deploys (migration 0016)
   - [ ] ⏸ Exit: the year-end package's figures reconcile to the dashboard to the cent
         (tested). On the phone: the dashboard on both bases, blur, print the P&L, download
         this year's package and open it
 
 ## Phase 7: GATBOX link, hub side (branch `phase/7-gatbox-link`)
 
-- [ ] Design note → ⏸ OK
-- [ ] Devices + tokens, contract v1 vendored byte-identical + checksum test
-- [ ] Health (tracker keys + `"app": "shop-hub"`, `"capabilities": ["jobs"]`), roster
-      (`model_key`), ingest, open jobs per asset, phase tagging on the job page
-- [ ] Contract examples posted twice → created, then duplicate (slugs swapped for `s-` tags
-      at test time); bad token → 401; unknown slug → rejected
-- [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy
-- [ ] ⏸ Mint a device token; `/etc/gatbox/hubs.d/shop.conf` on the Pi. No GATBOX code here
-      (that's Prompt B / plan Phase 8)
+- [x] Design note → OK (owner, 2026-10-13, all eight decisions as recommended)
+- [x] Devices + tokens (Settings → Devices, `scripts/create_device.py`), contract v1
+      vendored byte-identical from arcade-tracker + checksum test
+      (`scripts/contract_checksums.py`, check only)
+- [x] Health (tracker keys + `"app": "shop-hub"`, `"capabilities": ["jobs"]`), roster
+      (`model_key`, no customer names), ingest (sessions, readings, orders → jobs, session
+      tags, optional `phase`), open jobs per asset (+ `work_order`, `nte`), traces on the job
+      page (phase, take off, put on), the asset page and the service report (migration 0017)
+- [x] Contract examples posted twice → created, then duplicate (slug swapped for an `s-` tag
+      at test time); bad token → 401; unknown slug → rejected (tested:
+      `test_posting_the_example_twice_gives_created_then_duplicate` and the rest of
+      `tests/test_api_v1_contract.py`)
+- [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migration 0017)
+- [ ] ⏸ Mint a device token in Settings → Devices and run the smoke test (RUNBOOK §10).
+      The token goes on the Pi only once GATBOX has `hubs.d` (plan Phase 8): its single
+      `hub.conf` points at the barcade's hub today. No GATBOX code here
 
 ## Decisions
 
@@ -266,7 +274,7 @@ push/PR → owner deploys (⏸).
 | 2026-10-08 | `audit_log` exempt from created_at/updated_at/created_by (`at`, `user_id` instead) | Append-only; never updated |
 | 2026-10-08 | Green CI is not a merge requirement; `ci.yml` is manual-only (`workflow_dispatch`) | Owner. Actions won't start jobs on this account (runner never assigned); the local pytest + privacy check before each push is the gate |
 | 2026-10-08 | Tunnel is locally managed (`cloudflared tunnel create`, `/etc/cloudflared/config.yml`), cloudflared in the shop LXC | Owner's setup; loopback peer keeps per-client rate limits. RUNBOOK step 7 matches |
-| 2026-10-08 | Asset tags `s-NNNN-name-slug`: number from `asset_tag_seq` (gaps fine, never reused), name part frozen at creation, ≤ 24 chars, tag ≤ 40; a trigger refuses tag changes | Owner. Printed labels stay valid forever. Contract v1's slug limits not yet checked (refs unavailable): verify in Phase 7 |
+| 2026-10-08 | Asset tags `s-NNNN-name-slug`: number from `asset_tag_seq` (gaps fine, never reused), name part frozen at creation, ≤ 24 chars, tag ≤ 40; a trigger refuses tag changes | Owner. Printed labels stay valid forever. Contract v1's slug limits checked in Phase 7: see 2026-10-13 |
 | 2026-10-08 | Labels: a copy-to-clipboard list (URL for the QR, tag for the text), unprinted first, "mark printed" | Owner types labels into the Katasymbol phone app; no bulk printing available. **Superseded below** |
 | 2026-10-08 | Customers, contacts, sites, assets audited; comm log and asset events append-only (INSERT/SELECT); nothing deletable | Owner |
 | 2026-10-08 | Techs create and edit customers and assets (`EDIT_ROLES`); viewers read only | Owner. Intake is tech work |
@@ -340,6 +348,15 @@ push/PR → owner deploys (⏸).
 | 2026-10-13 | Year-end package built on demand into a temp file and streamed, never stored; files missing from the store are listed in its README rather than failing the build | Owner (decision 6) |
 | 2026-10-13 | Dashboard basis and blur are remembered per device (localStorage), blur applied before the page draws. Reports and the year-end package: owners and viewers | Owner (decision 7) |
 | 2026-10-13 | CSVs: plain numbers, ISO dates, a totals row last; text that a spreadsheet would run as a formula (`= + - @`) gets a leading apostrophe | Payees and descriptions are typed in |
+| 2026-10-13 | Asset tags are valid GATBOX slugs: GATBOX's roster rule is `^[a-z0-9]+(-[a-z0-9]+)*$` (gatboxweb/roster.py), and `^s-[0-9]{4,}(-[a-z0-9]+)+$` is a subset; no length limit on the Pi | Checked against gatbox `31b7344` |
+| 2026-10-13 | GATBOX orders become jobs: on the asset's open work order if it has one, else a new one (bench if in the shop, else on site); priorities Low→low, Medium→normal, High→high, Critical/Urgent→rush, for a new WO only. The job keeps the order's uid (`wo_job.external_id`) and when it was raised (`reported_at`) | Owner (Phase 7 decision 1) |
+| 2026-10-13 | A trace attaches itself when its asset has exactly one open job, else waits on the asset page; `wo_job_session` links traces to jobs (many to many) with a phase per link; detaching deletes the link, never the trace | Owner (decision 2) |
+| 2026-10-13 | The roster sends active assets (in service, in the shop, awaiting pickup, shipped back) by tag, name, status and shelf or "On site", never a customer's name: gatbox-web has no login | Owner (decision 3) |
+| 2026-10-13 | Orders endpoint lists the asset's jobs: id = job id, issue = complaint, the WO's priority and status labels; adds `work_order` and `nte` (money as a string) for the Phase 8 JOB card | Owner (decision 4); additive, as CLAUDE.md allows |
+| 2026-10-13 | `phase` (as_found, during, as_left) is optional on rail_session and session_tag items; a bad value rejects the item. Settable on the job page anytime | Owner (decision 5) |
+| 2026-10-13 | GATBOX measurements are NUMERIC without a scale, exactly as sent (the body is parsed with `parse_float=Decimal`); times timestamptz; traces insert-only for the app role; readings and sessions not audited (machine-written, up to 2,000 rows), devices and links audited | Owner (decision 6); unlike the tracker's floats and naive times |
+| 2026-10-13 | Devices minted in Settings → Devices (token shown once on the page, never in a flash or the session) or `scripts/create_device.py`; switched off, never deleted; New token invalidates the old at once. "Last seen" is written at most every 15 minutes (or on a new address), because the device row is audited and gatbox-sync polls every couple of minutes | Owner (decision 7) |
+| 2026-10-13 | The service report lists a job's GATBOX traces (phase, rail, min/mean/max, % in window, verdict); the trace chart is on screen only | Owner (decision 8) |
 | 2026-10-13 | Nav regrouped: Dashboard · Work (Work orders, Estimates) · Customers (Customers, Assets) · Money (Invoices, Payments, Books, Reports; owners and viewers) · Parts (Parts, Links, Buying, Price book) · Settings (owners) | Owner (decision 1) |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
@@ -554,3 +571,19 @@ push/PR → owner deploys (⏸).
 - Not done (say if wanted): the dashboard's "to order" is a count, not grouped by vendor
   (the shopping list groups them); aging is as of today only (balances aren't kept by
   date).
+
+### Session 3, Phase 7 (2026-10-13, same cloud session)
+
+- PR #15 merged; Phase 7 on `phase/7-gatbox-link` from `main`. `/opt/refs` was absent (the
+  setup script's clone failed); both reference repos are public, so they were cloned
+  read-only into `/opt/refs` (arcade-tracker `65fe4b6`, gatbox `31b7344`) and not attached.
+  Their contract/v1 copies are identical and match CHECKSUMS.
+- Findings: gatbox-sync is still single-hub (`/etc/gatbox/hub.conf`), so the Pi isn't
+  pointed here until plan Phase 8; GATBOX's priorities are Low/Medium/High/Critical/Urgent;
+  its screen shows only `#id issue` for a hub's orders.
+- Migration 0017 (`device`, `rail_session`, `reading`, `wo_job_session`,
+  `wo_job.external_id`/`reported_at`); round-tripped, no drift. `app/api_v1/` (the API),
+  `app/gatbox/` (ingest, roster, orders; trace pages), Settings → Devices.
+- Phone pass: mint a device, the example posted twice (created, then duplicate), roster and
+  orders, the asset page, the trace page with its chart, phase on the job; no page scrolls
+  sideways, no console errors.

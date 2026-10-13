@@ -112,3 +112,9 @@ class MarkupTierForm(FlaskForm):
         if field.data is not None and self.min_cost.data is not None \
                 and field.data <= self.min_cost.data:
             raise ValidationError("Must be more than the start of the bracket.")
+
+
+class DeviceForm(FlaskForm):
+    name = StringField("Name (the Pi it goes on)", filters=[blank_to_none],
+                       validators=[DataRequired(), Length(max=60)])
+    notes = TextAreaField("Notes", filters=[blank_to_none], validators=[Optional(), Length(max=2000)])

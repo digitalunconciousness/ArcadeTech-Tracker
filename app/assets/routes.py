@@ -6,6 +6,7 @@ from app.assets.forms import AssetForm, NewAssetForm, NoteForm, StatusForm, Tran
 from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
+from app.gatbox import service as gatbox
 from app.models import Asset, AssetEvent, Customer, Site, WoJob, WorkOrder
 
 bp = Blueprint("assets", __name__)
@@ -76,9 +77,17 @@ def show(asset_id):
                               .join(WorkOrder, WorkOrder.id == WoJob.work_order_id)
                               .where(WoJob.asset_id == asset.id)
                               .order_by(WoJob.id.desc())).all()
+    traces = gatbox.traces_for_asset(asset.id)
+    jobs = {job.id: (job, wo) for job, wo in work}
+    elsewhere = {j for _, ids in traces for j in ids} - set(jobs)   # a consult job, no asset
+    if elsewhere:
+        jobs.update({job.id: (job, wo) for job, wo in db.session.execute(
+            select(WoJob, WorkOrder).join(WorkOrder, WorkOrder.id == WoJob.work_order_id)
+            .where(WoJob.id.in_(elsewhere)))})
     return render_template("assets/show.html", asset=asset, customer=customer, site=site,
                            parent=parent, children=children, events=events,
-                           status_form=status_form, note_form=NoteForm(), work=work)
+                           status_form=status_form, note_form=NoteForm(), work=work,
+                           traces=traces, jobs=jobs)
 
 
 @bp.route("/assets/<int:asset_id>/edit", methods=["GET", "POST"])

@@ -1,4 +1,4 @@
-// The dashboard's charts: Chart.js (vendored) on screen, from data in each canvas's
+// Charts: Chart.js (vendored) on screen, from data in each canvas's
 // data-chart attribute. Printing shows the server-drawn copy next to it instead.
 (function () {
   if (!window.Chart) return;
@@ -7,8 +7,36 @@
   const colors = [v('--magenta'), v('--cyan'), v('--lime')];
   const whole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
   const cents = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // A GATBOX trace: the reading over seconds, with the window and the alarm as lines.
+  const line = (canvas, d) => {
+    const pts = d.points.map(([t, val]) => ({ x: Number(t), y: val === null ? null : Number(val) }));
+    const last = pts.length ? pts[pts.length - 1].x : 0;
+    const level = (value, label, color) => ({
+      label, data: [{ x: 0, y: Number(value) }, { x: last, y: Number(value) }],
+      borderColor: color, borderDash: [6, 4], borderWidth: 1, pointRadius: 0, showLine: true,
+    });
+    const sets = [{ label: d.unit, data: pts, borderColor: v('--cyan'), borderWidth: 1.5,
+                    pointRadius: 0, showLine: true, spanGaps: false }];
+    if (d.lo !== null) sets.push(level(d.lo, 'window', v('--lime')));
+    if (d.hi !== null) sets.push(level(d.hi, 'window', v('--lime')));
+    if (d.alarm !== null) sets.push(level(d.alarm, 'alarm', v('--red')));
+    new window.Chart(canvas, {
+      type: 'scatter',
+      data: { datasets: sets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false },
+                   tooltip: { callbacks: { label: (ctx) => `${ctx.raw.y} ${d.unit} at ${ctx.raw.x} s` } } },
+        scales: {
+          x: { type: 'linear', ticks: { color: v('--dim') }, grid: { color: v('--border') } },
+          y: { ticks: { color: v('--dim') }, grid: { color: v('--border') } },
+        },
+      },
+    });
+  };
   for (const canvas of document.querySelectorAll('canvas[data-chart]')) {
     const d = JSON.parse(canvas.dataset.chart);
+    if (d.kind === 'line') { line(canvas, d); continue; }
     const money = (n, exact) => (n < 0 ? '-' : '') + '$' + (exact ? cents : whole).format(Math.abs(n));
     const value = (n, exact) => (d.money ? money(n, exact) : whole.format(n));
     const axis = { ticks: { color: v('--dim'), callback: (n) => value(n) }, grid: { color: v('--border') } };

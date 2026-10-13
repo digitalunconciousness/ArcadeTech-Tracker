@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Trace {{ session.started_at | localdt }}{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+{% set s = session %}
+{% set unit = s.window_unit or 'V' %}
+<section class="panel">
+  <div class="head">
+    <h1>{{ s.profile_label or s.rail or 'GATBOX trace' }}</h1>
+    {% include "traces/_verdict.html" %}
+  </div>
+  <p><a class="tag mono" href="{{ url_for('assets.show', asset_id=asset.id) }}">{{ asset.tag }}</a> {{ asset.name }}</p>
+  <dl class="facts">
+    <dt>Started</dt><dd>{{ s.started_at | localdt }}{% if s.duration_s is not none %} <span class="dim">· {{ s.duration_s | plain }} s</span>{% endif %}</dd>
+    <dt>Clock</dt><dd>{{ s.clock or '?' }}{% if s.clock == 'unverified' %} <span class="badge warn">times may be wrong</span>{% endif %}</dd>
+    {% if s.verdict_detail %}<dt>Verdict</dt><dd>{{ s.verdict_detail }}</dd>{% endif %}
+    <dt>Powered</dt><dd class="mono">{% if s.powered_mean is not none %}{{ s.powered_min | plain }} – {{ s.powered_max | plain }} {{ unit }}, mean {{ s.powered_mean | plain }}{% else %}—{% endif %}</dd>
+    {% if s.window_lo is not none or s.window_hi is not none %}
+    <dt>Window</dt><dd class="mono">{{ s.window_lo | plain }} – {{ s.window_hi | plain }} {{ unit }}{% if s.in_window_pct is not none %} <span class="dim">· {{ s.in_window_pct | plain }}% in it</span>{% endif %}{% if s.window_source %} <span class="dim small">({{ s.window_source }})</span>{% endif %}</dd>
+    {% endif %}
+    {% if s.alarm_hi is not none %}<dt>Alarm above</dt><dd class="mono">{{ s.alarm_hi | plain }} {{ unit }}</dd>{% endif %}
+    <dt>Events</dt><dd class="small">over-voltage {{ s.over_voltage }} · excursions {{ s.excursions }} · power cycles {{ s.power_cycles }} · gaps {{ s.gaps }} · overloads {{ s.ol_events }} · marks {{ s.marks }}{% if s.suspect %} · suspect {{ s.suspect }}{% endif %}</dd>
+    <dt>From</dt><dd class="small">{{ device.name }} · <span class="mono">{{ s.file }}</span> · {{ count }} points{% if s.mode %} · {{ s.mode }}{% endif %}</dd>
+  </dl>
+</section>
+
+{% if count %}
+<section class="panel">
+  <figure class="chart">
+    <figcaption>{{ unit }} over the session (seconds)</figcaption>
+    <div class="trace-box"><canvas data-chart="{{ chart }}" role="img" aria-label="Trace"></canvas></div>
+  </figure>
+</section>
+{% endif %}
+
+<section class="panel" id="jobs">
+  <h2>On jobs</h2>
+  <ul class="list">
+    {% for link, job, wo in links %}
+    <li><a href="{{ url_for('work.job', job_id=job.id) }}">{{ wo.number }}</a> {{ job.complaint | truncate(60) }}
+      <div class="dim small">{{ link_sources[link.source] }}{% if link.note %} · {{ link.note }}{% endif %}</div>
+      {% if edit %}
+      <form class="inline-form" method="post" action="{{ url_for('traces.link_action', link_id=link.id, action='phase') }}">
+        {{ action.csrf_token }}
+        <select name="phase" aria-label="Phase">
+          <option value="">phase not set</option>
+          {% for key, label in trace_phases.items() %}<option value="{{ key }}"{% if link.phase == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <button class="btn small" type="submit">Set</button>
+      </form>
+      <form class="inline-form" method="post" action="{{ url_for('traces.link_action', link_id=link.id, action='detach') }}">{{ action.csrf_token }}<button class="btn small danger" type="submit" data-confirm="Take this trace off the job?">Take off</button></form>
+      {% else %}<span class="dim">· {{ trace_phases[link.phase] if link.phase else 'phase not set' }}</span>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">Not on a job.</li>
+    {% endfor %}
+  </ul>
+  {% if attachable %}
+  <form class="actions" method="post" action="{{ url_for('traces.attach', session_id=s.id) }}">
+    {{ action.csrf_token }}
+    <select name="job_id" aria-label="Job">
+      {% for job, wo in attachable %}<option value="{{ job.id }}">{{ wo.number }} · {{ job.complaint | truncate(40) }}{% if job.status != 'open' %} ({{ job.status }}){% endif %}</option>{% endfor %}
+    </select>
+    <button class="btn primary" type="submit">Put on this job</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

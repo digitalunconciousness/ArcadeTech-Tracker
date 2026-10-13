@@ -20,6 +20,7 @@ from app.auth.forms import EmptyForm
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.formatting import qty as fmt_qty
+from app.gatbox import service as gatbox
 from app.models import (
     ALL_LABOR_MODES,
     JOB_STATUSES,
@@ -479,7 +480,8 @@ def job(job_id):
         amount=service.line_amount, line_cost=service.line_cost,
         job_form=job_form(job) if edit else None, forms=job_forms(job, wo) if edit else None,
         order_form=job_order_form() if edit and service.is_open(wo) else None,
-        po_lines=job_po_lines(job))
+        po_lines=job_po_lines(job), traces=gatbox.traces_for_job(job.id),
+        loose_traces=gatbox.unattached(job.asset_id) if edit and job.asset_id else [])
 
 
 @bp.route("/work/jobs/<int:job_id>/edit", methods=["POST"])

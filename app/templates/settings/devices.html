@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field %}
+{% block title %}Devices{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>Devices</h1>
+  <p class="dim">GATBOX units allowed to send traces and bench orders here (<span class="mono">/api/v1</span>, contract v1). A device signs in with a token, not a user: it sees nothing a person sees. Switch one off rather than deleting it; its traces stay.</p>
+  <ul class="list">
+    {% for d in devices %}
+    <li{% if not d.enabled %} class="inactive"{% endif %}>
+      <strong>{{ d.name }}</strong> <span class="dim mono">gbx_{{ d.public_id }}</span>
+      {% if not d.enabled %}<span class="badge danger">off</span>{% endif %}
+      <div class="dim small">{% if d.last_seen_at %}last seen {{ d.last_seen_at | localdt }}{% if d.last_ip %} from {{ d.last_ip }}{% endif %}{% else %}never seen{% endif %}</div>
+      {% if d.notes %}<div class="notes small">{{ d.notes }}</div>{% endif %}
+      <div class="actions">
+        <form class="inline-form" method="post" action="{{ url_for('settings.device_action', device_id=d.id, action='switch') }}">{{ action.csrf_token }}<button class="btn small{{ '' if d.enabled else ' primary' }}" type="submit">{{ 'Switch off' if d.enabled else 'Switch on' }}</button></form>
+        <form class="inline-form" method="post" action="{{ url_for('settings.device_action', device_id=d.id, action='rotate') }}">{{ action.csrf_token }}<button class="btn small danger" type="submit" data-confirm="Make a new token? The old one stops working at once.">New token</button></form>
+      </div>
+    </li>
+    {% else %}
+    <li class="dim">No devices yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+<section class="panel">
+  <details class="form"{% if not devices %} open{% endif %}>
+    <summary>Add a device</summary>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      {{ field(form.name) }}
+      {{ field(form.notes) }}
+      <button class="btn primary" type="submit">Add and show its token</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

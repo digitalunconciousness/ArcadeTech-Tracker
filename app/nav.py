@@ -9,7 +9,7 @@ from app.auth.decorators import COST_ROLES
 # A match with a dot is an endpoint, without one a blueprint; endpoints win.
 SECTIONS = (
     ("dashboard", "Dashboard", None, [("Dashboard", "dashboard.index", ("dashboard",))]),
-    ("work", "Work", None, [("Work orders", "work.index", ("work",)),
+    ("work", "Work", None, [("Work orders", "work.index", ("work", "traces")),
                             ("Estimates", "estimates.index", ("estimates",))]),
     ("customers", "Customers", None, [("Customers", "customers.index", ("customers",)),
                                       ("Assets", "assets.index", ("assets",))]),

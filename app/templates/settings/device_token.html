@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Device token{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <h1>{{ device.name }}</h1>
+  <p>{{ 'A new token: the old one no longer works.' if rotated else 'Added.' }} <strong>This is the only time the token is shown.</strong> Copy it to the Pi now; only a hash of it is kept here.</p>
+  <p class="key mono break">{{ token }}</p>
+  <div class="actions">
+    <button class="btn primary" type="button" data-copy="{{ token }}">Copy</button>
+    <a class="btn" href="{{ url_for('settings.devices') }}">Done</a>
+  </div>
+  <p class="dim small">On the Pi it goes in the hub's config as <span class="mono">HUB_TOKEN=</span>, with <span class="mono">HUB_URLS=</span> this site's address. Until GATBOX can talk to more than one hub (its Phase 8), pointing it here stops it syncing to its other hub.</p>
+</section>
+{% endblock %}

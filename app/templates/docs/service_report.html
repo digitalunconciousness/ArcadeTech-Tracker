@@ -44,6 +44,28 @@
   </table>
   {% endif %}
 
+  {% if traces.get(job.id) %}
+  <h3>Rail readings (GATBOX)</h3>
+  <table>
+    <thead><tr><th>Phase</th><th>When</th><th>Rail</th><th class="num">Min</th><th class="num">Mean</th><th class="num">Max</th><th class="num">In window</th><th>Verdict</th></tr></thead>
+    <tbody>
+    {% for link, s in traces[job.id] %}
+    {% set unit = s.window_unit or 'V' %}
+    <tr>
+      <td>{{ trace_phases[link.phase] if link.phase else '—' }}</td>
+      <td>{{ s.started_at | localdt }}</td>
+      <td>{{ s.profile_label or s.rail or '' }}{% if s.window_lo is not none %} <span class="muted">({{ s.window_lo | plain }}–{{ s.window_hi | plain }} {{ unit }})</span>{% endif %}</td>
+      <td class="num">{{ s.powered_min | plain }}</td>
+      <td class="num">{{ s.powered_mean | plain }}</td>
+      <td class="num">{{ s.powered_max | plain }}</td>
+      <td class="num">{% if s.in_window_pct is not none %}{{ s.in_window_pct | plain }}%{% endif %}</td>
+      <td>{% if s.verdict == 'held' %}<span class="pass">HELD</span>{% elif s.verdict %}<span class="fail">{{ 'LEFT' if s.verdict == 'left' else 'OVER' }}</span>{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
   {% set parts = lines[job.id] | selectattr('kind', 'equalto', 'part') | list %}
   {% if parts %}
   <h3>Parts</h3>

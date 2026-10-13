@@ -105,6 +105,8 @@ PostgreSQL, through SQLAlchemy 2 + Flask-Migrate.
   - `is_partner`, `split_pct`, `default_labor_service_id`, `active`
   - Owners can see everything, void and issue invoices, and change settings. Techs can do work orders, time and parts, but see no P&L and can't void. Viewers get the read-only accountant view and exports.
 - **`device`**: port the tracker's model as is. Token `gbx_<public_id>.<secret>`, secret hashed, shown once.
+  - **As built in Phase 7:** minted in Settings → Devices (or `scripts/create_device.py`),
+    switched off rather than deleted, audited with the hash redacted.
 - **`audit_log`**
   - `at`, `user_id`, `table`, `row_id`, `action`, `before` jsonb, `after` jsonb
   - Written by a **Postgres trigger** on every financial table.
@@ -200,6 +202,10 @@ PostgreSQL, through SQLAlchemy 2 + Flask-Migrate.
 ### Readings and evidence
 
 - **`rail_session`** and **`reading`**: port the tracker's `api_v1` storage (summary plus ≤2,000-point min/max series, SI-normalized values with sigrok's raw text).
+  - **As built in Phase 7:** values NUMERIC exactly as sent, times timestamptz; the job
+    link and its phase live in `wo_job_session` (a trace can be on several jobs); an order
+    from the bench becomes a `wo_job` with `external_id`. See PROGRESS Decisions,
+    2026-10-13.
   - Shop additions: `asset_id`, `wo_job_id?`, and **`phase`**: `as_found` | `during` | `as_left`.
   - Phase can be set at the bench (once the JOB card exists) or afterwards on the job page. **v1 of the contract doesn't need to change for this.**
 - **`manual_reading`**

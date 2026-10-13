@@ -288,7 +288,37 @@ installs the hash-pinned requirements, runs migrations, restarts and checks `/he
 On any failure it prints the exact rollback commands (reset to the previous commit,
 reinstall, and `flask db downgrade` or `pg_restore` of the pre-deploy dump).
 
-## 10. Last-resort fixes ⏸
+## 10. GATBOX devices ⏸
+
+A GATBOX unit pushes traces and bench orders to `/api/v1` (contract v1, `contract/v1/`)
+with its own token; Access lets that path through (§7, rule 2).
+
+1. Settings → Devices → **Add a device**, named for the Pi. The token is shown once:
+   copy it then. (From the console instead: `cd /opt/shop-hub && set -a &&
+   . /etc/shop-hub/shop-hub.env && set +a && /opt/shop-hub-venv/bin/python
+   scripts/create_device.py`.)
+2. Smoke test from any machine (replace the hostname and token):
+
+   ```
+   curl -s https://<SHOP_HOSTNAME>/api/v1/health
+   # {"app": "shop-hub", "capabilities": ["jobs"], "contract": "v1", "ok": true, "time": …}
+   curl -s -H 'Authorization: Bearer <TOKEN>' https://<SHOP_HOSTNAME>/api/v1/roster
+   # {"contract": "v1", "machines": [{"slug": "s-0001-…", …}]}
+   curl -s -o /dev/null -w '%{http_code}\n' -H 'Authorization: Bearer gbx_000000000000.x' \
+     https://<SHOP_HOSTNAME>/api/v1/roster
+   # 401
+   ```
+
+   A 403 or an HTML page on the first one means Access is in front of `/api/v1`.
+3. **Don't put the token on the Pi yet.** Until GATBOX can talk to more than one hub
+   (its Phase 8: `/etc/gatbox/hubs.d/`), its single `/etc/gatbox/hub.conf` points at the
+   barcade's hub, and repointing it stops that syncing. With Phase 8 in place:
+   `/etc/gatbox/hubs.d/shop.conf` (mode 600, root) holds `HUB_URLS=https://<SHOP_HOSTNAME>`,
+   `HUB_TOKEN=<TOKEN>` and `HUB_LABEL=<what the 7" shows>`.
+4. A lost or leaked token: Settings → Devices → **New token** (the old one stops at
+   once), or **Switch off**. Devices are never deleted: their traces point at them.
+
+## 11. Last-resort fixes ⏸
 
 - **Owner locked out of 2FA, no other owner available:**
   `cd /opt/shop-hub && set -a && . /etc/shop-hub/shop-hub.env && set +a && /opt/shop-hub-venv/bin/python scripts/reset_2fa.py`
