@@ -1,0 +1,21 @@
+{# As found against as left on one chart, then their numbers side by side. `cmp` is
+   gatbox.compare(), `overlay` its chart JSON. #}
+<figure class="chart compare">
+  <figcaption>As found against as left: {{ cmp.unit }} over each session (seconds)</figcaption>
+  <div class="trace-box"><canvas data-chart="{{ overlay }}" role="img" aria-label="As found against as left"></canvas></div>
+</figure>
+<table class="grid compare-table">
+  <thead><tr><th></th><th class="num">Min</th><th class="num">Mean</th><th class="num">Max</th><th class="num">In window</th><th>Verdict</th></tr></thead>
+  <tbody>
+  {% for label, s in (('As found', cmp.found), ('As left', cmp.left)) %}
+  <tr>
+    <td><a href="{{ url_for('traces.show', session_id=s.id) }}">{{ label }}</a> <span class="dim small">{{ s.started_at | localdt }}</span></td>
+    <td class="num">{{ s.powered_min | plain }}</td>
+    <td class="num">{{ s.powered_mean | plain }}</td>
+    <td class="num">{{ s.powered_max | plain }}</td>
+    <td class="num">{% if s.in_window_pct is not none %}{{ s.in_window_pct | plain }}%{% endif %}</td>
+    <td>{% include "traces/_verdict.html" %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>

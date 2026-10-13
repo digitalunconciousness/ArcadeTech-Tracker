@@ -5,7 +5,7 @@
 <section class="panel">
   <div class="head">
     <h1>{{ customer.display_name }}</h1>
-    {% if can_edit %}<a class="btn" href="{{ url_for('customers.edit', customer_id=customer.id) }}">Edit</a>{% endif %}
+    <div class="actions">{% if can_edit %}<a class="btn" href="{{ url_for('customers.edit', customer_id=customer.id) }}">Edit</a>{% endif %}{% if is_owner %}<a class="btn" href="{{ url_for('settings.audit', table='customer', row=customer.id, related=1) }}">History</a>{% endif %}</div>
   </div>
   <p>
     <span class="badge">{{ customer.kind }}</span>

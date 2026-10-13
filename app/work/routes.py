@@ -1,10 +1,9 @@
-from datetime import timedelta
-
 from flask import (
     Blueprint,
     Response,
     abort,
     flash,
+    jsonify,
     make_response,
     redirect,
     render_template,
@@ -21,6 +20,7 @@ from app.auth.forms import EmptyForm
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.formatting import qty as fmt_qty
+from app.gatbox import charts as trace_charts
 from app.gatbox import service as gatbox
 from app.lists import desk_list
 from app.models import (
@@ -314,14 +314,38 @@ def edit(wo_id):
 @bp.route("/work/<int:wo_id>/status", methods=["POST"])
 @requires_role(*EDIT_ROLES)
 def status(wo_id):
+    """Set a WO's status: the form on its page, or a card moved on the board. A card says
+    which status it was in (`from`); if someone changed it meanwhile, nothing is saved.
+    The board asks for JSON (Accept: application/json) and gets it back."""
     wo, _ = load_wo(wo_id)
     form = StatusForm()
-    if form.validate_on_submit():
-        attempt(lambda: service.set_status(wo, form.status.data),
-                f"{wo.number}: {WO_STATUSES[form.status.data].lower()}.")
-    else:
+    as_json = request.headers.get("Accept") == "application/json"
+    back = url_for("work.board") if request.form.get("back") == "board" else \
+        url_for("work.show", wo_id=wo.id)
+    if not form.validate_on_submit():
+        if as_json:
+            return jsonify(error="That didn't save. Reload the page and try again.",
+                           status=wo.status), 400
         flash_errors(form)
-    return redirect(url_for("work.show", wo_id=wo.id))
+        return redirect(back)
+    seen = request.form.get("from")
+    if seen and seen != wo.status:
+        message = f"{wo.number} changed meanwhile: it's {WO_STATUSES[wo.status].lower()} now."
+        if as_json:
+            return jsonify(error=message, status=wo.status), 409
+        flash(message, "error")
+        return redirect(back)
+    message = f"{wo.number}: {WO_STATUSES[form.status.data].lower()}."
+    if as_json:
+        try:
+            service.set_status(wo, form.status.data)
+            db.session.commit()
+        except WorkError as e:
+            db.session.rollback()
+            return jsonify(error=str(e), status=wo.status), 409
+        return jsonify(message=message, status=wo.status)
+    attempt(lambda: service.set_status(wo, form.status.data), message)
+    return redirect(back)
 
 
 @bp.route("/work/<int:wo_id>/hold", methods=["POST"])
@@ -366,19 +390,17 @@ def appointment_add(wo_id):
     wo, customer = load_wo(wo_id)
     form = appointment_form(wo, customer)
     if form.validate_on_submit():
-        def add():
-            start = from_local_naive(form.starts_at.data)
-            appt = Appointment(work_order_id=wo.id, starts_at=start,
-                               ends_at=start + timedelta(minutes=form.minutes.data),
-                               site_id=form.site_id.data, note=form.note.data)
-            db.session.add(appt)
-            db.session.flush()
-            for uid in form.users.data:
-                db.session.add(AppointmentUser(appointment_id=appt.id, user_id=uid))
-            if wo.status == "new":
-                wo.status = "scheduled"
+        warnings = []
 
-        attempt(add, "Appointment added.")
+        def add():
+            _, found = service.book(wo, start=from_local_naive(form.starts_at.data),
+                                    minutes=form.minutes.data, user_ids=form.users.data,
+                                    site_id=form.site_id.data, note=form.note.data)
+            warnings.extend(found)
+
+        if attempt(add, "Appointment added."):
+            for warning in warnings:
+                flash(f"Heads up: {warning}.", "error")
     else:
         flash_errors(form)
     return redirect(url_for("work.show", wo_id=wo.id) + "#appointments")
@@ -397,6 +419,9 @@ def appointment_delete(appt_id):
             db.session.delete(appt)
 
         attempt(remove, "Appointment removed.")
+    back = request.form.get("next") or ""
+    if back.startswith("/") and not back.startswith("//"):      # from the dispatch calendar
+        return redirect(back)
     return redirect(url_for("work.show", wo_id=appt.work_order_id) + "#appointments")
 
 
@@ -476,6 +501,7 @@ def job(job_id):
     edit = current_user.role in EDIT_ROLES
     part_links = {link.id: link for link in db.session.scalars(select(PartLink).where(
         PartLink.id.in_([x.part_link_id for x in lines if x.part_link_id])))}
+    compared = gatbox.compare(job.id)
     return render_template(
         "work/job.html", job=job, wo=wo, customer=customer, asset=asset, lines=lines,
         part_links=part_links, today=local_today(),
@@ -489,6 +515,8 @@ def job(job_id):
         job_form=job_form(job) if edit else None, forms=job_forms(job, wo) if edit else None,
         order_form=job_order_form() if edit and service.is_open(wo) else None,
         po_lines=job_po_lines(job), traces=gatbox.traces_for_job(job.id),
+        cmp=compared, overlay=trace_charts.overlay_json(compared),
+        reading_charts=trace_charts.readings_json(docs.reading_rows(readings)),
         loose_traces=gatbox.unattached(job.asset_id) if edit and job.asset_id else [])
 
 

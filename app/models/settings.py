@@ -92,3 +92,7 @@ class ShopSetting(StandardColumns, db.Model):
     labor_cost_rate: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     nec_threshold: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False,
                                                    server_default=text("2000"))
+    # Dispatch (owner, 2026-10-13): a tech booked twice at once is flagged; with this on,
+    # the second booking is refused instead.
+    dispatch_block_overlap: Mapped[bool] = mapped_column(Boolean, nullable=False,
+                                                         server_default=false())

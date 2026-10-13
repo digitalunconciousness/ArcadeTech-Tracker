@@ -14,6 +14,8 @@ from sqlalchemy import func, select
 from app.extensions import db
 from app.models import (
     OPEN_LINE_STATUSES,
+    Appointment,
+    AppointmentUser,
     Asset,
     Invoice,
     Part,
@@ -22,6 +24,7 @@ from app.models import (
     ShopSetting,
     StockLot,
     TimeEntry,
+    User,
     WoJob,
     WoLine,
     WorkOrder,
@@ -30,7 +33,8 @@ from app.models import (
 from app.numbering import issue_number
 from app.parts import stock
 from app.pricing import bill_hours, load_tiers, margin_pct, part_price, round_money
-from app.timeutil import utcnow
+from app.settings_store import get_settings
+from app.timeutil import localdt, utcnow
 
 # Warranty defaults (owner, 2026-10-07): a year on parts we supply and on labor; labor on
 # a job that used a customer's own part gets 90 days, and that part gets none.
@@ -552,3 +556,76 @@ def release_reservation(res):
         raise WorkError("That reservation is already closed.")
     res.status = "released"
     db.session.flush()
+
+
+# --- appointments ---------------------------------------------------------------------------
+
+def overlaps(user_ids, start, end, exclude=None):
+    """Who among `user_ids` is already booked between start and end: ["Olive Owner is
+    booked 09:00-10:00 (WO-2026-0004)"]. With Settings' "refuse double-booking" on, the
+    first one is a WorkError instead."""
+    if not user_ids:
+        return []
+    q = (select(User.display_name, Appointment, WorkOrder.number)
+         .join(AppointmentUser, AppointmentUser.user_id == User.id)
+         .join(Appointment, Appointment.id == AppointmentUser.appointment_id)
+         .join(WorkOrder, WorkOrder.id == Appointment.work_order_id)
+         .where(User.id.in_(list(user_ids)), Appointment.starts_at < end,
+                Appointment.ends_at > start)
+         .order_by(Appointment.starts_at, User.display_name))
+    if exclude is not None:
+        q = q.where(Appointment.id != exclude)
+    found = [f"{name} is booked {localdt(appt.starts_at, '%H:%M')}–"
+             f"{localdt(appt.ends_at, '%H:%M')} ({number})"
+             for name, appt, number in db.session.execute(q)]
+    if found and get_settings().dispatch_block_overlap:
+        raise WorkError(f"{found[0]}. Booking a tech twice is switched off in Settings.")
+    return found
+
+
+def book(wo, *, start, minutes, user_ids=(), site_id=None, note=None):
+    """An appointment on a WO; a new WO becomes Scheduled. Returns (appointment, warnings
+    about techs booked twice)."""
+    if not is_open(wo):
+        raise WorkError(f"{wo.number} is {wo.status}.")
+    end = start + timedelta(minutes=minutes)
+    warnings = overlaps(user_ids, start, end)
+    appt = Appointment(work_order_id=wo.id, starts_at=start, ends_at=end, site_id=site_id,
+                       note=note)
+    db.session.add(appt)
+    db.session.flush()
+    for uid in dict.fromkeys(user_ids):
+        db.session.add(AppointmentUser(appointment_id=appt.id, user_id=uid))
+    if wo.status == "new":
+        set_status(wo, "scheduled")
+    db.session.flush()
+    return appt, warnings
+
+
+def appointment_users(appt):
+    return set(db.session.scalars(select(AppointmentUser.user_id).where(
+        AppointmentUser.appointment_id == appt.id)))
+
+
+def set_appointment_users(appt, user_ids):
+    want, have = set(user_ids), appointment_users(appt)
+    for row in db.session.scalars(select(AppointmentUser).where(
+            AppointmentUser.appointment_id == appt.id,
+            AppointmentUser.user_id.in_(have - want))):
+        db.session.delete(row)
+    for uid in want - have:
+        db.session.add(AppointmentUser(appointment_id=appt.id, user_id=uid))
+    db.session.flush()
+
+
+def reschedule(appt, *, start, minutes, user_ids=None):
+    """Move or resize an appointment, and (when given) change who's on it. Returns
+    warnings about techs booked twice."""
+    end = start + timedelta(minutes=minutes)
+    users = appointment_users(appt) if user_ids is None else set(user_ids)
+    warnings = overlaps(users, start, end, exclude=appt.id)
+    appt.starts_at, appt.ends_at = start, end
+    if user_ids is not None:
+        set_appointment_users(appt, users)
+    db.session.flush()
+    return warnings

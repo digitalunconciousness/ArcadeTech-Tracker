@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Dispatch{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dispatch.js') }}" defer></script>{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Dispatch <span class="dim">{% if view == 'week' %}week of {{ days[0].strftime('%b %-d, %Y') }}{% else %}{{ day.strftime('%A, %b %-d, %Y') }}{% endif %}</span></h1>
+  </div>
+  <div class="cal-nav">
+    <a class="btn small" href="{{ url_for('work.dispatch', day=prev_day, view=view) }}" aria-label="Earlier">&larr;</a>
+    <a class="btn small" href="{{ url_for('work.dispatch', view=view) }}">Today</a>
+    <a class="btn small" href="{{ url_for('work.dispatch', day=next_day, view=view) }}" aria-label="Later">&rarr;</a>
+    <a class="btn small{{ ' primary' if view == 'day' }}" href="{{ url_for('work.dispatch', day=day.isoformat()) }}">Day</a>
+    <a class="btn small{{ ' primary' if view == 'week' }}" href="{{ url_for('work.dispatch', day=day.isoformat(), view='week') }}">Week</a>
+    <form class="inline-form" method="get">
+      <input type="hidden" name="view" value="{{ view }}">
+      <input type="date" name="day" value="{{ day.isoformat() }}" aria-label="Go to a day">
+      <button class="btn small" type="submit">Go</button>
+    </form>
+  </div>
+  {% if can_book %}<p class="dim small desk-only">Drag a work order from "To schedule" onto a lane to book it ({{ default_minutes }} minutes); drag a booking to move it, or its bottom edge to make it longer or shorter. A tech booked twice shows in red.</p>{% endif %}
+  {% if flagged %}<p class="flash flash-error">Double-booked: {% for i in flagged %}<span class="mono">{{ i.wo.number }}</span> {{ localdt(i.appt.starts_at, '%a %H:%M') }} ({{ i.names | join(', ') }}){% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  <p class="board-msg" data-dispatch-msg role="status" aria-live="polite"></p>
+</section>
+
+<div class="desk-only">
+<div class="dispatch" data-dispatch data-csrf="{{ csrf_token() }}" data-day-start="{{ day_start }}" data-day-end="{{ day_end }}" data-slot="{{ slot }}" data-default="{{ default_minutes }}" data-book="{{ url_for('work.dispatch_book') }}"{% if can_book %} data-can-book{% endif %}>
+  <aside class="panel queue">
+    <h2>To schedule <span class="dim">{{ queue | length }}</span></h2>
+    <ul class="list">
+      {% for wo, customer in queue %}
+      <li class="queue-item" data-wo="{{ wo.id }}" data-number="{{ wo.number }}"{% if can_book %} draggable="true"{% endif %}>
+        <a class="mono" href="{{ url_for('work.show', wo_id=wo.id) }}#appointments" draggable="false">{{ wo.number }}</a>
+        <span class="badge">{{ statuses[wo.status] | lower }}</span>
+        {% if wo.priority in ('high', 'rush') %}<span class="badge {{ 'danger' if wo.priority == 'rush' else 'warn' }}">{{ wo.priority }}</span>{% endif %}
+        <div>{{ customer.display_name }}</div>
+        <div class="dim small">{{ wo.summary }}{% if wo.promised_date %} · promised {{ wo.promised_date }}{% endif %}</div>
+      </li>
+      {% else %}
+      <li class="dim">Everything open has a booking.</li>
+      {% endfor %}
+    </ul>
+  </aside>
+  <div class="cal panel">
+    <div class="cal-row cal-head">
+      <div class="cal-times"></div>
+      {% for col in columns %}<div class="cal-label{% if col.today %} today{% endif %}">{{ col.label }} <span class="dim">{{ col['items'] | length }}</span></div>{% endfor %}
+    </div>
+    <div class="cal-row cal-body">
+      <div class="cal-times">{% for h in hours %}<span>{{ '%02d' % h }}:00</span>{% endfor %}</div>
+      {% for col in columns %}
+      <div class="cal-col" data-day="{{ col.day }}" data-user="{{ col.user }}" aria-label="{{ col.label }}">
+        {% for i in col['items'] %}
+        <div class="appt{% if i.conflict %} conflict{% endif %}" data-id="{{ i.appt.id }}" data-start="{{ i.start }}" data-end="{{ i.end }}" data-move="{{ url_for('work.appointment_move', appt_id=i.appt.id) }}"{% if can_book %} draggable="true"{% endif %}>
+          <a class="mono" href="{{ url_for('work.show', wo_id=i.wo.id) }}" draggable="false">{{ i.wo.number }}</a>
+          <span class="appt-who">{{ i.customer.display_name }}</span>
+          <div class="appt-time small"><span data-time>{{ localdt(i.appt.starts_at, '%H:%M') }}–{{ localdt(i.appt.ends_at, '%H:%M') }}</span>{% if view == 'week' and i.names %} · {{ i.names | join(', ') }}{% endif %}</div>
+          {% if i.appt.note %}<div class="small dim">{{ i.appt.note }}</div>{% endif %}
+          {% if can_book %}<a class="appt-edit small" href="{{ url_for('work.appointment_edit', appt_id=i.appt.id, next=here) }}" draggable="false">Edit</a>
+          <span class="resize" title="Drag to change how long" aria-hidden="true"></span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="phone-only">
+<section class="panel">
+  <h2>Booked</h2>
+  <ul class="list">
+    {% for i in items %}
+    <li{% if i.conflict %} class="conflict"{% endif %}>
+      <span class="mono">{{ localdt(i.appt.starts_at, '%a %H:%M') }}–{{ localdt(i.appt.ends_at, '%H:%M') }}</span>
+      <a class="mono tag" href="{{ url_for('work.show', wo_id=i.wo.id) }}">{{ i.wo.number }}</a>
+      {% if i.conflict %}<span class="badge danger">double-booked</span>{% endif %}
+      <div>{{ i.customer.display_name }} · {{ i.wo.summary }}</div>
+      <div class="dim">{{ i.names | join(', ') if i.names else 'nobody yet' }}{% if i.appt.note %} · {{ i.appt.note }}{% endif %}</div>
+      {% if can_book %}<div class="actions"><a class="btn small" href="{{ url_for('work.appointment_edit', appt_id=i.appt.id, next=here) }}">Edit</a></div>{% endif %}
+    </li>
+    {% else %}
+    <li class="dim">Nothing booked {{ 'this week' if view == 'week' else 'this day' }}.</li>
+    {% endfor %}
+  </ul>
+</section>
+</div>
+{% endblock %}

@@ -36,6 +36,13 @@
 </section>
 {% endif %}
 
+{% if overlay %}
+<section class="panel">
+  <h2>Before and after <span class="dim">{{ cmp_wo.number }}</span></h2>
+  {% include "traces/_compare.html" %}
+</section>
+{% endif %}
+
 <section class="panel" id="jobs">
   <h2>On jobs</h2>
   <ul class="list">

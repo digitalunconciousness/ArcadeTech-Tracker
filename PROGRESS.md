@@ -282,9 +282,26 @@ push/PR → owner deploys (⏸).
         part can wait too ("Not here yet"); a work order waiting with nothing outstanding
         gets a one-tap Back to In progress
   - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (migrations 0018, 0019)
-- **9b: work in motion**: work board (drag between statuses), dispatch calendar (tech
-  lanes, drag to book, move and resize), audit log viewer, as-found vs as-left overlay
-  - [ ] Code + tests → ⏸ OK → PR → ⏸ deploy
+- **9b: work in motion** (branch `phase/9b-work-in-motion`, on top of 9a's)
+  - [x] Design → OK (owner, 2026-10-13: all eight as recommended; double-booking warns,
+        with a setting to refuse it)
+  - [x] Work board (`/work/board`, desktop tab): a column per open status plus the last 14
+        days' completed; cards by priority then promised date (late, parts in, not billed,
+        what it waits on, techs); drag or the Move menu, saved through the status form,
+        refused when someone changed it meanwhile; a confirm before Completed with lines
+        not billed
+  - [x] Dispatch calendar (`/work/dispatch`, desktop tab): day (a lane per tech, plus
+        Unassigned) or week; 06:00-22:00 in 15 minutes; drag a work order from "To
+        schedule" to book it (60 min), drag a booking to move it or change its tech, its
+        edge to resize; double-booking shown in red, or refused (Settings → Dispatch,
+        migration 0020); an appointment edit form; phones get the day's list
+  - [x] Settings → Audit (owner): filters (what, who, did, dates), what changed (before →
+        after, local times, values as stored), CSV; History on work orders, invoices,
+        estimates, customers, parts and payments (the record and the rows under it)
+  - [x] As found against as left: one chart and the numbers side by side on the job and
+        trace pages, an SVG on the service report; manual readings per test point against
+        the spec on the job page
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR (after #17) → ⏸ deploy (migration 0020)
 - **9c: money at the desk**: bulk invoicing (preview, then issue), bulk statements, bank
   reconciliation (CSV import, suggested matches confirmed by a person, locked when
   reconciled), accountant export (account mapping + general journal CSV)
@@ -658,3 +675,17 @@ push/PR → owner deploys (⏸).
   hand-set wait had no way out but the status form at the bottom. Fixed as a third commit
   on #17 (migration 0019).
 - 9b design OK'd (all eight as recommended; double-booking warns, with a setting to block).
+
+### Session 3, Phase 9b (2026-10-13, same cloud session)
+
+- `phase/9b-work-in-motion` from 9a's head (`fa5d5b6`); its PR waits for #17.
+- `app/work/planning.py` (board and dispatch, on the work blueprint), `board.js`,
+  `dispatch.js` (HTML5 drag for cards and bookings, pointer events for resizing; positions
+  set from JS, since the CSP refuses `style=`), `app/settings/audit.py`,
+  `app/gatbox/charts.py` (overlay JSON and print SVG), `traces/_compare.html`.
+- The WO page's booking form now goes through `service.book` (the same overlap rule).
+- Passes: drag a card (saved, survives a reload, Move puts it back); book, move to another
+  lane, resize on the calendar; History from a WO; the overlay and readings charts; the
+  service report SVG; all three desktop themes; phones (the board stacks with Move menus,
+  dispatch is a list); no console errors, nothing wider than the screen.
+- Shortcuts: `g o` board, `g l` dispatch (`g b` and `g d` were taken).

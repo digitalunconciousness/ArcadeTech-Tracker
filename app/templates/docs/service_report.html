@@ -64,6 +64,12 @@
     {% endfor %}
     </tbody>
   </table>
+  {% if overlays.get(job.id) %}
+  <figure class="overlay">
+    <figcaption class="muted small">As found against as left</figcaption>
+    {{ overlays[job.id] }}
+  </figure>
+  {% endif %}
   {% endif %}
 
   {% set parts = lines[job.id] | selectattr('kind', 'equalto', 'part') | list %}

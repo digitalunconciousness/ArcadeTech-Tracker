@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+{% include "settings/_tabs.html" %}
+<section class="panel">
+  <div class="head">
+    <h1>Audit log</h1>
+    <a class="btn small" href="{{ url_for('settings.audit', format='csv', **args) }}">CSV</a>
+  </div>
+  {% if record_label %}<p>History of {% if record %}<a href="{{ record }}">{{ record_label }}</a>{% else %}{{ record_label }}{% endif %}{% if f.related %}, with the rows under it{% endif %}. <a href="{{ url_for('settings.audit') }}">Everything</a></p>{% endif %}
+  <form class="filters audit-filters" method="get">
+    {% if f.row %}<input type="hidden" name="row" value="{{ f.row }}">{% endif %}
+    {% if f.related %}<input type="hidden" name="related" value="1">{% endif %}
+    <label class="field"><span>What</span>
+      <select name="table"><option value="">Everything</option>
+        {% for key, name in tables %}<option value="{{ key }}"{% if key == f.table %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+    <label class="field"><span>Who</span>
+      <select name="user"><option value="">Anyone</option><option value="none"{% if f.user == 'none' %} selected{% endif %}>System (no one signed in)</option>
+        {% for uid, name in users %}<option value="{{ uid }}"{% if f.user == uid | string %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+    <label class="field"><span>Did</span>
+      <select name="action"><option value="">Anything</option>
+        {% for key, name in actions.items() %}<option value="{{ key }}"{% if f.action == key %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+    <label class="field"><span>From</span><input type="date" name="from" value="{{ f['from'] or '' }}"></label>
+    <label class="field"><span>To</span><input type="date" name="to" value="{{ f.to or '' }}"></label>
+    <button class="btn" type="submit">Show</button>
+  </form>
+  <p class="dim small">Every change to money, work and customer records is written here by the database itself; nothing in the app can edit or delete it. Passwords, 2FA secrets and device tokens show only as "[changed]".</p>
+</section>
+
+<section class="panel">
+  <table class="grid audit">
+    <thead><tr><th>When</th><th>Who</th><th>What</th><th>Changes</th></tr></thead>
+    <tbody>
+    {% for e in items %}
+    <tr>
+      <td class="mono nowrap">{{ e.at | localdt }}</td>
+      <td>{{ e.who }}</td>
+      <td>{% if e.url %}<a href="{{ e.url }}">{{ e.label }} {{ e.row }}</a>{% else %}{{ e.label }} {{ e.row }}{% endif %}
+        <div class="dim small">{{ e.action }} · <a href="{{ url_for('settings.audit', table=e.table, row=e.row) }}">its history</a></div></td>
+      <td>
+        {% if e.changes %}<ul class="diff">
+          {% for key, old, new in e.changes %}<li><span class="mono">{{ key }}</span>: {% if e.action == 'changed' %}<del>{{ old }}</del> → <ins>{{ new }}</ins>{% else %}{{ new or old }}{% endif %}</li>{% endfor %}
+        </ul>{% else %}<span class="dim">—</span>{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="dim">Nothing matches.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if older %}<p><a class="btn" href="{{ older }}">Older</a></p>{% endif %}
+</section>
+{% endblock %}

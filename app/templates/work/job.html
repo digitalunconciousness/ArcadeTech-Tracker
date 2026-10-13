@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% from "_forms.html" import field, check, checks %}
 {% block title %}{{ wo.number }}{% if asset %} · {{ asset.tag }}{% endif %}{% endblock %}
+{% block scripts %}{% if overlay or reading_charts %}
+  <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}" defer></script>
+{% endif %}{% endblock %}
 {% block content %}
 <section class="panel">
   <p class="dim"><a href="{{ url_for('work.show', wo_id=wo.id) }}"><span class="mono">{{ wo.number }}</span></a> · {{ customer.display_name }}</p>
@@ -261,6 +265,7 @@
 
 <section class="panel traces" id="traces">
   <h2>GATBOX traces</h2>
+  {% if overlay %}{% include "traces/_compare.html" %}{% endif %}
   {% for link, s in traces %}
   <div class="trace">
     <a href="{{ url_for('traces.show', session_id=s.id) }}">{{ s.started_at | localdt }}</a> {{ s.profile_label or s.rail or '' }} {% include "traces/_verdict.html" %}
@@ -297,6 +302,12 @@
 
 <section class="panel" id="readings">
   <h2>Readings</h2>
+  {% for c in reading_charts %}
+  <figure class="chart">
+    <figcaption>As found → as left ({{ c.unit }}), against the spec</figcaption>
+    <div class="chart-box"><canvas data-chart="{{ c.json }}" role="img" aria-label="Readings, as found and as left"></canvas></div>
+  </figure>
+  {% endfor %}
   <table class="grid">
     <thead><tr><th>Test point</th><th class="num">Reading</th><th class="num">Spec</th></tr></thead>
     <tbody>

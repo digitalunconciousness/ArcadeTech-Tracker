@@ -5,6 +5,7 @@
 <section class="panel">
   <div class="head">
     <h1 class="mono tag">{{ inv.number }}</h1>
+    {% if is_owner %}<a class="btn" href="{{ url_for('settings.audit', table='invoice', row=inv.id, related=1) }}">History</a>{% endif %}
   </div>
   <p class="lead">{{ customer.display_name }}
     <span class="badge {{ 'ok' if inv.status == 'paid' else 'danger' if inv.status == 'void' else 'warn' if inv.status == 'partially_paid' else '' }}">{{ inv_statuses[inv.status] | lower }}</span>

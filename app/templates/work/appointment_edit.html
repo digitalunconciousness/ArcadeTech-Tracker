@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_forms.html" import field, checks %}
+{% block title %}Appointment · {{ wo.number }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="head">
+    <h1>Appointment</h1>
+    <a class="btn" href="{{ back }}">Back</a>
+  </div>
+  <p><a class="mono tag" href="{{ url_for('work.show', wo_id=wo.id) }}">{{ wo.number }}</a> · {{ customer.display_name }} · {{ wo.summary }}</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <input type="hidden" name="next" value="{{ back }}">
+    <div class="row two">{{ field(form.starts_at) }}{{ field(form.minutes, inputmode="numeric") }}</div>
+    {{ field(form.site_id) }}
+    {{ checks(form.users) }}
+    {{ field(form.note) }}
+    <button class="btn primary" type="submit">Save</button>
+  </form>
+</section>
+<section class="panel">
+  <form method="post" action="{{ url_for('work.appointment_delete', appt_id=appt.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="{{ back }}">
+    <button class="btn danger" type="submit" data-confirm="Remove this appointment?">Remove the appointment</button>
+  </form>
+</section>
+{% endblock %}
