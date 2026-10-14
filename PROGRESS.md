@@ -141,9 +141,10 @@ push/PR → owner deploys (⏸).
         trigger and checked against allocations after every step of a randomized run
   - [x] Diff, tests, privacy output → OK → PR #11 (merged)
   - [x] ⏸ Owner deployed (migration 0010; confirmed by the 5a exit)
-- [ ] ⏸ Exit: editing an issued invoice line fails in the database (4a, tested); a partial +
+- [x] ⏸ Exit: editing an issued invoice line fails in the database (4a, tested); a partial +
       final payment closes the invoice (4b, tested); numbers gapless across a forced rollback
       (4a, tested). Then enter the partner's first real invoice with its true issue date
+      (owner, 2026-10-13: backdating works)
 
 ## Phase 5: Purchasing and parts links
 
@@ -199,10 +200,11 @@ push/PR → owner deploys (⏸).
         threshold, mileage rates, categories); restore drill re-hashes receipts
   - [x] Diff, tests, privacy output → OK → PR #14 (merged)
   - [x] ⏸ Owner deploys (migrations 0014, 0015) (owner, 2026-10-13)
-  - [ ] ⏸ Exit: an expense, a trip and a PO paid by a partner each show on that partner's
+  - [x] ⏸ Exit: an expense, a trip and a PO paid by a partner each show on that partner's
         statement as owed; recording a reimbursement clears it (tested:
         `test_what_a_partner_is_owed_and_paying_it_back`). On the phone: mark both owners as
-        partners (Settings → Users), confirm the mileage rates (Settings → Books)
+        partners (Settings → Users), confirm the mileage rates (Settings → Books) (owner,
+        2026-10-13)
 - **6b: numbers** (branch `phase/6b-numbers`)
   - [x] Design note → OK (owner, 2026-10-13, all seven decisions as recommended)
   - [x] `work_order.ready_at` (migration 0016), set the first time a WO reaches Ready
@@ -222,9 +224,9 @@ push/PR → owner deploys (⏸).
         Settings
   - [x] Diff, tests, privacy output → OK → PR #15 (merged)
   - [x] ⏸ Owner deploys (migration 0016) (owner, 2026-10-13)
-  - [ ] ⏸ Exit: the year-end package's figures reconcile to the dashboard to the cent
+  - [x] ⏸ Exit: the year-end package's figures reconcile to the dashboard to the cent
         (tested). On the phone: the dashboard on both bases, blur, print the P&L, download
-        this year's package and open it
+        this year's package and open it (owner, 2026-10-13)
 
 ## Phase 7: GATBOX link, hub side (branch `phase/7-gatbox-link`)
 
@@ -327,6 +329,21 @@ push/PR → owner deploys (⏸).
   - [x] Diff, tests, privacy output → OK → PR #20 (merged)
   - [x] ⏸ deploy (migrations 0021-0023) (owner, 2026-10-13; `deploy.sh --check`: all
         clear, "migrations: at head 0023_accounts")
+- **Fix: cost of goods** (branch `phase/9-cogs-fix`, on top of `phase/9-closeout`)
+  - [x] Plan → OK (owner, 2026-10-13: all three as recommended)
+  - [x] A part the shop doesn't stock is an expense when it's bought (supplies on its PO,
+        or an expense) and no longer counted again as cost of goods when it's invoiced:
+        one rule (`figures.is_cogs` / `cogs_line`) for the P&L, the journal and the
+        year-end zip's new "Cost of goods" column. Past periods are corrected too (cost
+        of goods is computed, nothing stored changes). Job profitability and the margins
+        on invoices and work orders still count a non-stocked part's default cost, with a
+        note
+  - [x] Whether a part is stocked is fixed once it's been ordered, received, set aside,
+        put on a job or invoiced (the part form says so; add a new part instead)
+  - [x] The journal rounded each line's cost with Python's `round()` (a half cent to the
+        even cent) where the P&L rounds half up: it now uses `round_money`, so a $0.1250
+        lot cost no longer leaves the journal a cent off the P&L
+  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (no migration)
 
 ## Decisions
 
@@ -448,6 +465,7 @@ push/PR → owner deploys (⏸).
 | 2026-10-13 | Bulk invoicing commits each invoice on its own: one refused doesn't stop the rest, and the gapless counter only moves for invoices that exist | Owner (9c design) |
 | 2026-10-13 | Bank: wallets are accounts; only the latest reconciliation can be undone, with a reason; reconciled lines and their matches are locked by triggers (even for the schema owner); a matched record edited later is flagged, not blocked | Owner (9c design) |
 | 2026-10-13 | Accountant export: accrual double entry, generic general-journal CSV and a trial balance; account names in `account_map` (only changes stored). Customers' credit stays in receivables; unmatched money goes to its payment method's account or Checking; stock is inventory when ordered and cost of goods when invoiced, as the P&L counts it | Owner (9c design); no accountant yet |
+| 2026-10-13 | Cost of goods is stocked parts (at their lot cost) and sublets. A part the shop doesn't stock is an expense when it's bought and isn't counted again when it's sold; whether a part is stocked is fixed once it's used. Job profitability and margins still count a non-stocked part's default cost | Owner (cost-of-goods fix, as recommended). It had been counted twice since 6b |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -740,3 +758,9 @@ push/PR → owner deploys (⏸).
 - Found while building the journal, not fixed (owner to decide): a part the shop doesn't
   stock takes its default cost onto job lines, so its cost counts as supplies on its PO
   and again as cost of goods when invoiced. In the P&L since 6b; the journal follows it.
+- Phone exits passed (owner): Phase 4 (the first real invoice, backdated), 6a and 6b.
+  Still open: the partner's 2FA sign-in (0) and order → receive on the phone (5b).
+- Cost-of-goods fix planned and OK'd (all three as recommended); built on
+  `phase/9-cogs-fix`, stacked on #21. The new test fails on the old code (cost of goods
+  $40.80 where it should be $0.80); a half-cent test caught the journal's rounding (a
+  cent off the P&L on the old code).

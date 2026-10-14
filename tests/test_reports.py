@@ -119,8 +119,7 @@ def recompute(zf):
                for r in allocations if r["From"] == "payment" and D(r["Invoice tax"]) > 0), D(0))
     lines, _ = read_csv(zf, "invoice-lines.csv")
     cogs = sum((cents(D(r["Qty"]) * D(r["Unit cost"])) for r in lines
-                if status[r["Invoice"]] in LIVE and r["Kind"] in ("part", "sublet")
-                and r["Unit cost"] and r["Customer's own part"] != "yes"), D(0))
+                if status[r["Invoice"]] in LIVE and r["Cost of goods"] == "yes"), D(0))
     expenses, _ = read_csv(zf, "expenses.csv")
     trips, _ = read_csv(zf, "mileage.csv")
     out = {"invoiced": billed - credited, "tax": tax,
@@ -262,6 +261,41 @@ def test_customers_own_parts_cost_nothing(app, signed_in):
         assert figures.cogs(t, t) == 0
         p = figures.pnl(t, t, "accrual")
     assert (p["revenue"], p["cogs"], p["net"]) == (D("80.00"), 0, D("80.00"))
+
+
+def test_parts_not_stocked_are_counted_once(app, signed_in):
+    """A part the shop doesn't stock is an expense when it's bought (supplies on its PO)
+    and isn't counted again as cost of goods when it's sold; a stocked part is cost of
+    goods at its lot cost. The journal agrees, the year-end lines say which counts, and
+    job profitability still shows what the job used."""
+    from app.books import journal
+    from app.reports import service as reports
+    from app.reports import tables
+    owner = signed_in("owner")
+    b = billable(owner, app)                                # 2 stocked caps, $0.40 lot
+    vid = add_vendor(owner)
+    flyback = add_part(owner, sku="FBT-ONE-OFF", name="Flyback", track_stock="",
+                       default_cost="40.00", sell_price="65.00", preferred_vendor_id=str(vid))
+    order_for_job(owner, b["job"], flyback, "1", wait=False)
+    make_po(owner, app)                                     # bought: $40.00 of supplies
+    owner.post(f"/work/jobs/{b['job']}/lines/part", data={"part_id": flyback, "qty": "1",
+                                                           "billable": "y"})
+    issued_id(issue(owner, app, b["wo"]))
+    assert db_query(app, "SELECT unit_cost FROM invoice_line WHERE part_id = :p",
+                    p=flyback) == [(D("40.0000"),)]          # the line keeps its cost
+    t = today(app)
+    with app.app_context():
+        p = figures.pnl(t, t, "accrual")
+        es = journal.entries(t, t)
+        net = journal.net_income(es)
+        tb = {name: amount for name, _, _, _, amount in journal.trial_balance(es)}
+        jobs, _ = reports.job_profitability(t, t)
+        rows = tables.invoice_lines_table(t, t).rows
+    assert p["cogs"] == D("0.80")                           # the caps only
+    assert p["expenses"] == D("40.00")                      # the flyback, once
+    assert net == p["net"] and tb["Cost of goods sold"] == D("0.80")
+    assert [r[10] for r in rows if r[2] == "part"] == ["yes", ""]
+    assert jobs[0]["parts"] == D("40.80")                   # what the job used
 
 
 def test_partner_shares_add_up_to_net(app, signed_in, tdb, make_user):

@@ -257,3 +257,25 @@ def test_an_empty_post_is_a_form_error_not_a_crash(app, signed_in):
     owner = signed_in("owner")
     for path in ("/parts/new", "/vendors/new", "/pricebook/services/new", "/pricebook/templates/new"):
         assert owner.post(path, data={}).status_code == 200, path
+
+
+def test_whether_a_part_is_stocked_is_fixed_once_used(app, signed_in):
+    """Stocked or not decides where a part's cost lands in the books, so it can change
+    only until the part is used."""
+    owner = signed_in("owner")
+    fresh = add_part(owner, sku="NEW-1")
+    owner.post(f"/parts/{fresh}/edit", data={**PART, "sku": "NEW-1", "track_stock": "",
+                                              "active": "y"})
+    assert part_row(app, fresh).track_stock is False        # not used yet: free to change
+    used = add_part(owner, sku="USED-1")
+    owner.post(f"/parts/{used}/receive", data={"qty": "1", "unit_cost": "0.40",
+                                               "vendor_id": "None"})
+    resp = owner.post(f"/parts/{used}/edit", data={**PART, "sku": "USED-1",
+                                                    "track_stock": "", "active": "y"},
+                      follow_redirects=True)
+    assert "can't change now" in text(resp)
+    assert part_row(app, used).track_stock is True
+    assert "Fixed now" in text(owner.get(f"/parts/{used}/edit"))
+    owner.post(f"/parts/{used}/edit", data={**PART, "sku": "USED-1", "name": "Renamed",
+                                             "active": "y"})
+    assert part_row(app, used).name == "Renamed"            # everything else still saves
