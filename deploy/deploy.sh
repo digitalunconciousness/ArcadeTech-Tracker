@@ -9,6 +9,12 @@
 #                        On failure after the dump, prints the exact rollback commands.
 set -euo pipefail
 
+# One known locale for everything below, whatever the shell brought in. An LC_ALL naming a
+# locale this container doesn't have (sent by an SSH client, or passed in from the host)
+# left Python's locale encoding at ASCII, and Alembic, which reads alembic.ini in that
+# encoding, failed "flask db heads" (2026-10-14). C.UTF-8 is built into glibc.
+export LC_ALL=C.UTF-8
+
 APP=${SHOP_APP_DIR:-/opt/shop-hub}
 VENV=${SHOP_VENV:-/opt/shop-hub-venv}
 ETC=${SHOP_ETC:-/etc/shop-hub}

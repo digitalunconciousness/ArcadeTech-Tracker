@@ -343,6 +343,21 @@ push/PR → owner deploys (⏸).
   - [x] The journal rounded each line's cost with Python's `round()` (a half cent to the
         even cent) where the P&L rounds half up: it now uses `round_money`, so a $0.1250
         lot cost no longer leaves the journal a cent off the P&L
+  - [x] Diff, tests, privacy output → OK → PR #22 (merged)
+  - [ ] ⏸ deploy (no migration; first deploy with `LC_ALL=C.UTF-8`, see below)
+- **Docs: README and a wiki** (branch `docs/readme`)
+  - [x] README.md, and the wiki's pages in `docs/wiki/`, published by
+        `scripts/publish_wiki.sh` (owner-run; copies origin/main's `docs/wiki/`) → PR #23
+        (merged)
+  - [ ] ⏸ Repo Settings → Features: Wikis on, "Restrict editing to collaborators only";
+        save a first page on the Wiki tab; then `scripts/publish_wiki.sh`
+- **Fix: deploy under a missing locale** (branch `phase/9-locale-fix`)
+  - [x] `deploy.sh --check` failed "flask db heads" with an ASCII UnicodeDecodeError on the
+        LXC (2026-10-14): Alembic reads `alembic.ini` with the locale's own encoding
+        (`encoding="locale"`, not UTF-8 mode), ASCII when `LC_ALL` names a locale the
+        container lacks, and the file had a one-character "...". Now the file is ASCII
+        (a test reads it under `LC_ALL=C`), `deploy.sh` exports `LC_ALL=C.UTF-8`, and
+        RUNBOOK §3 says what to do when running flask by hand
   - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (no migration)
 
 ## Decisions
@@ -764,3 +779,12 @@ push/PR → owner deploys (⏸).
   `phase/9-cogs-fix`, stacked on #21. The new test fails on the old code (cost of goods
   $40.80 where it should be $0.80); a half-cent test caught the journal's rounding (a
   cent off the P&L on the old code).
+- #22 and #23 merged. The README and the wiki went in as `docs/wiki/` plus an owner-run
+  publish script, not edits on GitHub: wiki pages are a separate repository that skips the
+  pre-push privacy check, and a public repo's wiki is editable by anyone unless
+  restricted.
+- Session 4 (2026-10-14, same cloud session): the owner's `deploy.sh --check` for the six
+  new commits failed in `flask db heads` (ASCII decode of `alembic.ini`). Reproduced here:
+  only `LC_ALL` set to a missing locale (or `C`) does it. With `LANG` alone Python falls
+  back to UTF-8 and it works; `PYTHONUTF8=1` doesn't help. Workaround until the fix is
+  deployed: `LC_ALL=C.UTF-8 deploy/deploy.sh`.
