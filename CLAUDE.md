@@ -137,6 +137,8 @@ scripts/                create_owner.py, backup.sh, restore_drill.sh, privacy_ch
                         contract_checksums.py, devdb.sh
 tests/                  pytest, against a throwaway Postgres database
 docs/PLAN.md            the agreed plan
+docs/wiki/              the GitHub wiki's pages (scripts/publish_wiki.sh, run by the owner,
+                        publishes origin/main's copy; never edit the wiki directly)
 PROGRESS.md             where we are; resume from the first unchecked box
 .githooks/              pre-push (committed), patterns.local (git-ignored)
 ```
