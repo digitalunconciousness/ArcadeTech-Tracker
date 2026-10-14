@@ -147,3 +147,23 @@ def test_nothing_the_app_or_deploy_needs_is_git_ignored():
         cwd=ROOT, capture_output=True, text=True, check=True,
     ).stdout.split()
     assert [p for p in out if "__pycache__" not in p] == []
+
+
+def test_alembic_reads_its_ini_in_any_locale():
+    """Alembic reads alembic.ini with encoding="locale", which ignores Python's UTF-8 mode
+    and is ASCII under LC_ALL=C or an LC_ALL naming a missing locale. A "..." written as
+    one character there broke deploy.sh --check on the LXC (2026-10-14). The file stays
+    ASCII, and deploy.sh pins LC_ALL=C.UTF-8 for good measure."""
+    import os
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items() if k not in ("LANG", "LC_CTYPE")}
+    out = subprocess.run(
+        [sys.executable, "-c", "from alembic.config import Config; "
+         "print(Config('migrations/alembic.ini').get_main_option('script_location'))"],
+        cwd=ROOT, env={**env, "LC_ALL": "C"}, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr[-500:]
+    deploy = (ROOT / "deploy" / "deploy.sh").read_text()
+    assert "\nexport LC_ALL=C.UTF-8\n" in deploy
+    assert deploy.index("export LC_ALL=C.UTF-8") < deploy.index("flask_cmd()")

@@ -107,6 +107,8 @@ apt install -y git curl ca-certificates python3 python3-venv postgresql-client \
 python3 --version        # must print 3.13.x; stop and tell Claude if not
 # optional: silence perl's locale warning from pg_dump when LANG comes in from the host
 # apt install -y locales && sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
+# Running flask by hand with LC_ALL naming a locale this container lacks? Alembic then
+# can't read alembic.ini: prefix the command with LC_ALL=C.UTF-8 (deploy.sh sets it itself).
 pg_dump --version        # 17.x (Debian 13's client matches the 17.9 server)
 ```
 
