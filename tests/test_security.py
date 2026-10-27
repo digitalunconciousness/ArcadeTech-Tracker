@@ -287,3 +287,78 @@ def test_a_session_ends_a_fixed_time_after_sign_in(app, make_user):
                 s["signed_in_at"] = stale
         resp = client.get("/")
         assert resp.status_code == 302 and "/login" in resp.location, stale
+
+
+# --- owner's follow-ups (2026-10-27) ----------------------------------------------------------
+
+def test_2fa_can_be_required_of_everyone(app, signed_in, make_user):
+    owner = signed_in("owner")
+    tess = make_user("tess", "tech")
+    tech = app.test_client()
+    assert login(tech, tess).location == "/"
+    assert tech.get("/").status_code == 200
+    # needs the owner's own password, and only an owner can change it
+    owner.post("/settings/2fa-policy", data={"require_2fa_all": "y", "your_password": "wrong-test-pw"})
+    assert db_query(app, "SELECT require_2fa_all FROM shop_setting") == [(False,)]
+    assert tech.post("/settings/2fa-policy", data={"require_2fa_all": "y",
+                                                  "your_password": TEST_PASSWORD}).status_code == 403
+    resp = owner.post("/settings/2fa-policy", data={"require_2fa_all": "y",
+                                                   "your_password": TEST_PASSWORD})
+    assert resp.status_code == 302 and resp.location.endswith("/settings/users#2fa")
+    assert db_query(app, "SELECT require_2fa_all FROM shop_setting") == [(True,)]
+    # the tech, already signed in, is sent to set it up at their next page
+    resp = tech.get("/")
+    assert resp.status_code == 302 and resp.location == "/account/2fa"
+    assert "Required" in text(tech.get("/account/2fa"))
+    owner.post("/settings/2fa-policy", data={"your_password": TEST_PASSWORD})
+    assert db_query(app, "SELECT require_2fa_all FROM shop_setting") == [(False,)]
+    assert tech.get("/").status_code == 200
+
+
+def test_signing_out_ends_every_session_and_the_calendar_link(app, make_user):
+    tess = make_user("tess", "tech")
+    phone, desk = app.test_client(), app.test_client()
+    login(phone, tess)
+    login(desk, tess)
+    page = text(phone.post("/account/calendar"))
+    token = re.search(r"/d/cal/([A-Za-z0-9_-]{43})\.ics", page).group(1)
+    anon = app.test_client()
+    assert anon.get(f"/d/cal/{token}.ics").status_code == 200
+    assert phone.post("/logout").status_code == 302
+    resp = desk.get("/")
+    assert resp.status_code == 302 and "/login" in resp.location
+    assert anon.get(f"/d/cal/{token}.ics").status_code == 404
+    # a new sign-in and a new link work as before
+    assert login(desk, tess).location == "/"
+    token = re.search(r"/d/cal/([A-Za-z0-9_-]{43})\.ics",
+                      text(desk.post("/account/calendar"))).group(1)
+    assert anon.get(f"/d/cal/{token}.ics").status_code == 200
+
+
+def test_a_voided_invoice_reads_void_with_nothing_owed(app, signed_in, monkeypatch):
+    """The PDF frozen at issue said "Balance due"; on a void invoice's link it still did."""
+    from flask import render_template
+
+    from app.work import docs as work_docs
+    owner = signed_in("owner")
+    b = billable(owner, app)
+    inv = issued_id(issue(owner, app, b["wo"]))
+    token = re.search(r"/d/([A-Za-z0-9_-]{43})",
+                      text(owner.post(f"/invoices/{inv}/send"))).group(1)
+    owner.post(f"/invoices/{inv}/void", data={"reason": "Wrong customer"})
+    frozen = db_query(app, "SELECT pdf_sha256 FROM invoice WHERE id = :i", i=inv)[0][0]
+
+    def as_html(template, **ctx):   # the PDF's HTML, so the test can read what it says
+        return b"%PDF-1.7 " + render_template(
+            template, doc_css="css/doc.css", wo_kinds=work_docs.WO_KINDS,
+            received_via=work_docs.RECEIVED_VIA, **ctx).encode()
+
+    monkeypatch.setattr("app.billing.docs.render_pdf", as_html)
+    for resp in (owner.get(f"/invoices/{inv}/invoice.pdf"),
+                 app.test_client().get(f"/d/{token}/invoice.pdf")):
+        body = resp.get_data(as_text=True)
+        assert resp.status_code == 200 and body.startswith("%PDF")
+        assert "was voided" in body and "Nothing is owed" in body and "Balance due" not in body
+    issued = owner.get(f"/invoices/{inv}/invoice.pdf", query_string={"as_issued": "1"})
+    assert hashlib.sha256(issued.data).hexdigest() == frozen
+    assert "Invoice as issued" in text(owner.get(f"/invoices/{inv}"))

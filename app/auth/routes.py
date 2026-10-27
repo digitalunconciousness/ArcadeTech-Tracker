@@ -87,6 +87,11 @@ def safe_next(target):
     return target if is_local_path(target) else url_for("dashboard.index")
 
 
+def needs_2fa(user):
+    """Owners must use 2FA; so must everyone once Settings → Users says so."""
+    return user.role == "owner" or get_settings().require_2fa_all
+
+
 def complete_login(user):
     session.clear()
     login_user(user)
@@ -158,6 +163,10 @@ def login_totp():
 @requires_role(*ALL_ROLES)
 def logout():
     if EmptyForm().validate_on_submit():
+        # Every device, not only this one (owner, 2026-10-27): a phone left signed in
+        # somewhere is signed out too, and the calendar link ends with the sessions.
+        current_user.end_sessions()
+        db.session.commit()
         logout_user()
         session.clear()
     return redirect(url_for("auth.login"))
@@ -258,5 +267,6 @@ def totp_setup():
     uri = totp.provisioning_uri(user.totp_secret, user.username, issuer)
     return render_template(
         "auth/totp_setup.html", enabled=False, form=form, qr=totp.qr_svg(uri),
+        required=needs_2fa(user),
         secret=totp.grouped(user.totp_secret), otpauth_uri=uri,
     )

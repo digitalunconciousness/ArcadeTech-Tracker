@@ -12,8 +12,9 @@ from app.extensions import csrf, db, limiter, login_manager, migrate
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
-# Reachable without signing in. Everything else needs a login (and, for an owner,
-# 2FA); every view outside this set must carry @requires_role (a test checks).
+# Reachable without signing in. Everything else needs a login (and 2FA, from owners and,
+# when Settings → Users says so, from everyone); every view outside this set must carry
+# @requires_role (a test checks).
 PUBLIC_ENDPOINTS = frozenset({
     "auth.login", "auth.login_totp", "health.healthz", "static",
     # the web app manifest (installing the app puts it in Android's share sheet)
@@ -26,7 +27,7 @@ PUBLIC_ENDPOINTS = frozenset({
     # GATBOX picks a reachable address with it before it sends a token (contract v1)
     "api_v1.health",
 })
-# Reachable by an owner who hasn't enrolled 2FA yet.
+# Reachable by someone who must enroll 2FA and hasn't yet.
 ENROLLMENT_ENDPOINTS = frozenset({"auth.totp_setup", "auth.logout", "static"})
 
 CSP = (
@@ -102,6 +103,7 @@ def api_error(error):
 
 
 def _register_hooks(app):
+    from app.auth.routes import needs_2fa
     from app.formatting import FILTERS
     from app.models.settings import DEFAULT_BUSINESS_NAME, ShopSetting
     from app.settings_store import get_settings
@@ -161,8 +163,8 @@ def _register_hooks(app):
             if endpoint is None:
                 return redirect(url_for("auth.login"))
             return login_manager.unauthorized()
-        if current_user.role == "owner" and not current_user.totp_enabled \
-                and endpoint not in ENROLLMENT_ENDPOINTS:
+        if not current_user.totp_enabled and endpoint not in ENROLLMENT_ENDPOINTS \
+                and needs_2fa(current_user):
             return redirect(url_for("auth.totp_setup"))
         return None
 

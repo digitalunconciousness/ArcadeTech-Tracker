@@ -27,9 +27,14 @@
   {% if inv.internal_note %}<p class="notes dim">Internal: {{ inv.internal_note }}</p>{% endif %}
   <p class="actions">
     <a class="btn small" href="{{ url_for('billing.pdf', invoice_id=inv.id) }}">Invoice (PDF)</a>
+    {% if inv.status == 'void' %}<a class="btn small" href="{{ url_for('billing.pdf', invoice_id=inv.id, as_issued=1) }}">Invoice as issued (PDF)</a>{% endif %}
     {% if inv.report_sha256 %}<a class="btn small" href="{{ url_for('billing.report_pdf', invoice_id=inv.id) }}">Service report as sent (PDF)</a>{% endif %}
   </p>
+  {% if inv.status == 'void' %}
+  <p class="dim small">Void: the invoice PDF, here and on the customer's link, now says so and shows nothing owed. "As issued" is the exact file the customer got.</p>
+  {% else %}
   <p class="dim small">These are the exact files issued: they never change, whatever happens to the work order later.</p>
+  {% endif %}
 </section>
 
 <section class="panel">

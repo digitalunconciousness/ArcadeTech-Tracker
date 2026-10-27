@@ -111,6 +111,12 @@ class ResetTwoFactorForm(FlaskForm):
     your_password = PasswordField("Your own password", validators=[DataRequired()])
 
 
+class TwoFactorPolicyForm(FlaskForm):
+    require_2fa_all = BooleanField("Require 2FA for everyone: techs and viewers enroll at "
+                                   "their next page, as owners do")
+    your_password = PasswordField("Your own password", validators=[DataRequired()])
+
+
 class LaborPolicyForm(FlaskForm):
     labor_increment_hours = decimal_field("Bill labor in steps of (hours)", 2, Decimal("0.01"),
                                           Decimal(8), required=True)

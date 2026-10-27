@@ -3,9 +3,9 @@
 #
 #   restore_drill.sh [BACKUP_DIR]     default: the newest run in $SHOP_BACKUP_DIR/daily
 #
-# RESTORE_DATABASE_URL: the schema owner's URL for the scratch database (prod:
-# shop_restore_test, owned by shop_owner). Refused unless the database name contains
-# "restore" or "test", so the drill can never clean the live database.
+# RESTORE_DATABASE_URL: the scratch database, as the role that owns it and nothing else
+# (prod: shop_drill on shop_restore_test, never shop_owner). Refused unless the database
+# name contains "restore" or "test", so the drill can never clean the live database.
 #
 # Checks: checksums; the dump restores in one transaction; every table's row count
 # equals what the dump holds; every trigger came back; the file store archive reads;
@@ -31,8 +31,8 @@ echo "restore drill: $run"
 sha256sum --quiet -c SHA256SUMS || fail "checksum mismatch"
 echo "  checksums ok"
 # counts.tsv comes from the backup run, as the service user, and its table names go into
-# SQL run as the schema owner below: only plain public.<name> identifiers and whole-number
-# counts, checked before anything touches the database.
+# SQL below: only plain public.<name> identifiers and whole-number counts, checked before
+# anything touches the database.
 LC_ALL=C grep -qvE '^public\.[a-z_][a-z0-9_]*'$'\t''[0-9]+$' counts.tsv \
   && fail "counts.tsv has a line that isn't public.<table><tab><count>"
 

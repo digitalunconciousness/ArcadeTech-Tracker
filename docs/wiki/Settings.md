@@ -5,7 +5,7 @@ Owners only.
 | Tab | What's there |
 |---|---|
 | Business | the name, address and contact details printed on documents, their accent color, the estimate, claim-ticket and warranty terms, "How customers pay you", and whether booking a tech twice is refused |
-| Users | add people, set their role, mark partners, reset someone's authenticator |
+| Users | add people, set their role, mark partners, set someone's password or reset their authenticator (both ask for your own password), and whether everyone needs 2FA or only owners |
 | Pricing | labor rates and markup brackets |
 | Tax | whether sales tax is collected, and the tax jurisdictions |
 | Books | profit split, set-aside percentage, mileage rates, expense categories |

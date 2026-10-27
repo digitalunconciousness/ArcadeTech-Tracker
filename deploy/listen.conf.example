@@ -1,4 +1,5 @@
-# /etc/shop-hub/listen.conf: where waitress listens. Loopback for cloudflared (same LXC),
-# plus the LXC's LAN address for use at home. Never 0.0.0.0.
-# Replace <LXC_LAN_IP> with this container's address.
-SHOP_LISTEN_ARGS=--listen=127.0.0.1:8080 --listen=<LXC_LAN_IP>:8080
+# /etc/shop-hub/listen.conf: where waitress listens. Loopback only: cloudflared runs in
+# this LXC, so everything, the shop's own phones included, comes in through the tunnel.
+# Don't add the LXC's LAN address: that would be plain HTTP that skips Cloudflare (and
+# Access), and sign-in doesn't work over it anyway (the cookies need https).
+SHOP_LISTEN_ARGS=--listen=127.0.0.1:8080

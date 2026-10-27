@@ -161,7 +161,14 @@ def invoice_pdf(token):
     found = billing.find_link(token)
     if found is None:
         return gone()
-    return frozen_pdf(found[1].pdf_sha256, f"{found[1].number}.pdf")
+    inv = found[1]
+    if inv.status == "void":   # the issued copy says what was due; nothing is now
+        response = make_response(invoice_docs.void_pdf(inv, db.session.get(Customer,
+                                                                           inv.customer_id)))
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f'inline; filename="{inv.number}-void.pdf"'
+        return response
+    return frozen_pdf(inv.pdf_sha256, f"{inv.number}.pdf")
 
 
 @bp.route("/<token>/service-report.pdf")

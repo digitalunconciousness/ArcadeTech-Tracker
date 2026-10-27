@@ -3,7 +3,8 @@
 # workstation, docker in a cloud session (whichever is installed; podman preferred).
 #
 #   scripts/devdb.sh start     create on first run, then start; wait until ready
-#   scripts/devdb.sh init      create roles shop_owner / shop_app / shop and database shop
+#   scripts/devdb.sh init      create roles shop_owner / shop_app / shop / shop_drill and
+#                              databases shop and shop_restore_test
 #   scripts/devdb.sh env       print the exports for .env and the test suite
 #   scripts/devdb.sh status | stop | psql [args] | destroy
 #
@@ -41,16 +42,22 @@ secrets() {
       echo "POSTGRES_PASSWORD=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
       echo "OWNER_PASSWORD=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
       echo "APP_PASSWORD=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+      echo "DRILL_PASSWORD=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
     } > "$SECRETS"
   fi
   # shellcheck disable=SC1090
   . "$SECRETS"
+  if [ -z "${DRILL_PASSWORD:-}" ]; then   # secrets from before the drill had its own role
+    DRILL_PASSWORD=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
+    (umask 077 && echo "DRILL_PASSWORD=$DRILL_PASSWORD" >> "$SECRETS")
+  fi
   umask 077
   {
     for host in 127.0.0.1 localhost; do
       echo "$host:$PORT:*:postgres:$POSTGRES_PASSWORD"
       echo "$host:$PORT:*:shop_owner:$OWNER_PASSWORD"
       echo "$host:$PORT:*:shop:$APP_PASSWORD"
+      echo "$host:$PORT:*:shop_drill:$DRILL_PASSWORD"
     done
   } > "$PGPASS"
 }
@@ -87,8 +94,8 @@ cmd_init() {
   secrets
   "$ENGINE" exec -i "$NAME" psql -X -q -U postgres -d postgres \
     -v "owner_password=$OWNER_PASSWORD" -v "app_password=$APP_PASSWORD" \
-    < "$ROOT/deploy/sql/create_roles.psql"
-  echo "devdb: roles shop_owner, shop_app, shop and databases shop, shop_restore_test ready"
+    -v "drill_password=$DRILL_PASSWORD" < "$ROOT/deploy/sql/create_roles.psql"
+  echo "devdb: roles shop_owner, shop_app, shop, shop_drill and databases shop, shop_restore_test ready"
 }
 
 cmd_env() {

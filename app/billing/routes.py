@@ -210,7 +210,12 @@ def frozen_pdf(sha256, filename):
 @bp.route("/invoices/<int:invoice_id>/invoice.pdf")
 @requires_role(*READ_ROLES)
 def pdf(invoice_id):
-    inv, _ = load(invoice_id)
+    """The invoice as issued; a voided one reads void with nothing owed, unless asked for
+    as issued (?as_issued=1)."""
+    inv, customer = load(invoice_id)
+    if inv.status == "void" and not request.args.get("as_issued"):
+        from app.work.routes import pdf_response
+        return pdf_response(docs.void_pdf(inv, customer), f"{inv.number}-void.pdf")
     return frozen_pdf(inv.pdf_sha256, f"{inv.number}.pdf")
 
 

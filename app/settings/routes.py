@@ -28,9 +28,11 @@ from app.settings.forms import (
     MarkupTierForm,
     ResetTwoFactorForm,
     SetPasswordForm,
+    TwoFactorPolicyForm,
     UserCreateForm,
     UserEditForm,
 )
+from app.settings_store import get_settings
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
 
@@ -62,7 +64,24 @@ def index():
 @requires_role("owner")
 def users():
     rows = db.session.scalars(select(User).order_by(User.active.desc(), User.username)).all()
-    return render_template("settings/users.html", users=rows)
+    policy = TwoFactorPolicyForm(require_2fa_all=bool(get_settings().require_2fa_all))
+    return render_template("settings/users.html", users=rows, policy_form=policy)
+
+
+@bp.route("/2fa-policy", methods=["POST"])
+@requires_role("owner")
+def two_factor_policy():
+    form = TwoFactorPolicyForm()
+    if form.validate_on_submit():
+        if _owner_password_ok(form):
+            row = db.session.get(ShopSetting, True)
+            row.require_2fa_all = form.require_2fa_all.data
+            db.session.commit()
+            flash("2FA is now required of everyone." if row.require_2fa_all
+                  else "2FA is now required of owners only.", "ok")
+    else:
+        _flash_errors(form)
+    return redirect(url_for("settings.users") + "#2fa")
 
 
 @bp.route("/new-user", methods=["GET", "POST"])

@@ -12,6 +12,11 @@ Another owner resets it under [Settings](Settings) → Users, and you set it up 
 next sign-in. If the only owner is locked out, there's a last-resort step on the server in
 the runbook.
 
+**My calendar stopped updating.**
+Your calendar link ends with your sessions: when you sign out (Sign out signs you out on
+every device), change your password, or an owner resets your sign-in. Make a new one under
+your name → Calendar, and paste it into your calendar app again.
+
 **A customer's link doesn't open.**
 Links expire, and can be revoked. Make a new one from the estimate, invoice or Statements
 page.

@@ -484,11 +484,11 @@ Every report exports to CSV.
 
 - **Logins:**
   - Flask-Login, scrypt hashes.
-  - **TOTP 2FA required for owners**, recommended for everyone (pyotp; the QR shown once at setup).
+  - **TOTP 2FA required for owners**; for everyone too when Settings → Users says so (2026-10-27) (pyotp; the QR shown once at setup).
   - Flask-Limiter on login.
-  - Secure, HttpOnly, SameSite cookies; 12-hour sessions; CSRF on every form.
+  - Secure, HttpOnly, SameSite cookies; sessions end 12 hours after sign-in; Sign out ends every device's session; CSRF on every form.
 - **Exposure:**
-  - The app listens on 127.0.0.1 (for the tunnel) and the LXC's LAN address only, never 0.0.0.0. Same `listen.conf` pattern as the tracker.
+  - The app listens on 127.0.0.1 only, for the tunnel (2026-10-27: the LAN listener was plain HTTP that skipped Cloudflare). Same `listen.conf` pattern as the tracker.
   - Cloudflare tunnel on its own hostname.
   - **Optional:** Cloudflare Access (email one-time code) in front of everything except `/api/v1/*` (devices) and `/d/*` (customer links). gatbox-sync already explains a 401/403 from something in front of a hub.
 - **Customer links:** 32-byte random tokens, read-only, revocable, expiring.

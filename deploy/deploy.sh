@@ -79,7 +79,16 @@ preflight() {
     || bad "$ENV_FILE must exist, root:shop-hub, mode 640"
   perm_is "$MIGRATE_ENV" root:root 600 && ok "$MIGRATE_ENV root:root 600" \
     || bad "$MIGRATE_ENV must exist, root:root, mode 600"
-  [ -r "$LISTEN" ] && ok "$LISTEN present" || bad "$LISTEN missing (see listen.conf.example)"
+  if [ -r "$LISTEN" ]; then
+    ok "$LISTEN present"
+    local wide
+    wide=$(grep -Eo -- '--listen=[^[:space:]"]+' "$LISTEN" \
+      | grep -Ev -- '^--listen=(127\.0\.0\.1|\[::1\]|localhost):' | sed 's/^--listen=//' \
+      | tr '\n' ' ' || true)
+    [ -z "$wide" ] || note "$LISTEN also listens on ${wide% }: loopback only now (RUNBOOK §5)"
+  else
+    bad "$LISTEN missing (see listen.conf.example)"
+  fi
 
   local dirty
   dirty=$(git -C "$APP" status --porcelain 2>/dev/null)

@@ -25,6 +25,13 @@ def invoice_pdf(inv, lines, customer, applied=None):
     return render_pdf("docs/invoice.html", **context(inv, lines, customer, applied))
 
 
+def void_pdf(inv, customer):
+    """A voided invoice as it stands: marked void, nothing owed (owner, 2026-10-27). Drawn
+    from the frozen invoice rows when it's asked for. The PDF as issued stays in the file
+    store, unchanged, for the record."""
+    return invoice_pdf(inv, service.lines_of(inv), customer)
+
+
 def credit_memo_pdf(cm, lines, inv, customer):
     return render_pdf("docs/credit_memo.html", cm=cm, lines=lines, inv=inv, customer=customer)
 
