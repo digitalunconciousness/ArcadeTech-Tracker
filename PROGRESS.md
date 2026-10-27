@@ -27,7 +27,7 @@ push/PR → owner deploys (⏸).
 - [x] "Decisions for you" (PLAN.md) answered (table below)
 - [x] First commits pushed to `main` (owner's go)
 - [x] Cloud handoff: `docs/cloud-setup.sh` + CLAUDE.md "Cloud sessions"
-- [ ] ⏸ Owner: GitHub email privacy (deferred by owner)
+- [x] ⏸ Owner: GitHub email privacy (deferred by owner; owner, 2026-10-27: done, or not a concern)
 
 ## Phase 0: Foundation (branch `phase/0-foundation`)
 
@@ -48,13 +48,13 @@ push/PR → owner deploys (⏸).
 - [x] `scripts/restore_drill.sh` + monthly timer
 - [x] GitHub Actions with a postgres service container (manual-only since 2026-10-08; see Decisions)
 - [x] Diff, tests, privacy output → OK → PR #1 (privacy check clean with 17 patterns)
-- [ ] ⏸ Exit: both owners log in with 2FA from phones over the tunnel; `deploy.sh`
+- [x] ⏸ Exit: both owners log in with 2FA from phones over the tunnel; `deploy.sh`
       round-trips; the restore drill passes
       - [x] owner signed in with 2FA over the tunnel (2026-10-08)
       - [x] `deploy.sh` round-trip: dump → pull → hash-checked install → migrate → restart →
             healthy (2026-10-08)
       - [x] restore drill PASS (5 tables, 7 triggers); backup + drill timers enabled (2026-10-08)
-      - [x] partner's user created (2026-10-08); ⏸ their first sign-in with 2FA is still to do
+      - [x] partner's user created (2026-10-08); their first sign-in with 2FA (owner, 2026-10-27)
 
 ## Phase 1: Customers & assets (branch `phase/1-customers-assets`)
 
@@ -178,9 +178,10 @@ push/PR → owner deploys (⏸).
         when it was ordered; WO out of `waiting_parts` (tested, incl. FIFO between jobs)
   - [x] Diff, tests, privacy output → OK → PR #13
   - [x] ⏸ Owner merges (PR #13) and deploys (migrations 0012, 0013) (owner, 2026-10-13)
-  - [ ] ⏸ Exit: receiving a line tied to a job reserves it and moves that WO out of
+  - [x] ⏸ Exit: receiving a line tied to a job reserves it and moves that WO out of
         `waiting_parts` (tested: `test_order_for_job_then_receive_releases_the_wo`). On the
         phone: Order for this job → Make draft POs → Mark ordered → add tracking → Receive
+        (owner, 2026-10-27)
 
 ## Phase 6: Dashboard & books
 
@@ -244,17 +245,18 @@ push/PR → owner deploys (⏸).
       `tests/test_api_v1_contract.py`)
 - [x] Diff, tests, privacy output → OK → PR #16 (merged)
 - [x] ⏸ Owner deploys (migration 0017) (owner, 2026-10-13)
-- [ ] ⏸ Mint a device token in Settings → Devices and run the smoke test (RUNBOOK §10).
+- [x] ⏸ Mint a device token in Settings → Devices and run the smoke test (RUNBOOK §10).
       The token goes on the Pi only once GATBOX has `hubs.d` (plan Phase 8): its single
-      `hub.conf` points at the barcade's hub today. No GATBOX code here
+      `hub.conf` points at the barcade's hub today. No GATBOX code here (owner, 2026-10-27: GATBOX
+      connected)
 
 ## Phase 8: GATBOX multi-hub (in the GATBOX repo, not here)
 
-- [ ] ⏸ Owner runs a GATBOX session (prompt handed over 2026-10-13: housekeeping for its
+- [x] ⏸ Owner runs a GATBOX session (prompt handed over 2026-10-13: housekeeping for its
       Phase 6 and both bench exits, which are done; then `hubs.d`, per-hub caches and
       routing, the conflict flag, picker by hub, `model_key` → manuals, the JOB card)
-- [ ] ⏸ Exit: on one Pi, a barcade trace lands in the tracker and a customer trace on the
-      shop job, and neither shows in the other
+- [x] ⏸ Exit: on one Pi, a barcade trace lands in the tracker and a customer trace on the
+      shop job, and neither shows in the other (owner, 2026-10-27)
 
 ## Phase 9: Desktop (three PRs)
 
@@ -344,7 +346,7 @@ push/PR → owner deploys (⏸).
         even cent) where the P&L rounds half up: it now uses `round_money`, so a $0.1250
         lot cost no longer leaves the journal a cent off the P&L
   - [x] Diff, tests, privacy output → OK → PR #22 (merged)
-  - [ ] ⏸ deploy (no migration; first deploy with `LC_ALL=C.UTF-8`, see below)
+  - [x] ⏸ deploy (no migration; first deploy with `LC_ALL=C.UTF-8`, see below) (owner, 2026-10-27)
 - **Docs: README and a wiki** (branch `docs/readme`)
   - [x] README.md, and the wiki's pages in `docs/wiki/`, published by
         `scripts/publish_wiki.sh` (owner-run; copies origin/main's `docs/wiki/`) → PR #23
@@ -358,7 +360,9 @@ push/PR → owner deploys (⏸).
         container lacks, and the file had a one-character "...". Now the file is ASCII
         (a test reads it under `LC_ALL=C`), `deploy.sh` exports `LC_ALL=C.UTF-8`, and
         RUNBOOK §3 says what to do when running flask by hand
-  - [ ] Diff, tests, privacy output → ⏸ OK → PR → ⏸ deploy (no migration)
+  - [x] Diff, tests, privacy output → OK → PR #24 (merged)
+  - [x] ⏸ deploy (no migration): a plain `deploy/deploy.sh --check` (no prefix) all clear
+        confirms #22-#24 are live and the locale fix works (owner, 2026-10-27)
 
 ## Decisions
 
@@ -788,3 +792,8 @@ push/PR → owner deploys (⏸).
   only `LC_ALL` set to a missing locale (or `C`) does it. With `LANG` alone Python falls
   back to UTF-8 and it works; `PYTHONUTF8=1` doesn't help. Workaround until the fix is
   deployed: `LC_ALL=C.UTF-8 deploy/deploy.sh`.
+- 2026-10-27 (owner): the partner signed in with 2FA (Phase 0 exit), order → receive works
+  on the phone (5b exit), GATBOX is connected (Phase 7 token and smoke test), the Phase 8
+  exit passed, and a plain `deploy.sh --check` is all clear (#22-#24 live). Every phase
+  exit has now passed. Open: the wiki's first publish, and "How customers pay you" (the
+  owner will write it later). Next work, when wanted, is PLAN.md's parked list.
