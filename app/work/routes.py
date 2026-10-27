@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.auth.decorators import ALL_ROLES, COST_ROLES, EDIT_ROLES, requires_role
 from app.auth.forms import EmptyForm
+from app.auth.routes import is_local_path
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.formatting import qty as fmt_qty
@@ -420,7 +421,7 @@ def appointment_delete(appt_id):
 
         attempt(remove, "Appointment removed.")
     back = request.form.get("next") or ""
-    if back.startswith("/") and not back.startswith("//"):      # from the dispatch calendar
+    if is_local_path(back):                                     # from the dispatch calendar
         return redirect(back)
     return redirect(url_for("work.show", wo_id=appt.work_order_id) + "#appointments")
 

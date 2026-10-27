@@ -28,6 +28,7 @@
     {{ password_form.csrf_token }}
     {{ field(password_form.new_password, autocomplete="new-password") }}
     {{ field(password_form.confirm_password, autocomplete="new-password") }}
+    {{ field(password_form.your_password, autocomplete="current-password") }}
     <button class="btn" type="submit">Set password</button>
   </form>
 </section>
@@ -36,6 +37,7 @@
   <p>{% if user.totp_enabled %}<span class="badge ok">ON</span> since {{ user.totp_enabled_at|localdt }}{% else %}<span class="badge warn">OFF</span>{% endif %}</p>
   <form method="post" action="{{ url_for('settings.user_reset_2fa', user_id=user.id) }}">
     {{ reset_form.csrf_token }}
+    {{ field(reset_form.your_password, autocomplete="current-password") }}
     <button class="btn danger" type="submit">Reset 2FA and sign them out</button>
   </form>
 </section>

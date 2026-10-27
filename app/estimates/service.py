@@ -270,6 +270,11 @@ def content_hash(est):
                   [[x.id, x.kind, x.description, str(x.qty), str(x.unit_price), x.labor_mode,
                     x.taxable, x.warranty_days, x.scope] for x in lines[j.id]]] for j, _ in jobs],
     }
+    # Printed on the estimate too; added only when set, like the parts below.
+    if est.notes:
+        doc["notes"] = est.notes
+    if est.site_id is not None:
+        doc["site"] = est.site_id
     buys = part_links(est)
     if buys:  # only when there are any, so older estimates keep the hash they were sent with
         doc["buy"] = [[r.id, r.estimate_job_id, r.title, r.url, str(r.qty), str(r.price_seen),
@@ -343,7 +348,10 @@ def approve(est, *, name, method, signature=None, ip=None, ua=None, note=None, s
         raise EstimateError(f"{label(est)} is {est.status}; it can't be approved now.")
     if is_expired(est):
         raise EstimateError(f"{label(est)} expired on {est.valid_until}; ask for a new one.")
-    if seen_hash is not None and seen_hash != content_hash(est):
+    # A signature must be for what the customer saw: the form carries the hash of the page
+    # they signed, and a POST without one is treated as a page that changed.
+    if (seen_hash is not None or method in ("link", "on_screen")) \
+            and seen_hash != content_hash(est):
         raise EstimateError("This estimate changed since it was opened. Reload it and look again.")
     if method in ("link", "on_screen"):
         try:

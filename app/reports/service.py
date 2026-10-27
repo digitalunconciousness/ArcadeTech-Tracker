@@ -45,8 +45,9 @@ def _cell(v):
         return ""
     text = str(v)
     # Text a spreadsheet would run as a formula (a payee typed as "=HYPERLINK(...)") gets
-    # a leading apostrophe. Numbers aren't str, so a negative amount stays a number.
-    if isinstance(v, str) and text[:1] in ("=", "+", "-", "@", "\t", "\r"):
+    # a leading apostrophe. Numbers and dates are left alone, so a negative amount stays a
+    # number; everything else counts as text, a report's Link (a part's SKU) included.
+    if not isinstance(v, (int, Decimal, date)) and text[:1] in ("=", "+", "-", "@", "\t", "\r"):
         return "'" + text
     return text
 

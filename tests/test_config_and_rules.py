@@ -167,3 +167,44 @@ def test_alembic_reads_its_ini_in_any_locale():
     deploy = (ROOT / "deploy" / "deploy.sh").read_text()
     assert "\nexport LC_ALL=C.UTF-8\n" in deploy
     assert deploy.index("export LC_ALL=C.UTF-8") < deploy.index("flask_cmd()")
+
+
+def test_scripts_keep_database_passwords_off_command_lines(tmp_path):
+    """deploy.sh, backup.sh and restore_drill.sh hand libpq tools the URL without its
+    password and the password in PGPASSWORD: a command line is readable by every user on
+    the box, and the schema owner's password would let the app role switch triggers off."""
+    import os
+    import subprocess
+
+    out = subprocess.run(
+        ["bash", "-c", '. scripts/libpq.sh && pg_split "$U" && printf "%s|%s" "$PG_NOPW" "$PG_PW"'],
+        cwd=ROOT, env={**os.environ, "U": "postgresql+psycopg://shop_owner:test%40pw@db.example.test:5432"
+                                          "/shop?sslmode=require"},
+        capture_output=True, text=True, check=True).stdout
+    assert out == "postgresql://shop_owner@db.example.test:5432/shop?sslmode=require|test@pw"
+    tool_with_url = re.compile(r"(psql|pg_dump|pg_restore)\b[^\n]*\$\{?[A-Z_]*(DATABASE_)?URL\b")
+    for script in ("deploy/deploy.sh", "scripts/backup.sh", "scripts/restore_drill.sh"):
+        text = (ROOT / script).read_text()
+        assert "libpq.sh" in text, script
+        assert not tool_with_url.search(text), (script, tool_with_url.search(text).group(0))
+
+
+def test_restore_drill_refuses_a_tampered_counts_file(tmp_path):
+    """counts.tsv is written by the service user and its names go into the drill's SQL as
+    the schema owner: anything but public.<name><tab><count> stops the drill before it
+    connects."""
+    import os
+    import subprocess
+
+    run = tmp_path / "daily" / "20261027T000000Z"
+    run.mkdir(parents=True)
+    for name, body in (("shop.dump", "x"), ("files.tar", ""), ("toc.txt", ""),
+                       ("counts.tsv", "public.customer\t1\npublic.x; DROP TABLE y\t1\n")):
+        (run / name).write_text(body)
+    subprocess.run("sha256sum shop.dump files.tar toc.txt counts.tsv > SHA256SUMS", shell=True,
+                   cwd=run, check=True)
+    out = subprocess.run(["bash", str(ROOT / "scripts" / "restore_drill.sh"), str(run)],
+                         env={**os.environ, "RESTORE_DATABASE_URL":
+                              "postgresql://nobody@127.0.0.1:1/never_restore_test"},
+                         capture_output=True, text=True)
+    assert out.returncode != 0 and "counts.tsv has a line" in out.stderr, out.stderr

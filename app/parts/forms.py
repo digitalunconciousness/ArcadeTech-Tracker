@@ -2,10 +2,17 @@ import re
 
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, SelectField, StringField, TextAreaField
-from wtforms.validators import URL, DataRequired, Length, Optional, ValidationError
+from wtforms.validators import DataRequired, Length, Optional, ValidationError
 
 from app.customers.forms import opt_int
-from app.forms_common import blank_to_none, cost_field, money_field, optional_text, qty_field
+from app.forms_common import (
+    WEB_URL,
+    blank_to_none,
+    cost_field,
+    money_field,
+    optional_text,
+    qty_field,
+)
 
 EQUIV_MAX = 20
 
@@ -68,7 +75,7 @@ class PartForm(FlaskForm):
     preferred_vendor_id = SelectField("Preferred vendor", coerce=opt_int)
     bin = optional_text("Bin", 40)
     barcode = optional_text("Barcode", 64)
-    datasheet_url = optional_text("Datasheet URL", 300, URL(message="Not a URL."))
+    datasheet_url = optional_text("Datasheet URL", 300, *WEB_URL)
     notes = TextAreaField("Notes", filters=[blank_to_none], validators=[Optional(), Length(max=4000)])
     active = BooleanField("Active", default=True)
 
@@ -111,7 +118,7 @@ class CountForm(FlaskForm):
 
 class VendorForm(FlaskForm):
     name = StringField("Name", filters=[blank_to_none], validators=[DataRequired(), Length(max=120)])
-    website = optional_text("Website", 200, URL(message="Not a URL."))
+    website = optional_text("Website", 200, *WEB_URL)
     account_ref = optional_text("Our account no.", 60)
     contact = optional_text("Contact (rep, phone, email)", 200)
     resale_cert_on_file = BooleanField("Our resale certificate is on file with them")

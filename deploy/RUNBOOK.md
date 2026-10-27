@@ -285,10 +285,21 @@ After a PR is merged to `main`:
 /opt/shop-hub/deploy/deploy.sh
 ```
 
-It dumps the database to `backups/predeploy/` as `shop_owner`, fast-forwards `main`,
-installs the hash-pinned requirements, runs migrations, restarts and checks `/healthz`.
-On any failure it prints the exact rollback commands (reset to the previous commit,
-reinstall, and `flask db downgrade` or `pg_restore` of the pre-deploy dump).
+It dumps the database to `/var/backups/shop-hub-predeploy/` (root's, 700) as
+`shop_owner`, fast-forwards `main`, installs the hash-pinned requirements, runs
+migrations, restarts and checks `/healthz`. On any failure it prints the exact rollback
+commands (reset to the previous commit, reinstall, and `flask db downgrade` or
+`pg_restore` of the pre-deploy dump). Database passwords never go on a command line: the
+scripts pass them to libpq in `PGPASSWORD` (`scripts/libpq.sh`). Dumps from before
+2026-10-27 are in `/var/lib/shop-hub/backups/predeploy/`.
+
+When a release changes a unit in `deploy/systemd/` (its PR says so), copy it in again:
+
+```
+cp /opt/shop-hub/deploy/systemd/shop-hub.service /opt/shop-hub/deploy/systemd/shop-hub-backup.service \
+   /etc/systemd/system/
+systemctl daemon-reload && systemctl restart shop-hub
+```
 
 ## 10. GATBOX devices ⏸
 

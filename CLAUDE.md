@@ -193,7 +193,8 @@ setup script is `docs/cloud-setup.sh` (pasted into the environment settings, wit
   `python3.13 -m venv ~/.venvs/shop-hub`. Postgres 17 runs in docker via `scripts/devdb.sh`
   (start `dockerd` first if `docker info` fails); the VM's preinstalled PostgreSQL 16 is not
   used, and its pg_dump 16 can't dump a 17 server, so point `SHOP_PG_BIN` at wrappers that
-  `docker run --rm -i --network host postgres:17 <tool>` (kept in the scratchpad).
+  `docker run --rm -i --network host -e PGPASSWORD postgres:17 <tool>` (kept in the
+  scratchpad; the scripts pass passwords in `PGPASSWORD`, so the wrapper must forward it).
 - `scripts/privacy_check.sh` skips the login-name check when run as root (the cloud user),
   since "root" is a generic word; home paths and every other check still run.
 - Nothing local carries over: no `.env`, no dev database, no files. Data in the cloud VM is

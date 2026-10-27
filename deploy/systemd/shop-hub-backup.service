@@ -13,6 +13,7 @@ ExecStart=/opt/shop-hub/scripts/backup.sh
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths=/var/lib/shop-hub/backups
+ProtectProc=invisible
 ProtectHome=yes
 PrivateTmp=yes
 UMask=0077

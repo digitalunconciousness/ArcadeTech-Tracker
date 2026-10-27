@@ -21,7 +21,9 @@ ETC=${SHOP_ETC:-/etc/shop-hub}
 ENV_FILE=$ETC/shop-hub.env
 MIGRATE_ENV=$ETC/migrate.env
 LISTEN=$ETC/listen.conf
-PREDEPLOY=${SHOP_PREDEPLOY_DIR:-/var/lib/shop-hub/backups/predeploy}
+# Root's, outside /var/lib/shop-hub: the service user owns that tree, and a symlink planted
+# there would point root's dump (and chmod) at a file of its choosing.
+PREDEPLOY=${SHOP_PREDEPLOY_DIR:-/var/backups/shop-hub-predeploy}
 DATA=/var/lib/shop-hub
 SERVICE=shop-hub
 BRANCH=main
@@ -48,7 +50,9 @@ load_env() {
   done < "$1"
 }
 
-libpq_url() { printf '%s' "${1/postgresql+psycopg:/postgresql:}"; }
+# pg_split: the URL without its password (PG_NOPW) and the password (PG_PW), which goes to
+# libpq tools in PGPASSWORD, never on a command line anyone can read.
+. "$(dirname "$(readlink -f "$0")")/../scripts/libpq.sh"
 
 # A revision id from `flask db current|heads` output ("0002_seed_settings (head)"), or
 # nothing. Alembic's own log lines and tracebacks never match.
@@ -100,14 +104,17 @@ preflight() {
     bad "git fetch origin $BRANCH failed"
   fi
 
-  (load_env "$ENV_FILE" && psql -X -q -At --no-password "$(libpq_url "$DATABASE_URL")" -c 'SELECT 1' >/dev/null 2>&1) \
+  (load_env "$ENV_FILE" && pg_split "$DATABASE_URL" \
+     && PGPASSWORD=$PG_PW psql -X -q -At --no-password "$PG_NOPW" -c 'SELECT 1' >/dev/null 2>&1) \
     && ok "database reachable as the app role" || bad "can't reach the database with DATABASE_URL"
-  (load_env "$MIGRATE_ENV" && psql -X -q -At --no-password "$(libpq_url "$MIGRATE_DATABASE_URL")" -c 'SELECT 1' >/dev/null 2>&1) \
+  (load_env "$MIGRATE_ENV" && pg_split "$MIGRATE_DATABASE_URL" \
+     && PGPASSWORD=$PG_PW psql -X -q -At --no-password "$PG_NOPW" -c 'SELECT 1' >/dev/null 2>&1) \
     && ok "database reachable as the owner role" || bad "can't reach the database with MIGRATE_DATABASE_URL"
 
   local client server
   client=$(pg_dump --version 2>/dev/null | grep -oE '[0-9]+' | head -n 1 || true)
-  server=$(load_env "$MIGRATE_ENV" && psql -X -At --no-password "$(libpq_url "$MIGRATE_DATABASE_URL")" \
+  server=$(load_env "$MIGRATE_ENV" && pg_split "$MIGRATE_DATABASE_URL" \
+           && PGPASSWORD=$PG_PW psql -X -At --no-password "$PG_NOPW" \
            -c 'SHOW server_version_num' 2>/dev/null || true)
   server=$(( ${server:-0} / 10000 ))
   if [ -n "$client" ] && [ "$client" -ge "$server" ] && [ "$server" -gt 0 ]; then
@@ -174,7 +181,7 @@ EOF
   # the schema may have moved; either step back down:
   (cd $APP && set -a && . $ENV_FILE && . $MIGRATE_ENV && set +a && $VENV/bin/flask --app wsgi db downgrade $old_rev)
   # or restore the pre-deploy dump:
-  (set -a && . $MIGRATE_ENV && set +a && pg_restore --clean --if-exists --no-owner --single-transaction -d "\${MIGRATE_DATABASE_URL/postgresql+psycopg:/postgresql:}" $dump)
+  (set -a && . $MIGRATE_ENV && set +a && . $APP/scripts/libpq.sh && pg_split "\$MIGRATE_DATABASE_URL" && PGPASSWORD=\$PG_PW pg_restore --clean --if-exists --no-owner --single-transaction -d "\$PG_NOPW" $dump)
 EOF
   fi
   cat >&2 <<EOF
@@ -185,8 +192,12 @@ EOF
 trap rollback ERR
 
 echo "deploy"
-install -d -m 700 "$PREDEPLOY"
-(umask 077 && load_env "$MIGRATE_ENV" && pg_dump -Fc --no-password "$(libpq_url "$MIGRATE_DATABASE_URL")" > "$dump")
+[ ! -L "$PREDEPLOY" ] || { echo "deploy: $PREDEPLOY is a symlink" >&2; false; }
+install -d -m 700 -o root -g root "$PREDEPLOY"
+[ "$(stat -c '%U' "$PREDEPLOY")" = root ] \
+  || { echo "deploy: $PREDEPLOY must be a directory owned by root" >&2; false; }
+(umask 077 && set -o noclobber && load_env "$MIGRATE_ENV" && pg_split "$MIGRATE_DATABASE_URL" \
+  && PGPASSWORD=$PG_PW pg_dump -Fc --no-password "$PG_NOPW" > "$dump")
 ok "dump: $dump ($(du -h "$dump" | cut -f1))"
 
 step="git pull"

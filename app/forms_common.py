@@ -4,10 +4,12 @@ from decimal import Decimal
 
 from wtforms import DecimalField, StringField
 from wtforms.validators import (
+    URL,
     InputRequired,
     Length,
     NumberRange,
     Optional,
+    Regexp,
     StopValidation,
     ValidationError,
 )
@@ -20,6 +22,12 @@ def blank_to_none(value):
         value = value.strip()
         return value or None
     return value
+
+
+# A web address shown as a link: WTForms' URL() takes any scheme ("javascript://..."
+# included), so the scheme is pinned to http(s) as well.
+WEB_URL = (URL(message="Not a URL."),
+           Regexp(r"(?i)^https?://", message="Use an address starting http:// or https://."))
 
 
 def optional_text(label, max_len, *extra):

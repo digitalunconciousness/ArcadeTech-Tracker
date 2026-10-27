@@ -12,6 +12,7 @@ from sqlalchemy import case, or_, select
 
 from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.auth.forms import EmptyForm
+from app.auth.routes import is_local_path
 from app.customers.routes import flash_errors
 from app.extensions import db
 from app.models import (
@@ -315,8 +316,8 @@ def appt_label(appt):
 
 
 def safe_next(raw, default):
-    """Only back to a page of this app."""
-    return raw if raw and raw.startswith("/") and not raw.startswith("//") else default
+    """Only back to a page of this app (auth.routes.is_local_path)."""
+    return raw if is_local_path(raw) else default
 
 
 @bp.route("/work/appointments/<int:appt_id>/edit", methods=["GET", "POST"])

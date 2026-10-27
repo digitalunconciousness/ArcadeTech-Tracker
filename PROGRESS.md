@@ -363,6 +363,35 @@ push/PR → owner deploys (⏸).
   - [x] Diff, tests, privacy output → OK → PR #24 (merged)
   - [x] ⏸ deploy (no migration): a plain `deploy/deploy.sh --check` (no prefix) all clear
         confirms #22-#24 are live and the locale fix works (owner, 2026-10-27)
+- **Security review** (branch `phase/9-security-fixes`)
+  - [x] Whole-codebase review (owner's request, 2026-10-27): four reviewers in parallel
+        (deploy and database; inputs and files; links, approvals and GATBOX; sign-in and
+        roles), every finding checked against the code before fixing
+  - [x] Deploy and database: no database password on a command line any more (`argv` is
+        world-readable in `/proc`): `scripts/libpq.sh` splits a URL, the password goes in
+        `PGPASSWORD`. Predeploy dumps go to a root-only 0700 directory (refuses a
+        symlink), written with noclobber; the restore drill refuses a `counts.tsv` that
+        isn't `public.<table><tab><count>`; the app unit can't see the backups and both
+        units get `ProtectProc=invisible`. Migration 0024 pins `audit_row()`'s
+        `search_path` and refuses NaN in bank amounts
+  - [x] Inputs: a bank CSV's "NaN"/"Infinity" (and amounts that don't fit) are refused;
+        report CSVs escape formula-looking text in link cells too; `next=` redirects
+        refuse `/\host` and control characters (sign-in, appointments, planning); web
+        addresses must be http(s); photos over Pillow's pixel limit are refused before
+        decoding; the desktop pane only fetches same-origin paths
+  - [x] Links and approvals: a tech can't withdraw an invoice link through the estimates
+        route; statement links are listed on the customer's Account panel with Withdraw;
+        a link or on-screen signature must carry the hash of the page it was for, and the
+        hash covers the notes and the site; a GATBOX device can only send sessions whose
+        uid follows the contract's rule for its own id and file, and can't tag another
+        device's session or put a trace on a job with no machine
+  - [x] Sign-in: per-username (30/hour) and per-user code (5/min, 10/hour, 30/day) limits on
+        top of the per-address ones; IPv6 counted by /64; wrong passwords and codes logged;
+        setting someone's password or resetting their 2FA asks for the acting owner's own
+        password; a session ends 12 hours after sign-in however busy it is
+  - [ ] Diff, tests, privacy output → OK → PR
+  - [ ] ⏸ deploy (migration 0024), reinstall the two units (RUNBOOK §9); everyone signs
+        in again once
 
 ## Decisions
 
@@ -485,6 +514,9 @@ push/PR → owner deploys (⏸).
 | 2026-10-13 | Bank: wallets are accounts; only the latest reconciliation can be undone, with a reason; reconciled lines and their matches are locked by triggers (even for the schema owner); a matched record edited later is flagged, not blocked | Owner (9c design) |
 | 2026-10-13 | Accountant export: accrual double entry, generic general-journal CSV and a trial balance; account names in `account_map` (only changes stored). Customers' credit stays in receivables; unmatched money goes to its payment method's account or Checking; stock is inventory when ordered and cost of goods when invoiced, as the P&L counts it | Owner (9c design); no accountant yet |
 | 2026-10-13 | Cost of goods is stocked parts (at their lot cost) and sublets. A part the shop doesn't stock is an expense when it's bought and isn't counted again when it's sold; whether a part is stocked is fixed once it's used. Job profitability and margins still count a non-stocked part's default cost | Owner (cost-of-goods fix, as recommended). It had been counted twice since 6b |
+| 2026-10-27 | A session lasts 12 hours from sign-in (`signed_in_at` in the session), not 12 hours from the last request: the cookie's renewal made it an idle timeout only | Security review |
+| 2026-10-27 | Setting another user's password or resetting their 2FA needs the acting owner's own password | Security review: an open or stolen session can't take over an account |
+| 2026-10-27 | GATBOX rail_session uids are checked against contract v1's rule (`sha256(public_id\|rail_session\|file)[:32]`) and a stored session belongs to the device that sent it. Reading uids aren't checked (the rule hashes a formatted float) | Security review; v1's request shapes unchanged |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
@@ -797,3 +829,12 @@ push/PR → owner deploys (⏸).
   exit passed, and a plain `deploy.sh --check` is all clear (#22-#24 live). Every phase
   exit has now passed. Open: the wiki's first publish, and "How customers pay you" (the
   owner will write it later). Next work, when wanted, is PLAN.md's parked list.
+- Security review (2026-10-27, owner's request): four reviewers, then each finding
+  checked by hand. All 252 routes have a role check; no SQL built from strings; public
+  pages escape everything; link and device tokens are stored hashed. Fixed what's listed
+  under "Security review" above; 478 tests pass. Left for the owner to decide, not built:
+  2FA for techs and viewers (PLAN says owners only); the LAN listener has no TLS and skips
+  Access; a restore-drill database role of its own and an append-only restic repository;
+  Sign out ending every device; rotating the calendar feed when sessions are ended; a
+  voided invoice's link still serving a PDF that shows a balance due; checking that the
+  Access bypass for `/d/*` covers `/static/` off the LAN.

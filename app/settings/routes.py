@@ -1,4 +1,4 @@
-from flask import Blueprint, abort, flash, redirect, render_template, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, url_for
 from flask_login import current_user, login_user
 from psycopg.errors import ExclusionViolation, UniqueViolation
 from sqlalchemy import select
@@ -26,6 +26,7 @@ from app.settings.forms import (
     DeviceForm,
     LaborPolicyForm,
     MarkupTierForm,
+    ResetTwoFactorForm,
     SetPasswordForm,
     UserCreateForm,
     UserEditForm,
@@ -126,8 +127,17 @@ def user_edit(user_id):
     _flash_errors(form)
     return render_template(
         "settings/user_form.html", form=form, user=user,
-        password_form=SetPasswordForm(), reset_form=EmptyForm(),
+        password_form=SetPasswordForm(), reset_form=ResetTwoFactorForm(),
     )
+
+
+def _owner_password_ok(form):
+    """The acting owner typed their own password; logged and flashed when not."""
+    if current_user.check_password(form.your_password.data):
+        return True
+    current_app.logger.warning("settings: wrong own password from user %s", current_user.id)
+    flash("Your own password didn't match: nothing changed.", "error")
+    return False
 
 
 @bp.route("/users/<int:user_id>/password", methods=["POST"])
@@ -136,6 +146,8 @@ def user_password(user_id):
     user = db.session.get(User, user_id) or abort(404)
     form = SetPasswordForm()
     if form.validate_on_submit():
+        if not _owner_password_ok(form):
+            return redirect(url_for("settings.user_edit", user_id=user.id))
         user.set_password(form.new_password.data)
         user.end_sessions()
         db.session.commit()
@@ -151,7 +163,10 @@ def user_password(user_id):
 @requires_role("owner")
 def user_reset_2fa(user_id):
     user = db.session.get(User, user_id) or abort(404)
-    if EmptyForm().validate_on_submit():
+    form = ResetTwoFactorForm()
+    if form.validate_on_submit():
+        if not _owner_password_ok(form):
+            return redirect(url_for("settings.user_edit", user_id=user.id))
         user.totp_secret = None
         user.totp_enabled_at = None
         user.totp_last_step = None

@@ -11,7 +11,6 @@ from wtforms import (
     TextAreaField,
 )
 from wtforms.validators import (
-    URL,
     DataRequired,
     EqualTo,
     InputRequired,
@@ -23,7 +22,14 @@ from wtforms.validators import (
 )
 
 from app.auth.forms import new_password_fields
-from app.forms_common import EMAIL_RE, blank_to_none, cost_field, decimal_field, optional_text
+from app.forms_common import (
+    EMAIL_RE,
+    WEB_URL,
+    blank_to_none,
+    cost_field,
+    decimal_field,
+    optional_text,
+)
 from app.models.user import PASSWORD_MAX, PASSWORD_MIN, ROLE_LABELS, USERNAME_RE
 
 
@@ -40,7 +46,7 @@ class BusinessForm(FlaskForm):
     postal_code = optional_text("ZIP", 20)
     phone = optional_text("Phone", 40)
     email = optional_text("Email", 254, Regexp(EMAIL_RE, message="Not an email address."))
-    website = optional_text("Website", 200, URL(message="Not a URL."))
+    website = optional_text("Website", 200, *WEB_URL)
     doc_accent_color = StringField(
         "Document accent color", filters=[blank_to_none],
         validators=[DataRequired(), Regexp(r"^#[0-9a-fA-F]{6}$", message="Use #rrggbb.")],
@@ -96,6 +102,13 @@ class UserCreateForm(UserEditForm):
 
 class SetPasswordForm(FlaskForm):
     new_password, confirm_password = new_password_fields()
+    # The acting owner's own password: a session left open (or stolen) can't take over an
+    # account, theirs or anyone's, without it.
+    your_password = PasswordField("Your own password", validators=[DataRequired()])
+
+
+class ResetTwoFactorForm(FlaskForm):
+    your_password = PasswordField("Your own password", validators=[DataRequired()])
 
 
 class LaborPolicyForm(FlaskForm):

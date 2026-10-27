@@ -11,12 +11,14 @@ from app.models import (
     CommLog,
     Contact,
     Customer,
+    DocLink,
     Estimate,
     Invoice,
     Site,
     TaxJurisdiction,
     WorkOrder,
 )
+from app.timeutil import utcnow
 
 bp = Blueprint("customers", __name__)
 
@@ -98,8 +100,12 @@ def account(customer):
     from app.billing import payments
 
     sources = payments.credit_sources(customer.id)
+    links = db.session.scalars(select(DocLink).where(
+        DocLink.customer_id == customer.id, DocLink.revoked_at.is_(None),
+        DocLink.expires_at > utcnow()).order_by(DocLink.created_at.desc())).all()
     return {"owed": sum((i.balance for i in payments.open_invoices(customer.id)), 0),
-            "credit": sum((s.left for s in sources), 0), "sources": sources}
+            "credit": sum((s.left for s in sources), 0), "sources": sources,
+            "statement_links": links}
 
 
 @bp.route("/customers/<int:customer_id>/edit", methods=["GET", "POST"])

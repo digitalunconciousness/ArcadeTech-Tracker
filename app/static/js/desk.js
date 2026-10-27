@@ -31,11 +31,16 @@
     if (push) window.history.pushState({}, '', listUrl());
   };
   async function openPane(path, push) {
-    if (!pane || !RECORD.test(path)) { window.location.href = path; return; }
+    // ?pane= comes from the address bar, so it can name any URL: only this app's own pages
+    // are opened, in the pane or by going there.
+    let target;
+    try { target = new URL(path, window.location.origin); } catch (e) { return; }
+    if (target.origin !== window.location.origin) return;
+    if (!pane || !RECORD.test(path)) { window.location.href = target.href; return; }
     let resp;
     try {
       resp = await fetch(path, { headers: { 'X-Partial': '1' }, credentials: 'same-origin' });
-    } catch (e) { window.location.href = path; return; }
+    } catch (e) { window.location.href = target.href; return; }
     const landed = new URL(resp.url);
     if (!resp.ok || landed.origin !== window.location.origin || !RECORD.test(landed.pathname)) {
       window.location.href = path;

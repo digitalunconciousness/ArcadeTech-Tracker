@@ -1,4 +1,5 @@
 import hashlib
+import numbers
 import secrets
 import time
 from functools import cache
@@ -22,7 +23,7 @@ from app.actor import set_actor
 from app.auth import totp
 from app.auth.decorators import ALL_ROLES, requires_role
 from app.auth.forms import EmptyForm, LoginForm, PasswordChangeForm, ThemeForm, TotpForm
-from app.extensions import db, limiter, login_manager
+from app.extensions import client_ip, db, limiter, login_manager
 from app.models import CalendarFeed, User
 from app.settings_store import get_settings
 from app.timeutil import utcnow
@@ -30,7 +31,20 @@ from app.timeutil import utcnow
 bp = Blueprint("auth", __name__)
 
 LOGIN_LIMIT = "5 per minute;20 per hour"
+# Per account as well as per address: an attacker with many addresses still gets few tries
+# at one username, and few at one user's codes once past the password.
+ACCOUNT_LIMIT = "30 per hour"
+CODE_LIMIT = "5 per minute;10 per hour;30 per day"
 PENDING_TTL = 300  # seconds between the password step and the code step
+
+
+def _login_account():
+    return "login:" + (request.form.get("username") or "").strip().lower()
+
+
+def _code_account():
+    pending = session.get("pending_login") or {}
+    return f"code:{pending.get('uid')}"
 
 
 @login_manager.user_loader
@@ -41,6 +55,12 @@ def load_user(ident):
     user = db.session.get(User, int(uid))
     if user is None or not user.active or user.session_version != int(version):
         return None
+    # A hard limit from sign-in: the cookie's own lifetime is renewed by every request, so
+    # alone it is only an idle timeout and a copied cookie in steady use never expires.
+    started = session.get("signed_in_at")
+    limit = current_app.config["PERMANENT_SESSION_LIFETIME"].total_seconds()
+    if not isinstance(started, numbers.Real) or not 0 <= time.time() - started <= limit:
+        return None
     set_actor(user.id)
     return user
 
@@ -50,20 +70,28 @@ def _dummy_hash():
     return generate_password_hash("timing-equalizer-not-a-real-password", method="scrypt")
 
 
+def is_local_path(target):
+    """A path on this site, safe to redirect to: no scheme or host (urlsplit drops tabs and
+    newlines first, as browsers do), not protocol-relative, and no backslash or control
+    character a browser might read as "//"."""
+    if not target or not target.startswith("/") or target.startswith("//"):
+        return False
+    if "\\" in target or any(ord(c) < 0x20 or ord(c) == 0x7f for c in target):
+        return False
+    parts = urlsplit(target)
+    return not parts.scheme and not parts.netloc
+
+
 def safe_next(target):
     """Only same-site paths; anything else goes to the dashboard."""
-    if target:
-        parts = urlsplit(target)
-        if not parts.scheme and not parts.netloc and target.startswith("/") \
-                and not target.startswith(("//", "/\\")):
-            return target
-    return url_for("dashboard.index")
+    return target if is_local_path(target) else url_for("dashboard.index")
 
 
 def complete_login(user):
     session.clear()
     login_user(user)
     session.permanent = True
+    session["signed_in_at"] = time.time()
     set_actor(user.id)
     user.last_login_at = utcnow()
     db.session.commit()
@@ -71,6 +99,7 @@ def complete_login(user):
 
 @bp.route("/login", methods=["GET", "POST"])
 @limiter.limit(LOGIN_LIMIT, methods=["POST"])
+@limiter.limit(ACCOUNT_LIMIT, methods=["POST"], key_func=_login_account)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("dashboard.index"))
@@ -93,12 +122,15 @@ def login():
                 return redirect(url_for("auth.login_totp"))
             complete_login(user)
             return redirect(safe_next(target))
+        current_app.logger.warning("sign-in: wrong password for %r from %s", username,
+                                   client_ip())
         flash("Wrong username or password.", "error")
     return render_template("auth/login.html", form=form)
 
 
 @bp.route("/login/totp", methods=["GET", "POST"])
 @limiter.limit(LOGIN_LIMIT, methods=["POST"])
+@limiter.limit(CODE_LIMIT, methods=["POST"], key_func=_code_account)
 def login_totp():
     pending = session.get("pending_login")
     if not pending or time.time() - pending.get("at", 0) > PENDING_TTL:
@@ -116,6 +148,8 @@ def login_totp():
                 complete_login(user)
                 return redirect(safe_next(pending.get("next")))
         db.session.rollback()
+        current_app.logger.warning("sign-in: wrong code for user %s from %s", pending.get("uid"),
+                                   client_ip())
         flash("That code didn't work. Codes change every 30 seconds and work once.", "error")
     return render_template("auth/login_totp.html", form=form)
 
