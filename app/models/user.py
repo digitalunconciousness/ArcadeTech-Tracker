@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     false,
+    select,
     text,
     true,
 )
@@ -91,7 +92,16 @@ class User(StandardColumns, UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     def end_sessions(self):
+        """Signs this user out everywhere, and ends their calendar link with their sessions
+        (owner, 2026-10-27): signing out, a new password, a 2FA reset, a new role or being
+        switched off. A session that just reaches its time limit leaves the link alone."""
+        from app.models.estimate import CalendarFeed
+        from app.timeutil import utcnow
         self.session_version = (self.session_version or 1) + 1
+        if self.id is not None:
+            for feed in db.session.scalars(select(CalendarFeed).where(
+                    CalendarFeed.user_id == self.id, CalendarFeed.revoked_at.is_(None))):
+                feed.revoked_at = utcnow()
 
     def __repr__(self):
         return f"<User {self.id} {self.username} {self.role}>"

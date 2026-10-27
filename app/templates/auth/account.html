@@ -22,7 +22,7 @@
 </section>
 <section class="panel" id="calendar">
   <h2>Calendar</h2>
-  <p class="dim">Your appointments as a private feed: in Google Calendar, Other calendars → + → From URL, and paste the link. Anyone with the link can read your appointments (customer names and addresses), so keep it to yourself.</p>
+  <p class="dim">Your appointments as a private feed: in Google Calendar, Other calendars → + → From URL, and paste the link. Anyone with the link can read your appointments (customer names and addresses), so keep it to yourself. It stops working when you sign out, change your password or have your sign-in reset; make a new one then.</p>
   {% if feed_url %}
   <p class="mono key break">{{ feed_url }}</p>
   <p class="actions"><button class="btn primary" type="button" data-copy="{{ feed_url }}">Copy</button></p>
@@ -47,6 +47,7 @@
 </section>
 <form method="post" action="{{ url_for('auth.logout') }}">
   {{ logout_form.csrf_token }}
-  <button class="btn" type="submit">Sign out</button>
+  <button class="btn" type="submit"{% if feed %} data-confirm="Sign out on every device? Your calendar link stops working too."{% endif %}>Sign out</button>
+  <p class="dim">Signs you out on every device.</p>
 </form>
 {% endblock %}

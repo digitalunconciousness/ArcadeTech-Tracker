@@ -60,11 +60,14 @@ class TestDB:
         self.name = f"shop_test_{suffix}"
         self.owner = f"{self.name}_owner"
         self.app_role = f"{self.name}_app"
+        self.drill_role = f"{self.name}_drill"   # prod: shop_drill, owns only the drill's db
         self.owner_pw = secrets.token_hex(16)
         self.app_pw = secrets.token_hex(16)
+        self.drill_pw = secrets.token_hex(16)
 
     def url(self, role="app", database=None):
-        user, pw = (self.app_role, self.app_pw) if role == "app" else (self.owner, self.owner_pw)
+        user, pw = {"app": (self.app_role, self.app_pw), "owner": (self.owner, self.owner_pw),
+                    "drill": (self.drill_role, self.drill_pw)}[role]
         return make_url(ADMIN_URL).set(
             username=user, password=pw, database=database or self.name
         ).render_as_string(hide_password=False)
@@ -74,13 +77,14 @@ class TestDB:
         url = make_url(ADMIN_URL).set(database=database or self.name)
         return psycopg.connect(libpq(url.render_as_string(hide_password=False)), autocommit=True)
 
-    def create_database(self, name):
+    def create_database(self, name, owner=None):
+        owner = owner or self.owner
         with psycopg.connect(libpq(ADMIN_URL), autocommit=True) as c:
             c.execute(sql.SQL("CREATE DATABASE {} OWNER {}").format(
-                sql.Identifier(name), sql.Identifier(self.owner)))
+                sql.Identifier(name), sql.Identifier(owner)))
             c.execute(sql.SQL("REVOKE ALL ON DATABASE {} FROM PUBLIC").format(sql.Identifier(name)))
             c.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}, shop_app").format(
-                sql.Identifier(name), sql.Identifier(self.owner)))
+                sql.Identifier(name), sql.Identifier(owner)))
         with self.admin(name) as c:
             c.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
             c.execute("GRANT USAGE ON SCHEMA public TO shop_app")
@@ -99,6 +103,8 @@ class TestDB:
                 sql.Identifier(self.owner), sql.Literal(self.owner_pw)))
             c.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD {} IN ROLE shop_app").format(
                 sql.Identifier(self.app_role), sql.Literal(self.app_pw)))
+            c.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD {}").format(
+                sql.Identifier(self.drill_role), sql.Literal(self.drill_pw)))
         self.create_database(self.name)
 
     def teardown(self):
@@ -108,7 +114,7 @@ class TestDB:
             ).fetchall()
             for (name,) in rows:
                 c.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name)))
-            for role in (self.app_role, self.owner):
+            for role in (self.app_role, self.drill_role, self.owner):
                 c.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role)))
 
 

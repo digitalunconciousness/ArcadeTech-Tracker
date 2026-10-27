@@ -36,8 +36,24 @@ def client_ip():
     return peer
 
 
+def limit_key():
+    """Who a rate limit counts: the client's address, except that IPv6 counts by /64 (one
+    connection usually holds a whole /64, so per-address limits would never trip). The
+    address recorded on approvals and devices is client_ip(), exact."""
+    ip = client_ip()
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if addr.version == 6:
+        if addr.ipv4_mapped is not None:
+            return str(addr.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{addr}/64", strict=False))
+    return str(addr)
+
+
 db = SQLAlchemy(metadata=MetaData(naming_convention=NAMING_CONVENTION))
 migrate = Migrate()
 login_manager = LoginManager()
 csrf = CSRFProtect()
-limiter = Limiter(client_ip)
+limiter = Limiter(limit_key)

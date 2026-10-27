@@ -9,10 +9,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import psycopg
 import pytest
 
 from app.extensions import db
-from conftest import login
+from conftest import libpq, login
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -81,21 +82,24 @@ def test_backup_then_restore_drill(app, tdb, make_user, pg_tools, tmp_path):
     assert (tmp_path / "backups" / "yearly" / run.name).exists()
 
     restore_db = f"{tdb.name}_restore"
-    tdb.create_database(restore_db)
-    drill = _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": tdb.url("owner", restore_db)})
+    tdb.create_database(restore_db, owner=tdb.drill_role)
+    drill = _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": tdb.url("drill", restore_db)})
     assert drill.returncode == 0, drill.stdout + drill.stderr
     assert "restore drill: PASS" in drill.stdout
     assert "row counts match" in drill.stdout
+    # The drill's role owns the scratch database and can't so much as connect to the live one.
+    with pytest.raises(psycopg.OperationalError, match="permission denied"):
+        psycopg.connect(libpq(tdb.url("drill"))).close()
 
     # And again over the previous restore (the monthly timer re-uses the database).
-    drill = _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": tdb.url("owner", restore_db)})
+    drill = _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": tdb.url("drill", restore_db)})
     assert drill.returncode == 0, drill.stdout + drill.stderr
 
     # A corrupted backup fails the drill.
     with open(run / "shop.dump", "r+b") as f:
         f.seek(100)
         f.write(b"\0\0\0\0")
-    drill = _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": tdb.url("owner", restore_db)})
+    drill = _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": tdb.url("drill", restore_db)})
     assert drill.returncode != 0 and "checksum" in drill.stderr
 
 
@@ -103,9 +107,9 @@ def test_drill_refuses_live_looking_database(app, tdb, pg_tools, tmp_path):
     env = _env(tmp_path)
     assert _run("backup.sh", env).returncode == 0
     with tdb.admin("postgres") as c:
-        c.execute(f'CREATE DATABASE "shop_live_{tdb.name[-8:]}" OWNER "{tdb.owner}"')
+        c.execute(f'CREATE DATABASE "shop_live_{tdb.name[-8:]}" OWNER "{tdb.drill_role}"')
     try:
-        url = tdb.url("owner", f"shop_live_{tdb.name[-8:]}")
+        url = tdb.url("drill", f"shop_live_{tdb.name[-8:]}")
         drill = _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": url})
         assert drill.returncode != 0 and "refusing" in drill.stderr
     finally:
@@ -146,8 +150,8 @@ def test_drill_rehashes_issued_invoice_pdfs(app, tdb, signed_in, pg_tools, tmp_p
         (files_dir / sha[:2]).mkdir(parents=True, exist_ok=True)
         shutil.copy(store / sha[:2] / f"{sha}.pdf", files_dir / sha[:2] / f"{sha}.pdf")
     restore_db = f"{tdb.name}_rehash_restore"
-    tdb.create_database(restore_db)
-    url = tdb.url("owner", restore_db)
+    tdb.create_database(restore_db, owner=tdb.drill_role)
+    url = tdb.url("drill", restore_db)
 
     def drill(run):
         env = _env(tmp_path, SHOP_BACKUP_DIR=str(tmp_path / run))
@@ -184,8 +188,8 @@ def test_drill_rehashes_receipts(app, tdb, signed_in, pg_tools, tmp_path):
         (files_dir / name[:2]).mkdir(parents=True, exist_ok=True)
         shutil.copy(store / name[:2] / name, files_dir / name[:2] / name)
     restore_db = f"{tdb.name}_receipt_restore"
-    tdb.create_database(restore_db)
-    url = tdb.url("owner", restore_db)
+    tdb.create_database(restore_db, owner=tdb.drill_role)
+    url = tdb.url("drill", restore_db)
 
     def drill(run):
         env = _env(tmp_path, SHOP_BACKUP_DIR=str(tmp_path / run))

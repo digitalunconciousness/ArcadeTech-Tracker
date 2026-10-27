@@ -363,6 +363,8 @@ def send(est_id):
 @requires_role(*EDIT_ROLES)
 def revoke(link_id):
     link = get_or_404(DocLink, link_id)
+    if link.estimate_id is None:      # invoice and statement links: billing.revoke, owners
+        abort(404)
     if EmptyForm().validate_on_submit():
         def go():
             if link.revoked_at is None:

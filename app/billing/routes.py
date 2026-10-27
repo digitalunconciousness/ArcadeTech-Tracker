@@ -210,7 +210,12 @@ def frozen_pdf(sha256, filename):
 @bp.route("/invoices/<int:invoice_id>/invoice.pdf")
 @requires_role(*READ_ROLES)
 def pdf(invoice_id):
-    inv, _ = load(invoice_id)
+    """The invoice as issued; a voided one reads void with nothing owed, unless asked for
+    as issued (?as_issued=1)."""
+    inv, customer = load(invoice_id)
+    if inv.status == "void" and not request.args.get("as_issued"):
+        from app.work.routes import pdf_response
+        return pdf_response(docs.void_pdf(inv, customer), f"{inv.number}-void.pdf")
     return frozen_pdf(inv.pdf_sha256, f"{inv.number}.pdf")
 
 
@@ -251,8 +256,9 @@ def send(invoice_id):
 @bp.route("/invoices/links/<int:link_id>/revoke", methods=["POST"])
 @requires_role(*BILL_ROLES)
 def revoke(link_id):
+    """Withdraw an invoice link or a statement link (estimate links: estimates.revoke)."""
     link = get_or_404(DocLink, link_id)
-    if link.invoice_id is None:
+    if link.invoice_id is None and link.customer_id is None:
         abort(404)
     if EmptyForm().validate_on_submit():
         def go():
@@ -260,6 +266,8 @@ def revoke(link_id):
                 link.revoked_at = utcnow()
 
         attempt(go, "Link withdrawn: it no longer opens.")
+    if link.customer_id is not None:
+        return redirect(url_for("customers.show", customer_id=link.customer_id) + "#account")
     return redirect(url_for("billing.show", invoice_id=link.invoice_id) + "#links")
 
 

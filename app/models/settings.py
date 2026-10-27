@@ -96,3 +96,7 @@ class ShopSetting(StandardColumns, db.Model):
     # the second booking is refused instead.
     dispatch_block_overlap: Mapped[bool] = mapped_column(Boolean, nullable=False,
                                                          server_default=false())
+    # 2FA is required for owners always; with this on, for techs and viewers too (owner,
+    # 2026-10-27).
+    require_2fa_all: Mapped[bool] = mapped_column(Boolean, nullable=False,
+                                                  server_default=false())

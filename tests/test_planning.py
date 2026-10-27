@@ -4,13 +4,14 @@ refused, the edit form), Settings → Audit (owner only, what changed, a record'
 and as found against as left (the chart, the numbers, the service report's copy)."""
 
 import copy
+import hashlib
 import re
 import secrets
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import psycopg
-from test_api_v1_contract import bench, post, request_for  # noqa: F401
+from test_api_v1_contract import PUBLIC_ID, bench, post, request_for  # noqa: F401
 from test_assets import asset, customer
 from test_billing import billable
 from test_work import first_job, new_wo, text
@@ -276,9 +277,12 @@ def test_audit_values_are_decimal_never_float():
 # --- as found against as left -----------------------------------------------------------------
 
 def as_left(item):
-    """A second trace of the same rail, after the work: new ids, readings in the window."""
+    """A second trace of the same rail, after the work: its own file (so its own uid, by the
+    contract's rule), readings in the window."""
     item = copy.deepcopy(item)
-    item["uid"] = secrets.token_hex(16)
+    item["file"] = "rail_as_left.csv"
+    item["uid"] = hashlib.sha256(f"{PUBLIC_ID}|rail_session|{item['file']}".encode()) \
+        .hexdigest()[:32]
     item["phase"] = "as_left"
     for r in item["readings"]:
         r["uid"] = secrets.token_hex(16)

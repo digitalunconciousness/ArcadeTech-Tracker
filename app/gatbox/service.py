@@ -15,6 +15,7 @@ The shop's own rules (owner, 2026-10-13):
   `phase` (as_found | during | as_left) is an optional addition to rail_session and
   session_tag items; a bad value rejects the item."""
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_EVEN, Decimal
 
@@ -396,6 +397,12 @@ def _ingest_session(device, item, assets):
     file_name = _text(item.get("file"), "file", 100)
     if not file_name:
         raise Rejected("file is required")
+    # Contract v1 fixes the uid as sha256("<device>|rail_session|<file>")[:32], and GATBOX
+    # builds it from the same device id and file it sends: a uid that doesn't match was made
+    # for another device (or is a guess at one of its future sessions).
+    if uid != hashlib.sha256(f"{device.public_id}|rail_session|{file_name}".encode()) \
+            .hexdigest()[:32]:
+        raise Rejected("uid doesn't follow the contract's rule for this device and file")
     readings = item.get("readings")
     readings = [] if readings is None else readings
     if not isinstance(readings, list):
@@ -408,6 +415,10 @@ def _ingest_session(device, item, assets):
     rows = _reading_rows(readings)
 
     session = db.session.scalar(select(RailSession).where(RailSession.uid == uid))
+    # uids are predictable (contract v1 hashes the device's public id and the file name),
+    # so another device could send one first: a session belongs to the device that made it.
+    if session is not None and session.device_id != device.id:
+        raise Rejected("that rail_session uid belongs to another device")
     status = "duplicate" if session is not None else "created"
     if session is None:
         session = RailSession(uid=uid, device_id=device.id, asset_id=asset.id,
@@ -458,6 +469,8 @@ def _ingest_order(device, item, assets):
             # Send the session first: refusing keeps the link rather than dropping it, and
             # the retry costs nothing because both items are idempotent.
             raise Rejected(f"rail_session {session_uid!r} has not been ingested yet")
+        if session.device_id != device.id:
+            raise Rejected("that session was recorded by another device")
         if session.asset_id != asset.id:
             raise Rejected("that session is for a different machine than the order")
 
@@ -500,7 +513,13 @@ def _ingest_tag(device, item, assets):
     session = db.session.scalar(select(RailSession).where(RailSession.uid == session_uid))
     if session is None:
         raise Rejected(f"rail_session {session_uid!r} has not been ingested yet")
-    if job.asset_id is not None and job.asset_id != session.asset_id:
+    if session.device_id != device.id:
+        raise Rejected("that session was recorded by another device")
+    # A job with no machine (a consultation) never shows in GATBOX's list for a machine, so
+    # a trace can only land on one through a crafted request: refused.
+    if job.asset_id is None:
+        raise Rejected("that order has no machine on it")
+    if job.asset_id != session.asset_id:
         raise Rejected("that session is for a different machine than the order")
     phase = _phase(item.get("phase"))
     note = _text(item.get("note"), "note", 300)

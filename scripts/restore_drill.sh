@@ -3,9 +3,9 @@
 #
 #   restore_drill.sh [BACKUP_DIR]     default: the newest run in $SHOP_BACKUP_DIR/daily
 #
-# RESTORE_DATABASE_URL: the schema owner's URL for the scratch database (prod:
-# shop_restore_test, owned by shop_owner). Refused unless the database name contains
-# "restore" or "test", so the drill can never clean the live database.
+# RESTORE_DATABASE_URL: the scratch database, as the role that owns it and nothing else
+# (prod: shop_drill on shop_restore_test, never shop_owner). Refused unless the database
+# name contains "restore" or "test", so the drill can never clean the live database.
 #
 # Checks: checksums; the dump restores in one transaction; every table's row count
 # equals what the dump holds; every trigger came back; the file store archive reads;
@@ -16,10 +16,12 @@ set -euo pipefail
 : "${RESTORE_DATABASE_URL:?RESTORE_DATABASE_URL is not set}"
 BACKUP_DIR=${SHOP_BACKUP_DIR:-/var/lib/shop-hub/backups}
 PG=${SHOP_PG_BIN:+$SHOP_PG_BIN/}
-URL=${RESTORE_DATABASE_URL/postgresql+psycopg:/postgresql:}
+# The password goes to psql and pg_restore in PGPASSWORD, not on their command lines (libpq.sh).
+. "$(dirname "$(readlink -f "$0")")/libpq.sh"
+pg_split "$RESTORE_DATABASE_URL"
 
 fail() { echo "restore drill: FAIL: $*" >&2; exit 1; }
-psql_q() { "${PG}psql" -X -q -At -v ON_ERROR_STOP=1 --no-password "$URL" -c "$1"; }
+psql_q() { PGPASSWORD=$PG_PW "${PG}psql" -X -q -At -v ON_ERROR_STOP=1 --no-password "$PG_NOPW" -c "$1"; }
 
 run=${1:-$(find "$BACKUP_DIR/daily" -mindepth 1 -maxdepth 1 -type d -name '2*Z' | sort | tail -n 1)}
 [ -n "$run" ] && [ -d "$run" ] || fail "no backup found under $BACKUP_DIR/daily"
@@ -28,12 +30,17 @@ echo "restore drill: $run"
 
 sha256sum --quiet -c SHA256SUMS || fail "checksum mismatch"
 echo "  checksums ok"
+# counts.tsv comes from the backup run, as the service user, and its table names go into
+# SQL below: only plain public.<name> identifiers and whole-number counts, checked before
+# anything touches the database.
+LC_ALL=C grep -qvE '^public\.[a-z_][a-z0-9_]*'$'\t''[0-9]+$' counts.tsv \
+  && fail "counts.tsv has a line that isn't public.<table><tab><count>"
 
 db=$(psql_q "SELECT current_database()")
 case "$db" in *restore*|*test*) ;; *) fail "refusing to restore into '$db'";; esac
 
-"${PG}pg_restore" --clean --if-exists --no-owner --exit-on-error --single-transaction \
-  --no-password -d "$URL" < shop.dump || fail "pg_restore failed"
+PGPASSWORD=$PG_PW "${PG}pg_restore" --clean --if-exists --no-owner --exit-on-error \
+  --single-transaction --no-password -d "$PG_NOPW" < shop.dump || fail "pg_restore failed"
 echo "  restored into $db"
 
 query=$(awk -F'\t' -v q="'" '{ printf "%sSELECT %s%s%s, count(*) FROM %s", (NR > 1 ? " UNION ALL " : ""), q, $1, q, $1 }' counts.tsv)

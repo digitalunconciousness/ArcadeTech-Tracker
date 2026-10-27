@@ -10,6 +10,8 @@ committed.
 | `<LXC_LAN_IP>` | the shop LXC's LAN address |
 | `<PG_HOST>` | the existing Postgres host (17.x) |
 | `<SHOP_HOSTNAME>` | the shop's public hostname on the tunnel |
+| `<BACKUP_HOST>` | the off-site backup box running rest-server (§8) |
+| `<HEXn>` | a password or key generated as below, a different one each time |
 
 Layout on the LXC:
 
@@ -18,7 +20,7 @@ Layout on the LXC:
 /opt/shop-hub-venv       the venv, owned by root
 /etc/shop-hub/           shop-hub.env  root:shop-hub 640   app role, SECRET_KEY, SHOP_*
                          migrate.env   root:root     600   owner role (migrations, deploy dump)
-                         restore.env   root:root     600   owner role on shop_restore_test
+                         restore.env   root:root     600   shop_drill on shop_restore_test
                          listen.conf   root:root     644
 /var/lib/shop-hub/       files/  backups/  logs/     owned by shop-hub, 750
 ```
@@ -31,27 +33,30 @@ hex so nothing needs escaping in a URL or a shell:
 
 ## 1. Postgres host: roles and databases ⏸
 
-Three roles (see `deploy/sql/create_roles.psql` for why):
+Four roles (see `deploy/sql/create_roles.psql` for why):
 
 - `shop_owner` owns the database and every object. Migrations run as it. It's the only
   role that could `DISABLE TRIGGER`, so the app never connects as it.
 - `shop_app` is a NOLOGIN group holding exactly the privileges the migrations grant.
 - `shop` is the app's login, a member of `shop_app`.
+- `shop_drill` owns `shop_restore_test` and nothing else: the monthly restore drill. Its
+  password on the LXC can't reach the live database.
 
 Copy `deploy/sql/create_roles.psql` to the Postgres container from the Proxmox host
 (`pct pull <SHOP_CTID> /opt/shop-hub/deploy/sql/create_roles.psql /tmp/create_roles.psql`,
 then `pct push <PG_CTID> /tmp/create_roles.psql /tmp/create_roles.psql`), then inside it,
-reading the two passwords without echoing them or leaving them in shell history:
+reading the three passwords without echoing them or leaving them in shell history:
 
 ```
 read -rsp 'shop_owner password: ' OWNER_PW; echo
 read -rsp 'shop password: ' APP_PW; echo
+read -rsp 'shop_drill password: ' DRILL_PW; echo
 runuser -u postgres -- psql -X -v "owner_password=$OWNER_PW" -v "app_password=$APP_PW" \
-  -f /tmp/create_roles.psql
-unset OWNER_PW APP_PW; rm /tmp/create_roles.psql
+  -v "drill_password=$DRILL_PW" -f /tmp/create_roles.psql
+unset OWNER_PW APP_PW DRILL_PW; rm /tmp/create_roles.psql
 ```
 
-That also creates `shop_restore_test` (owned by `shop_owner`) for the monthly drill.
+That also creates `shop_restore_test` (owned by `shop_drill`) for the monthly drill.
 There are no grants between `shop` and the barcade's tracker role, in either direction.
 
 `pg_hba.conf` (`runuser -u postgres -- psql -Atc 'SHOW hba_file'`): admit the shop roles
@@ -64,10 +69,10 @@ and the shop roles can log in from anywhere on that subnet, to any database, wit
 The reject lines stop the shop roles at any other database or address:
 
 ```
-hostssl  shop               shop,shop_owner  <LXC_LAN_IP>/32  scram-sha-256
-hostssl  shop_restore_test  shop_owner       <LXC_LAN_IP>/32  scram-sha-256
-host     all                shop,shop_owner  0.0.0.0/0        reject
-host     all                shop,shop_owner  ::/0             reject
+hostssl  shop               shop,shop_owner             <LXC_LAN_IP>/32  scram-sha-256
+hostssl  shop_restore_test  shop_drill                  <LXC_LAN_IP>/32  scram-sha-256
+host     all                shop,shop_owner,shop_drill  0.0.0.0/0        reject
+host     all                shop,shop_owner,shop_drill  ::/0             reject
 ```
 
 Reload and check the order (the shop rows must have lower line numbers than any broader
@@ -145,12 +150,11 @@ cat > /etc/shop-hub/migrate.env <<'EOF'
 MIGRATE_DATABASE_URL=postgresql+psycopg://shop_owner:<HEX1>@<PG_HOST>:5432/shop?sslmode=require
 EOF
 cat > /etc/shop-hub/restore.env <<'EOF'
-RESTORE_DATABASE_URL=postgresql+psycopg://shop_owner:<HEX1>@<PG_HOST>:5432/shop_restore_test?sslmode=require
+RESTORE_DATABASE_URL=postgresql+psycopg://shop_drill:<HEX4>@<PG_HOST>:5432/shop_restore_test?sslmode=require
 EOF
 chmod 600 /etc/shop-hub/migrate.env /etc/shop-hub/restore.env
 
-cp /opt/shop-hub/deploy/listen.conf.example /etc/shop-hub/listen.conf
-editor /etc/shop-hub/listen.conf          # put in <LXC_LAN_IP>
+cp /opt/shop-hub/deploy/listen.conf.example /etc/shop-hub/listen.conf   # loopback only
 ```
 
 Drop `?sslmode=require` if the Postgres host has no TLS (and use `host` in pg_hba).
@@ -171,8 +175,10 @@ systemctl status shop-hub
 curl -s http://127.0.0.1:8080/healthz      # {"db":true,"ok":true}
 ```
 
-From the LAN, `http://<LXC_LAN_IP>:8080/login` works before the tunnel does (cookies
-need https, so signing in waits for step 7, or set `SHOP_COOKIE_SECURE=0` temporarily).
+The app listens on 127.0.0.1 only (`listen.conf`): nothing on the LAN can reach it, and
+everyone, the shop's own phones included, comes in through the tunnel (step 7). Don't add
+a LAN listener: it would be plain HTTP that skips Cloudflare and Access, and sign-in
+doesn't work over it anyway (the cookies need https).
 
 ## 7. Cloudflare tunnel and Access ⏸
 
@@ -208,8 +214,16 @@ Zero Trust → Access → Applications → Add → Self-hosted, three times:
    their own tokens).
 3. `<SHOP_HOSTNAME>`, path `d/*`: policy **Bypass**, Everyone (customer links carry their
    own 32-byte token).
+4. `<SHOP_HOSTNAME>`, paths `static/*` and `manifest.webmanifest`: policy **Bypass**,
+   Everyone. Customer pages (`/d/…`) load their stylesheet and fonts from `/static/`, and
+   Android's install reads the manifest and icons. It's public files only: CSS, fonts,
+   scripts, icons; photos and documents are never under `/static/`.
 
-The more specific path wins, so 2 and 3 carve holes in 1.
+The more specific path wins, so 2, 3 and 4 carve holes in 1.
+
+Without app 1 the sign-in page is open to the whole internet, guarded only by passwords,
+rate limits and 2FA. If that's ever the case, turn on Settings → Users → "Require 2FA for
+everyone" until Access is back.
 
 Config and service. `<TUNNEL_ID>` is from `tunnel create`. The running tunnel needs only
 its `.json`; `cert.pem` can manage every tunnel on the zone, so keep it root-only or move
@@ -233,9 +247,11 @@ cloudflared service install
 systemctl enable --now cloudflared
 ```
 
-Check from a private window: `https://<SHOP_HOSTNAME>/` shows the Access PIN page first,
-then the app's sign-in; `https://<SHOP_HOSTNAME>/d/x` reaches the app (its 404 page, not
-Cloudflare's). Customer estimate links (`/d/<token>`) and calendar feeds
+Check from a private window, off the shop's Wi-Fi (a phone on mobile data):
+`https://<SHOP_HOSTNAME>/` shows the Access PIN page first, then the app's sign-in (the
+app's sign-in straight away means app 1 is missing); `https://<SHOP_HOSTNAME>/d/x` reaches
+the app (its 404 page, not Cloudflare's); `https://<SHOP_HOSTNAME>/static/css/doc.css` is
+CSS, not the PIN page (app 4). Customer estimate links (`/d/<token>`) and calendar feeds
 (`/d/cal/<token>.ics`, fetched by Google's servers) only work through app 3: if `/d/x`
 shows the Access PIN page, app 3 is missing. What the errors mean: Cloudflare **1033** = no connector running
 (`systemctl status cloudflared`); **502/503** = the connector runs but nothing answers on
@@ -245,10 +261,8 @@ shows the Access PIN page, app 3 is missing. What the errors mean: Cloudflare **
 (or Add to home screen → Install). Then Share in Chrome lists the app, and sharing a parts
 page opens Save a link. The page asks for its manifest with Access's cookie
 (`crossorigin="use-credentials"`). If Chrome offers only a plain shortcut, or the app
-doesn't show in the share sheet, Access is blocking the manifest or its icons: add app 4,
-`<SHOP_HOSTNAME>` with paths `manifest.webmanifest` and `static/icons/*`, policy
-**Bypass**, Everyone. They hold the business name and two pictures, nothing else. Then
-uninstall and install again.
+doesn't show in the share sheet, Access is blocking the manifest or its icons: check app 4
+above (`manifest.webmanifest` and `static/*`). Then uninstall and install again.
 
 ## 8. Backups and the restore drill ⏸
 
@@ -266,15 +280,79 @@ stock template, so 03:15 is evening in the US); `timedatectl set-timezone <Area/
 moves them. The app always displays in `SHOP_TZ` regardless. Backups land in
 `/var/lib/shop-hub/backups/{daily,monthly,yearly}/<UTC stamp>/` (14 / 12 / 7 kept).
 
-**Off-site copy (⏸, decide the target):** a cluster isn't a backup against a house
-fire. `backup.sh` runs `/etc/shop-hub/backup-offsite <run dir>` when that file is
-executable (as `shop-hub`). The usual shape is restic to object storage with the
-repository password in a root-owned file readable by `shop-hub`:
+The drill runs as `shop-hub` with the `shop_drill` role, which owns `shop_restore_test`
+and nothing else.
+
+**Moving the drill to its own role (once, on a database set up before 2026-10-27) ⏸.**
+On the Postgres host. `shop_restore_test` is scratch, so it's dropped and made again,
+owned by the new role (use `LOCALE 'C'` if that's what §1 needed):
 
 ```
-#!/bin/sh
-exec restic --repo <REPO> --password-file /etc/shop-hub/restic.pass backup --tag shop-hub "$1"
+read -rsp 'shop_drill password: ' DRILL_PW; echo
+runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -v "drill_password=$DRILL_PW" <<'SQL'
+SELECT format('CREATE ROLE shop_drill LOGIN PASSWORD %L', :'drill_password') \gexec
+DROP DATABASE IF EXISTS shop_restore_test WITH (FORCE);
+CREATE DATABASE shop_restore_test OWNER shop_drill TEMPLATE template0 ENCODING 'UTF8' LOCALE 'C.UTF-8';
+REVOKE ALL ON DATABASE shop_restore_test FROM PUBLIC;
+GRANT CONNECT ON DATABASE shop_restore_test TO shop_drill;
+SQL
+unset DRILL_PW
 ```
+
+In `pg_hba.conf`, change the `shop_restore_test` line's role from `shop_owner` to
+`shop_drill` and add `shop_drill` to the two reject lines (§1 shows all four), then reload
+and check the order as in §1. Then on the LXC:
+
+```
+editor /etc/shop-hub/restore.env    # shop_drill:<that password> in place of shop_owner:<HEX1>
+cp /opt/shop-hub/deploy/systemd/shop-hub-restore-drill.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl start shop-hub-restore-drill.service && journalctl -u shop-hub-restore-drill -n 20
+```
+
+It must still end `restore drill: PASS`.
+
+**Off-site copy (⏸, decide the target):** a cluster isn't a backup against a house
+fire. `backup.sh` runs `/etc/shop-hub/backup-offsite <run dir>` when that file is
+executable (as `shop-hub`). Make the repository **append-only** for this LXC: it can add
+snapshots but not delete or change them, so someone who takes over the LXC can't wipe the
+off-site copy as well. The usual shape is restic's rest-server, on a box outside this
+house (or at least one this LXC reaches only through rest-server):
+
+```
+# on the backup box (htpasswd is in apache2-utils)
+htpasswd -B -c /srv/restic/.htpasswd shop-hub          # this LXC's login: <HEX5>
+rest-server --path /srv/restic --append-only --private-repos --listen :8000 \
+  --tls --tls-cert <CERT> --tls-key <KEY>
+```
+
+On the LXC. `restic version` must be 0.16.1 or later, which reads the REST login from the
+environment, so it's never in the URL or on a command line:
+
+```
+umask 027
+cat > /etc/shop-hub/restic.env <<'END'
+RESTIC_REPOSITORY=rest:https://<BACKUP_HOST>:8000/shop-hub/
+RESTIC_REST_USERNAME=shop-hub
+RESTIC_REST_PASSWORD=<HEX5>
+RESTIC_PASSWORD_FILE=/etc/shop-hub/restic.pass
+END
+python3 -c 'import secrets; print(secrets.token_hex(32))' > /etc/shop-hub/restic.pass
+cat > /etc/shop-hub/backup-offsite <<'END'
+#!/bin/sh
+set -a; . /etc/shop-hub/restic.env; set +a
+exec restic backup --tag shop-hub "$1"
+END
+chown root:shop-hub /etc/shop-hub/restic.env /etc/shop-hub/restic.pass /etc/shop-hub/backup-offsite
+chmod 640 /etc/shop-hub/restic.env /etc/shop-hub/restic.pass
+chmod 750 /etc/shop-hub/backup-offsite
+runuser -u shop-hub -- sh -c 'set -a; . /etc/shop-hub/restic.env; set +a; restic init'
+```
+
+Keep a copy of `restic.pass` off this LXC (a password manager): without it the off-site
+copy can't be read. `forget` and `prune` fail from the LXC by design; run them on the
+backup box, against the directory, with that password:
+`restic -r /srv/restic/shop-hub forget --keep-daily 14 --keep-monthly 12 --keep-yearly 7 --prune`.
 
 ## 9. Deploying a release ⏸
 
@@ -285,10 +363,21 @@ After a PR is merged to `main`:
 /opt/shop-hub/deploy/deploy.sh
 ```
 
-It dumps the database to `backups/predeploy/` as `shop_owner`, fast-forwards `main`,
-installs the hash-pinned requirements, runs migrations, restarts and checks `/healthz`.
-On any failure it prints the exact rollback commands (reset to the previous commit,
-reinstall, and `flask db downgrade` or `pg_restore` of the pre-deploy dump).
+It dumps the database to `/var/backups/shop-hub-predeploy/` (root's, 700) as
+`shop_owner`, fast-forwards `main`, installs the hash-pinned requirements, runs
+migrations, restarts and checks `/healthz`. On any failure it prints the exact rollback
+commands (reset to the previous commit, reinstall, and `flask db downgrade` or
+`pg_restore` of the pre-deploy dump). Database passwords never go on a command line: the
+scripts pass them to libpq in `PGPASSWORD` (`scripts/libpq.sh`). Dumps from before
+2026-10-27 are in `/var/lib/shop-hub/backups/predeploy/`.
+
+When a release changes a unit in `deploy/systemd/` (its PR says so), copy them in again:
+
+```
+cp /opt/shop-hub/deploy/systemd/shop-hub.service /opt/shop-hub/deploy/systemd/shop-hub-backup.service \
+   /opt/shop-hub/deploy/systemd/shop-hub-restore-drill.service /etc/systemd/system/
+systemctl daemon-reload && systemctl restart shop-hub
+```
 
 ## 10. GATBOX devices ⏸
 

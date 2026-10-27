@@ -120,6 +120,16 @@
   </ul>
   {% endif %}
   <p class="actions"><a class="btn small" href="{{ url_for('billing.statement_pdf', customer_id=customer.id) }}">Statement (PDF)</a></p>
+  {% if account.statement_links %}
+  <h3>Statement links that still open</h3>
+  <ul class="list">
+    {% for link in account.statement_links %}
+    <li>Made {{ link.created_at | localdt }} · open until {{ link.expires_at | localdt }}
+      {% if is_owner %}<form class="inline-form" method="post" action="{{ url_for('billing.revoke', link_id=link.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit" data-confirm="Withdraw this statement link? It stops opening at once.">Withdraw</button></form>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
 </section>
 {% endif %}
 

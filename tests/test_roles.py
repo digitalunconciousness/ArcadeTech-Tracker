@@ -1,7 +1,7 @@
 from app import PUBLIC_ENDPOINTS
 from app.extensions import db
 from app.models import User
-from conftest import login
+from conftest import TEST_PASSWORD, login
 
 
 def test_unauthenticated_redirects_to_login(client):
@@ -88,7 +88,12 @@ def test_reset_2fa(app, make_user):
     other = make_user("otto", "owner", totp=True)
     other_client = app.test_client()
     login(other_client, other)
-    assert client.post(f"/settings/users/{other['id']}/reset-2fa").status_code == 302
+    # the acting owner's own password, or nothing happens
+    client.post(f"/settings/users/{other['id']}/reset-2fa", data={"your_password": "wrong-test-pw"})
+    with app.app_context():
+        assert db.session.get(User, other["id"]).totp_secret is not None
+    assert client.post(f"/settings/users/{other['id']}/reset-2fa",
+                       data={"your_password": TEST_PASSWORD}).status_code == 302
     with app.app_context():
         row = db.session.get(User, other["id"])
         assert row.totp_secret is None and row.totp_enabled_at is None
@@ -98,8 +103,13 @@ def test_reset_2fa(app, make_user):
 def test_owner_sets_password(app, make_user):
     client, _ = _owner_client(app, make_user)
     tech = make_user("tess", "tech")
+    new = {"new_password": "brand-new-test-pw", "confirm_password": "brand-new-test-pw"}
+    resp = client.post(f"/settings/users/{tech['id']}/password",
+                       data={**new, "your_password": "wrong-test-pw"}, follow_redirects=True)
+    assert "nothing changed" in resp.get_data(as_text=True)
+    assert login(app.test_client(), tech).location == "/"          # old password still works
     client.post(f"/settings/users/{tech['id']}/password",
-                data={"new_password": "brand-new-test-pw", "confirm_password": "brand-new-test-pw"})
+                data={**new, "your_password": TEST_PASSWORD})
     fresh = app.test_client()
     assert login(fresh, tech, password="brand-new-test-pw").location == "/"
 

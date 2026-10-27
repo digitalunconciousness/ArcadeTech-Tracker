@@ -5,7 +5,7 @@ new records that sit beside the old ones.
 
 | What happened | What to do |
 |---|---|
-| The invoice is wrong altogether | *Void this invoice* (with a reason), then issue a new one |
+| The invoice is wrong altogether | *Void this invoice* (with a reason), then issue a new one. Its PDF, here and on the customer's link, then says void with nothing owed; *Invoice as issued* is the original file |
 | Part of it was wrong, or a goodwill discount | *Issue a credit memo*: it reduces what they owe, or becomes credit on their account |
 | A bounced check, or a payment entered by mistake | open the payment and *Reverse it* |
 | Giving money back | *Refund the credit left* on the payment |

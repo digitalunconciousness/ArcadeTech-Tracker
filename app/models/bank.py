@@ -98,6 +98,7 @@ class BankLine(StandardColumns, db.Model):
     __table_args__ = (
         UniqueConstraint("bank_account_id", "fingerprint"),
         CheckConstraint("amount <> 0", name="amount_nonzero"),
+        CheckConstraint("amount <> 'NaN'", name="amount_finite"),
         CheckConstraint("fingerprint ~ '^[0-9a-f]{64}$'", name="fingerprint_hex"),
         CheckConstraint(f"ignored IS NULL OR {_in('ignored', IGNORE_REASONS)}", name="ignored"),
         Index("ix_bank_line_account_posted", "bank_account_id", "posted_on"),
@@ -129,6 +130,7 @@ class BankMatch(StandardColumns, db.Model):
         CheckConstraint("num_nonnulls(payment_id, expense_id, purchase_order_id, "
                         "partner_entry_id, sales_tax_filing_id) = 1", name="one_target"),
         CheckConstraint("amount <> 0", name="amount_nonzero"),
+        CheckConstraint("amount <> 'NaN'", name="amount_finite"),
         *(Index(f"uq_bank_match_{col}", col, unique=True,
                 postgresql_where=text(f"{col} IS NOT NULL")) for col, _ in MATCH_TARGETS),
     )

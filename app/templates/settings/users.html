@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_forms.html" import check, field %}
 {% block title %}Users{% endblock %}
 {% block content %}
 {% include "settings/_tabs.html" %}
@@ -17,5 +18,15 @@
     </li>
     {% endfor %}
   </ul>
+</section>
+<section class="panel" id="2fa">
+  <h2>Two-factor sign-in</h2>
+  <p class="dim">Owners always need it. Turn this on to need it from everyone: anyone without it is sent to set it up at their next page.</p>
+  <form method="post" action="{{ url_for('settings.two_factor_policy') }}" novalidate>
+    {{ policy_form.csrf_token }}
+    {{ check(policy_form.require_2fa_all) }}
+    {{ field(policy_form.your_password, autocomplete="current-password") }}
+    <button class="btn primary" type="submit">Save</button>
+  </form>
 </section>
 {% endblock %}

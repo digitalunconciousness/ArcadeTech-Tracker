@@ -77,16 +77,21 @@ def store_photo(stream):
         raise FileError("That file is empty.")
     try:
         with Image.open(io.BytesIO(raw)) as probe:
-            fmt = probe.format
+            fmt, (w, h) = probe.format, probe.size
             probe.verify()
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError, SyntaxError):
         fmt = None
     if fmt not in ACCEPTED:
         raise FileError("That isn't a photo this app can read (JPEG, PNG, WebP or GIF).")
+    # Pillow only refuses at twice MAX_IMAGE_PIXELS (and merely warns below that): a tiny
+    # PNG can claim 120 MP and decode to half a gigabyte, more with the copies below.
+    if w * h > Image.MAX_IMAGE_PIXELS:
+        raise FileError(f"That photo is {w} × {h}: too large. Up to "
+                        f"{Image.MAX_IMAGE_PIXELS // 1_000_000} megapixels.")
     try:
         with Image.open(io.BytesIO(raw)) as img:
             img.load()
-            img = ImageOps.exif_transpose(img)
+            ImageOps.exif_transpose(img, in_place=True)
             if img.mode not in ("RGB", "L"):
                 img = img.convert("RGB")
             data, (width, height) = _jpeg(img, MAX_SIDE)

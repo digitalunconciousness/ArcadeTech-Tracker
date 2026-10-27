@@ -25,7 +25,9 @@ KEEP_DAILY=${SHOP_KEEP_DAILY:-14}
 KEEP_MONTHLY=${SHOP_KEEP_MONTHLY:-12}
 KEEP_YEARLY=${SHOP_KEEP_YEARLY:-7}
 PG=${SHOP_PG_BIN:+$SHOP_PG_BIN/}
-PGURL=${DATABASE_URL/postgresql+psycopg:/postgresql:}
+# The password goes to pg_dump in PGPASSWORD, not on its command line (libpq.sh).
+. "$(dirname "$(readlink -f "$0")")/libpq.sh"
+pg_split "$DATABASE_URL"
 STAMP_RE='^[0-9]{8}T[0-9]{6}Z$'
 
 # Rows per table, counted from the dump's own COPY blocks (one line per row in COPY
@@ -49,7 +51,7 @@ work="$BACKUP_DIR/daily/.$stamp.partial"
 trap 'rm -rf -- "$work"' EXIT
 mkdir "$work"
 
-"${PG}pg_dump" -Fc --no-password "$PGURL" > "$work/shop.dump"
+PGPASSWORD=$PG_PW "${PG}pg_dump" -Fc --no-password "$PG_NOPW" > "$work/shop.dump"
 "${PG}pg_restore" --list < "$work/shop.dump" > "$work/toc.txt"
 dump_counts < "$work/shop.dump" > "$work/counts.tsv"
 [ -s "$work/counts.tsv" ] || { echo "backup: no tables in the dump" >&2; exit 1; }

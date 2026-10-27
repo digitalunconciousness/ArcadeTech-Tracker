@@ -16,10 +16,14 @@ ExecStart=/opt/shop-hub-venv/bin/waitress-serve $SHOP_LISTEN_ARGS --threads=8 --
 Restart=on-failure
 RestartSec=3
 
-# Hardening. The service writes only under /var/lib/shop-hub.
+# Hardening. The service writes only under /var/lib/shop-hub, and can't reach the backups
+# (written by shop-hub-backup.service, restored as the owner role by the drill) or see
+# other users' processes (whose command lines could carry secrets).
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths=/var/lib/shop-hub
+InaccessiblePaths=-/var/lib/shop-hub/backups
+ProtectProc=invisible
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

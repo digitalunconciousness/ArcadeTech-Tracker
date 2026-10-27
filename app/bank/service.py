@@ -105,6 +105,9 @@ def guess_mapping(header):
     return mapping
 
 
+AMOUNT_LIMIT = Decimal("1e10")
+
+
 def parse_amount(raw):
     """'$1,234.56', '(12.00)', '-5', '12.00-' -> Decimal; '' -> None."""
     text = (raw or "").strip().replace("$", "").replace(",", "").replace(" ", "")
@@ -114,10 +117,14 @@ def parse_amount(raw):
     text = text.strip("()").rstrip("-")
     try:
         value = Decimal(text)
+        # NaN and Infinity parse as Decimals, and Postgres would store NaN in a NUMERIC;
+        # anything 10 digits or more before the point doesn't fit NUMERIC(12,2).
+        if not value.is_finite() or abs(value) >= AMOUNT_LIMIT:
+            raise InvalidOperation
+        value = value.quantize(Decimal("0.01"))
     except InvalidOperation:
         raise BankError(f"“{raw}” isn't an amount.") from None
-    value = -value if negative else value
-    return value.quantize(Decimal("0.01"))
+    return -value if negative else value
 
 
 def detect_format(values):
