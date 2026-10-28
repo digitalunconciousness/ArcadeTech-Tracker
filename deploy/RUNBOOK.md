@@ -275,7 +275,10 @@ systemctl start shop-hub-backup.service && journalctl -u shop-hub-backup -n 5
 systemctl start shop-hub-restore-drill.service && journalctl -u shop-hub-restore-drill -n 20
 ```
 
-The drill must end `restore drill: PASS`. Timers use the LXC's time zone (UTC on a
+The drill must end `restore drill: PASS`. Besides row counts and triggers it re-hashes
+every issued invoice and credit memo PDF, every receipt and every job photo (each photo's
+thumbnail must be there too); "not in the archive" means the file store lost a file the
+database still points at. Timers use the LXC's time zone (UTC on a
 stock template, so 03:15 is evening in the US); `timedatectl set-timezone <Area/City>`
 moves them. The app always displays in `SHOP_TZ` regardless. Backups land in
 `/var/lib/shop-hub/backups/{daily,monthly,yearly}/<UTC stamp>/` (14 / 12 / 7 kept).

@@ -449,7 +449,8 @@ jobs switch per device; the drill checks photos):
 - [x] Jobs switch: orders 404, order/session_tag items rejected; contract tests unchanged
       (their device has jobs on)
 - [x] Settings → Devices (acts as, jobs) and the audit page's "via"; RUNBOOK §10, wiki
-- [ ] Restore drill checks photos and thumbnails; backup/restore test extended
+- [x] Restore drill checks photos and thumbnails; backup/restore test extended
+      (`test_drill_rehashes_photos_and_finds_their_thumbnails`; RUNBOOK §8 says what it checks)
 - [ ] Full pytest, ruff, privacy check → owner reviews and pushes
 - [ ] ⏸ Owner deploys (migration 0025), then Settings → Devices: set the deck's Acts as to
       herself (Jobs is already on for it); check a bench order's History reads "<her> via
