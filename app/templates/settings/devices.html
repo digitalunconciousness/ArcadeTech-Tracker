@@ -12,7 +12,6 @@
     <li{% if not d.enabled %} class="inactive"{% endif %}>
       <strong>{{ d.name }}</strong> <span class="dim mono">gbx_{{ d.public_id }}</span>
       {% if not d.enabled %}<span class="badge danger">off</span>{% endif %}
-      {% if d.jobs %}<span class="badge">jobs</span>{% endif %}
       <div class="dim small">{% if d.last_seen_at %}last seen {{ d.last_seen_at | localdt }}{% if d.last_ip %} from {{ d.last_ip }}{% endif %}{% else %}never seen{% endif %}</div>
       {% set acting = users.get(d.acts_as_user_id) %}
       <div class="small">{% if acting and acting.active %}Acts as {{ acting.display_name }}{% elif acting %}<span class="badge warn">acts as no one</span> {{ acting.display_name }} is switched off{% else %}Acts as no one{% endif %} · jobs {{ 'on' if d.jobs else 'off' }}</div>
