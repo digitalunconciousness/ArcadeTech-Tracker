@@ -10,6 +10,10 @@ GitHub repo is `digitalunconciousness/ArcadeTech-Tracker` (**public**, the owner
 service, paths and database stay `shop-hub` / `shop`, so nothing collides with the barcade's
 `arcade-tracker` repo, unit or `/opt` path.
 
+**Read `docs/agents/RULES.md` first.** It is the one set of agent rules for GATBOX, the barcade's
+app and this one (GATBOX owns it; this copy is vendored, byte-identical), and it wins where this
+file disagrees, except on this repository's own facts and the hard rules below.
+
 **Resume from PROGRESS.md.** Every session: read this file, PROGRESS.md and docs/PLAN.md,
 `git pull`, then carry on from the first unchecked box.
 
@@ -20,22 +24,24 @@ The owner starts sessions with
 
 - The owner is a professional arcade tech, fluent in Arch, Proxmox, systemd, Postgres and git.
   Be direct, flag tradeoffs, skip preamble.
-- **One phase per session.** Before code: a short design note (models, migrations, routes,
-  templates, risks), then wait for the owner's OK.
-- **Before every push:** show the diff summary, the test results and the privacy-check output
-  (`scripts/privacy_check.sh`), even when clean. The owner says when to push.
+- **One change per PR.** Before code: a short design note (models, migrations, routes,
+  templates, risks), then the owner's OK, which covers the code and the push (the rules, §3).
+- **Every push** goes to the phase branch once the full `pytest` run and the privacy check
+  (`scripts/privacy_check.sh`) pass, and the PR shows the diff summary, the test results and
+  the privacy-check output, even when clean.
 - Unsure whether something is safe for real data or real money records? Stop and ask.
 - **You never touch a host.** Anything that runs in an LXC, on the Postgres host or on
   Cloudflare is written as exact commands, marked ⏸, and then you stop.
 - Where this file and docs/PLAN.md differ, this file wins. Where the reference repos disagree
   with either, say what you found.
-- Phase flow: design note → OK → code + tests → diff, tests, privacy output → OK → push/PR →
-  owner deploys (⏸). Tick PROGRESS.md as you go.
+- Phase flow: design note → OK → code + tests → push and PR (diff, tests, privacy output) →
+  the owner merges and deploys (⏸). Tick PROGRESS.md as you go.
 
-## Reference repos (READ-ONLY)
+## The other repositories
 
-`~/arcade-tracker` and `~/gatbox` are references. Never edit, commit, branch or push in them.
-Port patterns by copying and adapting; never import from them.
+`~/arcade-tracker` (the barcade's app, now called cabcrawl) and `~/gatbox`. A session may change
+them when the task needs it, each through its own branch and PR (the rules, §4); otherwise
+they're references. Port patterns by copying and adapting; never import from them.
 
 - arcade-tracker: `app/models/device.py` (gbx_ tokens), `app/routes/api_v1.py`,
   `app/utils/decorators.py` (requires_role, requires_device), `app/extensions.py` (limiter),

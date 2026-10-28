@@ -453,7 +453,20 @@ jobs switch per device; the drill checks photos):
       (`test_drill_rehashes_photos_and_finds_their_thumbnails`; RUNBOOK §8 says what it checks)
 - [x] Full pytest (499 passed, none skipped; pg 17 tools through docker), ruff, privacy
       check clean (cloud session, 2026-10-28)
-- [ ] Diff, tests, privacy output → owner reviews and pushes → PR
+- [x] Pushed, draft PR #27 (one OK per change from here: the shared rules, §3)
+- [x] Contract v1 vendored from GATBOX, its owner now (the README writes down health `app` and
+      `capabilities`, roster `model_key`, orders `work_order` / `nte`, `phase` and the five
+      priorities; the roster example has `model_key`); the contract test also compares this
+      copy with any sibling checkout
+- [x] The shared agent rules, `docs/agents/RULES.md` (vendored, checksum and sibling tests,
+      `tests/test_agent_rules.py`); CLAUDE.md points at them: one OK per change, the other
+      repos may be changed through their own PRs
+- [x] The shared privacy check and hook (`scripts/privacy_check.sh`, `.githooks/pre-push`,
+      byte-identical in all three; this repo's paths in `.githooks/privacy.conf`;
+      `tests/test_privacy_check.py`); patterns in `~/.config/gatbox-family/patterns.local`,
+      written by `docs/cloud-setup.sh` from `PRIVACY_PATTERNS` (`SHOP_PATTERNS` still read)
+- [ ] Owner reviews and merges, together with GATBOX's and cabcrawl's PRs (the contract, the
+      rules and the check must land in all three at once)
 - [ ] ⏸ Owner deploys (migration 0025), then Settings → Devices: set the deck's Acts as to
       herself (Jobs is already on for it); check a bench order's History reads "<her> via
       <deck>"
@@ -589,6 +602,8 @@ jobs switch per device; the drill checks photos):
 | 2026-10-27 | GATBOX rail_session uids are checked against contract v1's rule (`sha256(public_id\|rail_session\|file)[:32]`) and a stored session belongs to the device that sent it. Reading uids aren't checked (the rule hashes a formatted float) | Security review; v1's request shapes unchanged |
 | 2026-10-28 | A GATBOX device acts as the user an owner picks in Settings → Devices (while she's active; otherwise no one): its requests set `shop.user_id` to her and `shop.device_id` to itself, so created_by and audit rows name her and the audit log reads "<her> via <device>" | Owner: the deck acts as her, "via GATBOX" in history. Device writes had reached the log as "system" |
 | 2026-10-28 | A jobs switch per device: without it, a machine's jobs answer like an unknown machine (404) and order and session_tag items are rejected; traces, roster and health unchanged. On for devices from before 0025, off for new ones | Owner: any enabled device could read every asset's jobs |
+| 2026-10-28 | One set of agent rules for the three repos (`docs/agents/RULES.md`, owned by GATBOX) and one OK per change | Owner. Replaces "the reference repos are read-only" and "the owner says when to push" |
+| 2026-10-28 | Contract v1 is owned by GATBOX; one privacy check for all three; patterns in `~/.config/gatbox-family/` | Owner approved the integration plan; the patterns location decided |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes
