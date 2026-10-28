@@ -5,9 +5,12 @@
 # is cached for about a week, so keep it under ~5 minutes.
 #
 # The environment also needs, set in the same dialog (never committed):
-#   SHOP_PATTERNS="<the lines of .githooks/patterns.local>"     (quoted, multi-line)
+#   PRIVACY_PATTERNS="<the lines of .githooks/patterns.local>"  (quoted, multi-line; the one
+#                                                                variable for all three repos,
+#                                                                SHOP_PATTERNS is still read)
 #   REFS_TOKEN=<read-only token for the reference repos>          (only if they're private)
-# This script writes it to ~/.config/shop-hub/patterns.local, which scripts/privacy_check.sh reads.
+# This script writes it to ~/.config/gatbox-family/patterns.local, which the shared
+# scripts/privacy_check.sh reads (the same file and script in GATBOX and the other hub).
 set -euo pipefail
 
 # Python 3.13 (prod is Debian 13's 3.13; Ubuntu 24.04 ships 3.12). deadsnakes, because
@@ -41,9 +44,10 @@ done
 chmod -R a-w /opt/refs || true
 
 # Owner-specific privacy patterns, from the environment variable, never from git.
-install -d -m 700 /root/.config/shop-hub
-if [ -n "${SHOP_PATTERNS:-}" ]; then
-    printf '%s\n' "$SHOP_PATTERNS" > /root/.config/shop-hub/patterns.local
-    chmod 600 /root/.config/shop-hub/patterns.local
+install -d -m 700 /root/.config/gatbox-family
+patterns=${PRIVACY_PATTERNS:-${SHOP_PATTERNS:-}}
+if [ -n "$patterns" ]; then
+    printf '%s\n' "$patterns" > /root/.config/gatbox-family/patterns.local
+    chmod 600 /root/.config/gatbox-family/patterns.local
 fi
-# scripts/privacy_check.sh falls back to ~/.config/shop-hub/patterns.local on its own.
+# scripts/privacy_check.sh finds ~/.config/gatbox-family/patterns.local on its own.

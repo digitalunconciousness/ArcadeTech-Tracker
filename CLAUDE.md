@@ -103,8 +103,11 @@ Port patterns by copying and adapting; never import from them.
 6. Commit with `git c` (alias for `TZ=UTC git commit`), as `digitalunconciousness` with the
    GitHub noreply email (set in this repo's local git config, not global).
 7. Before every push, run `scripts/privacy_check.sh` and show the output. The same check runs
-   in `.githooks/pre-push` (`git config core.hooksPath .githooks`). Owner-specific patterns
-   live in the git-ignored `.githooks/patterns.local`; never copy its values anywhere.
+   in `.githooks/pre-push` (`git config core.hooksPath .githooks`). Both are the shared ones,
+   byte-identical in all three repos; this repo's own forbidden paths are in
+   `.githooks/privacy.conf`. Owner-specific patterns live in the git-ignored
+   `.githooks/patterns.local` or `~/.config/gatbox-family/patterns.local`; never copy their
+   values anywhere.
 8. The barcade's name and data never appear in this repo. Refer to it as "the barcade".
 9. Library versions are pinned in `requirements.in` and compiled with hashes into
    `requirements.txt` (`uv pip compile --generate-hashes`; header has the exact command);
@@ -176,7 +179,8 @@ runs on this account; restore its `push`/`pull_request` triggers then. The backu
 
 A cloud session gets a fresh Ubuntu 24.04 VM with only this repo cloned. The environment's
 setup script is `docs/cloud-setup.sh` (pasted into the environment settings, with the
-`SHOP_PATTERNS` variable). Differences from the owner's machine:
+`PRIVACY_PATTERNS` variable; `SHOP_PATTERNS` is still read). Differences from the owner's
+machine:
 
 - Reference repos are at `/opt/refs/arcade-tracker` and `/opt/refs/gatbox` (read-only
   clones, not attached to the session). Same rules as `~/arcade-tracker` / `~/gatbox`.
@@ -187,8 +191,9 @@ setup script is `docs/cloud-setup.sh` (pasted into the environment settings, wit
   git config user.email 240414701+digitalunconciousness@users.noreply.github.com
   git config alias.c '!TZ=UTC git commit'
   ```
-- `scripts/privacy_check.sh` reads `~/.config/shop-hub/patterns.local` (written by the
-  setup script). If it reports the file MISSING, stop and tell the owner; never push without it.
+- `scripts/privacy_check.sh` reads `~/.config/gatbox-family/patterns.local` (written by the
+  setup script; the older `~/.config/shop-hub/patterns.local` still works). If it reports the
+  file MISSING, stop and tell the owner; never push without it.
 - Python 3.13 is `python3.13` (deadsnakes); make the venv with
   `python3.13 -m venv ~/.venvs/shop-hub`. Postgres 17 runs in docker via `scripts/devdb.sh`
   (start `dockerd` first if `docker info` fails); the VM's preinstalled PostgreSQL 16 is not
