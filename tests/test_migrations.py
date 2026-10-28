@@ -54,6 +54,61 @@ def test_upgrade_downgrade_upgrade_from_empty(app, tdb, monkeypatch):
         tdb.drop_database(name)
 
 
+def test_0025_keeps_devices_working_and_its_downgrade_restores_audit_row(app, tdb, monkeypatch):
+    """0025 replaces audit_row(), the trigger on every audited table: the replacement keeps
+    SECURITY DEFINER, the search_path and the grants, and the downgrade puts back the exact
+    function 0024 left. Devices already there keep their jobs; new ones start without."""
+    name = f"{tdb.name}_dev{secrets.token_hex(2)}"
+    tdb.create_database(name)
+    url = tdb.url("owner", database=name)
+    monkeypatch.setenv("MIGRATE_DATABASE_URL", url)
+    engine = create_engine(url)
+    function = text("SELECT pg_get_functiondef(p.oid), p.prosecdef, p.proconfig, "
+                    "CAST(p.proacl AS text), p.proowner FROM pg_proc p "
+                    "WHERE p.proname = 'audit_row'")
+    columns = text("SELECT table_name, column_name, data_type, is_nullable, column_default "
+                   "FROM information_schema.columns WHERE table_schema = 'public' "
+                   "AND table_name IN ('device', 'audit_log') ORDER BY 1, 2")
+
+    def state():
+        with engine.connect() as c:
+            return c.execute(function).one(), c.execute(columns).all()
+
+    try:
+        with app.app_context():
+            upgrade(revision="0024_hardening")
+            before = state()
+            with engine.begin() as c:
+                c.execute(text("INSERT INTO device (name, public_id, token_hash) "
+                               "VALUES ('old-pi', 'aaaaaaaaaaaa', 'x')"))
+            upgrade(revision="0025_device_actor")
+            (body, *settings), _ = state()
+            assert "shop.device_id" in body and "device_id, table_name" in body
+            assert settings == list(before[0][1:])      # definer, search_path, grants, owner
+            with engine.begin() as c:
+                assert c.execute(text("SELECT name, jobs, acts_as_user_id FROM device")).all() \
+                    == [("old-pi", True, None)]
+                c.execute(text("INSERT INTO device (name, public_id, token_hash) "
+                               "VALUES ('new-pi', 'bbbbbbbbbbbb', 'x')"))
+                assert c.execute(text("SELECT jobs FROM device WHERE name = 'new-pi'")) \
+                    .scalar() is False
+                c.execute(text("SELECT set_config('shop.device_id', CAST(id AS text), true) "
+                               "FROM device WHERE name = 'old-pi'"))
+                c.execute(text("UPDATE device SET notes = 'via itself' WHERE name = 'old-pi'"))
+                assert c.execute(text(
+                    "SELECT d.name FROM audit_log a JOIN device d ON d.id = a.device_id "
+                    "WHERE a.table_name = 'device' AND a.action = 'U'")).all() == [("old-pi",)]
+            downgrade(revision="0024_hardening")
+            assert state() == before
+            with engine.connect() as c:               # the log keeps its rows
+                assert c.execute(text("SELECT count(*) FROM audit_log WHERE "
+                                      "table_name = 'device'")).scalar() == 3
+            upgrade()
+    finally:
+        engine.dispose()
+        tdb.drop_database(name)
+
+
 def test_models_match_migrations(app):
     with app.app_context(), db.engine.connect() as conn:
         diff = compare_metadata(MigrationContext.configure(conn), db.metadata)
@@ -93,8 +148,8 @@ def test_read_only_alembic_commands_work_from_a_fresh_cli(app):
 
     root = Path(__file__).resolve().parent.parent
     flask = str(Path(sys.executable).with_name("flask"))
-    for cmd, expect in (("heads", "0024_hardening (head)"),
-                        ("current", "0024_hardening (head)"),
+    for cmd, expect in (("heads", "0025_device_actor (head)"),
+                        ("current", "0025_device_actor (head)"),
                         ("history", "0001_foundation -> 0002_seed_settings")):
         run = subprocess.run([flask, "--app", "wsgi", "db", cmd], cwd=root, env=dict(os.environ),
                              capture_output=True, text=True, timeout=60)

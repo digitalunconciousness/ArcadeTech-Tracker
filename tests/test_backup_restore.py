@@ -87,6 +87,7 @@ def test_backup_then_restore_drill(app, tdb, make_user, pg_tools, tmp_path):
     assert drill.returncode == 0, drill.stdout + drill.stderr
     assert "restore drill: PASS" in drill.stdout
     assert "row counts match" in drill.stdout
+    assert "photo re-hash: no photos yet" in drill.stdout
     # The drill's role owns the scratch database and can't so much as connect to the live one.
     with pytest.raises(psycopg.OperationalError, match="permission denied"):
         psycopg.connect(libpq(tdb.url("drill"))).close()
@@ -202,3 +203,57 @@ def test_drill_rehashes_receipts(app, tdb, signed_in, pg_tools, tmp_path):
     (files_dir / names[0][:2] / names[0]).write_bytes(b"swapped photo")
     bad = drill("changed")
     assert bad.returncode != 0 and f"{names[0]}: hashes to" in bad.stderr
+
+
+def test_drill_rehashes_photos_and_finds_their_thumbnails(app, tdb, signed_in, pg_tools,
+                                                          tmp_path):
+    """Job photos: each file must hash to its name, with its thumbnail beside it. The
+    thumbnail is named after the photo, not its own bytes, so it's checked for being there
+    and being a JPEG."""
+    from test_work import setup
+    from test_work_files_docs import jpeg_with_exif, upload
+
+    from conftest import db_query
+
+    tech = signed_in("tech")
+    job_id = setup(tech, app)[3]
+    upload(tech, job_id, jpeg_with_exif())
+    upload(tech, job_id, jpeg_with_exif(size=(80, 60)), caption="After")
+    upload(tech, job_id, jpeg_with_exif(), caption="Again")    # one file, a second row
+    shas = [r[0] for r in db_query(app, "SELECT DISTINCT sha256 FROM attachment ORDER BY 1")]
+    assert len(shas) == 2
+    store, files_dir = Path(app.config["SHOP_FILES_DIR"]), tmp_path / "files"
+    for sha in shas:
+        (files_dir / sha[:2]).mkdir(parents=True, exist_ok=True)
+        for name in (f"{sha}.jpg", f"{sha}-thumb.jpg"):
+            shutil.copy(store / sha[:2] / name, files_dir / sha[:2] / name)
+    restore_db = f"{tdb.name}_photo_restore"
+    tdb.create_database(restore_db, owner=tdb.drill_role)
+    url = tdb.url("drill", restore_db)
+
+    def drill(run):
+        env = _env(tmp_path, SHOP_BACKUP_DIR=str(tmp_path / run))
+        assert _run("backup.sh", env).returncode == 0
+        return _run("restore_drill.sh", {**env, "RESTORE_DATABASE_URL": url})
+
+    ok = drill("good")
+    assert ok.returncode == 0, ok.stdout + ok.stderr
+    assert "photo re-hash ok (2 photos, each with its thumbnail)" in ok.stdout
+    photo = files_dir / shas[0][:2] / f"{shas[0]}.jpg"
+    original = photo.read_bytes()
+    photo.write_bytes(b"\xff\xd8\xff a different photo")
+    changed = drill("changed")
+    assert changed.returncode != 0 and f"{shas[0]}.jpg: hashes to" in changed.stderr
+    photo.unlink()
+    missing = drill("missing")
+    assert missing.returncode != 0 and f"{shas[0]}.jpg: not in the archive" in missing.stderr
+    photo.write_bytes(original)
+    thumb = files_dir / shas[1][:2] / f"{shas[1]}-thumb.jpg"
+    thumb.write_bytes(b"GIF89a not a thumbnail")
+    garbled = drill("garbled")
+    assert garbled.returncode != 0 and f"{shas[1]}-thumb.jpg: not a JPEG" in garbled.stderr
+    thumb.unlink()
+    no_thumb = drill("no-thumb")
+    assert no_thumb.returncode != 0
+    assert f"{shas[1]}-thumb.jpg: not in the archive" in no_thumb.stderr
+    assert f"{shas[0]}.jpg" not in no_thumb.stderr           # the restored photo is fine

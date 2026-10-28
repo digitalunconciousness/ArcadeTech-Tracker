@@ -4,11 +4,11 @@
     python scripts/contract_checksums.py                    # check contract/v1
     python scripts/contract_checksums.py --dir path/to/v1    # check another copy
 
-Contract v1 is owned by arcade-tracker (its contract/v1/) and vendored here byte-identical,
-as it is into GATBOX at docs/contract/v1/. Each repository checks its copy against the
-same CHECKSUMS in its tests. A mismatch here means this copy was edited: copy the files
-again from arcade-tracker, never regenerate CHECKSUMS in this repository. Adapted from
-arcade-tracker's scripts/contract_checksums.py (check only; no --write).
+Contract v1 is owned by GATBOX (its docs/contract/v1/, since 2026-10-28) and vendored here
+byte-identical, as it is into the other hub. Each repository checks its copy against the same
+CHECKSUMS in its tests. A mismatch here means this copy was edited: copy the files again from
+GATBOX, never regenerate CHECKSUMS in this repository (GATBOX's docs/contract/checksums.sh
+does that, there). Check only; no --write.
 """
 import argparse
 import hashlib
