@@ -40,8 +40,8 @@ def request_for(tag, name="ingest-request.json"):
 
 @pytest.fixture
 def bench(app, signed_in):
-    """A device with the examples' public id, and two machines: Widget Wars (in the shop)
-    and Sprocket (on site)."""
+    """A device with the examples' public id and its jobs switch on (the contract's
+    behaviour), and two machines: Widget Wars (in the shop) and Sprocket (on site)."""
     from app.extensions import db
     from app.models import Device
 
@@ -50,7 +50,7 @@ def bench(app, signed_in):
     widget = asset(owner, cid, "Widget Wars", status="in_shop")
     sprocket = asset(owner, cid, "Sprocket")
     with app.app_context():
-        dev = Device(name="test-bench", public_id=PUBLIC_ID)
+        dev = Device(name="test-bench", public_id=PUBLIC_ID, jobs=True)
         token = dev.issue_token()
         db.session.add(dev)
         db.session.commit()

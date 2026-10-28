@@ -13,7 +13,11 @@ The shop's own rules (owner, 2026-10-13):
   a trace attaches itself to its asset's job when the asset has exactly one open job, and
   otherwise waits on the asset page for someone to attach it;
   `phase` (as_found | during | as_left) is an optional addition to rail_session and
-  session_tag items; a bad value rejects the item."""
+  session_tag items; a bad value rejects the item.
+
+And (owner, 2026-10-28): a device without its jobs switch can't read a machine's jobs (the
+same 404 as a machine the hub doesn't have, so it learns nothing) and its order and
+session_tag items are rejected; its rail sessions are taken as before."""
 
 import hashlib
 from datetime import UTC, datetime, timedelta
@@ -33,6 +37,7 @@ from app.models import (
     Customer,
     RailSession,
     Reading,
+    User,
     WoJob,
     WoJobSession,
     WorkOrder,
@@ -55,6 +60,10 @@ IN_SHOP = ("in_shop", "awaiting_pickup")
 PRIORITY_MAP = {"low": "low", "medium": "normal", "high": "high", "critical": "rush",
                 "urgent": "rush"}
 
+# Items that reach into jobs: refused from a device whose jobs switch is off.
+JOB_KINDS = ("order", "session_tag")
+NO_JOBS = "jobs are switched off for this device (Settings → Devices on the hub)"
+
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 SEEN_EVERY = timedelta(minutes=15)
 NUMBER_LIMIT = Decimal("1e15")
@@ -75,6 +84,15 @@ class Rejected(Exception):
 
 class TraceError(Exception):
     """Something a person did on a page that can't be done; the message is shown."""
+
+
+def acting_user(device):
+    """The user a device's changes are made as: the one an owner picked, while she's
+    active. A switched-off user's device acts as no one, as her sessions end."""
+    if device.acts_as_user_id is None:
+        return None
+    user = db.session.get(User, device.acts_as_user_id)
+    return user if user is not None and user.active else None
 
 
 # --- reading the wire -------------------------------------------------------------------------
@@ -299,6 +317,10 @@ def ingest(device, body, ip=None):
         if handler is None:
             results.append({"uid": item.get("uid"), "kind": kind, "status": "rejected",
                             "reason": f"unknown kind {kind!r}"})
+            continue
+        if kind in JOB_KINDS and not device.jobs:
+            results.append({"uid": item.get("uid"), "kind": kind, "status": "rejected",
+                            "reason": NO_JOBS})
             continue
         savepoint = db.session.begin_nested()
         try:
@@ -548,12 +570,13 @@ def roster():
          "location": location(a), "model_key": a.model_key} for a in assets]}
 
 
-def orders(slug, status):
+def orders(slug, status, device):
     """A machine's jobs, as v1 "orders". Additive fields for the JOB card: work_order and
-    nte (money as a string)."""
+    nte (money as a string). A device without its jobs switch gets exactly the answer for
+    a machine the hub doesn't have."""
     if status not in ("open", "all"):
         raise ApiError("status must be 'open' or 'all'")
-    asset = db.session.scalar(select(Asset).where(Asset.tag == slug))
+    asset = db.session.scalar(select(Asset).where(Asset.tag == slug)) if device.jobs else None
     if asset is None:
         raise ApiError(f"no machine with slug {slug!r}", 404)
     q = select(WoJob, WorkOrder).join(WorkOrder, WorkOrder.id == WoJob.work_order_id) \

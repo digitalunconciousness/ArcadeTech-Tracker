@@ -11,7 +11,7 @@ Owners only.
 | Books | profit split, set-aside percentage, mileage rates, expense categories |
 | Accounts | account names and numbers for the accountant's journal |
 | Carriers | shipping carriers and their tracking links |
-| Devices | GATBOX devices and their tokens |
+| Devices | GATBOX devices, their tokens, who each one acts as, and whether it can reach jobs |
 | Audit | every change to a money record: who, when, before and after |
 
 Your own password, authenticator and desktop look are under your name, not here.

@@ -1,7 +1,8 @@
 """Settings → Audit (Phase 9b): the audit log, read back. Every change to a record the
 triggers watch, who made it and when, what changed (before → after). Owner only: the log
 holds every amount and cost. A record's History link shows the record and the rows that
-hang off it directly (a work order's jobs, an invoice's lines and payments)."""
+hang off it directly (a work order's jobs, an invoice's lines and payments). A change a
+GATBOX device made reads "<user> via <device>" (0025)."""
 
 import json
 import re
@@ -13,7 +14,7 @@ from sqlalchemy import Text, cast, or_, select
 
 from app.auth.decorators import requires_role
 from app.extensions import db
-from app.models import AuditLog, User
+from app.models import AuditLog, Device, User
 from app.reports.service import csv_text
 from app.settings.routes import bp
 from app.timeutil import localdt, shop_tz
@@ -69,7 +70,8 @@ def children(table):
     for child in db.Model.metadata.sorted_tables:
         for fk in child.foreign_keys:
             if fk.column.table.name == table and fk.column.name == "id" \
-                    and fk.parent.name != "created_by" and child.name != table:
+                    and fk.parent.name != "created_by" \
+                    and child.name not in (table, "audit_log"):
                 out.append((child.name, fk.parent.name))
     return out
 
@@ -118,7 +120,7 @@ def filtered(args):
          "related": args.get("related") == "1"}
     q = select(AuditLog.id, AuditLog.at, AuditLog.user_id, AuditLog.table_name,
                AuditLog.row_id, AuditLog.action, cast(AuditLog.before, Text),
-               cast(AuditLog.after, Text))
+               cast(AuditLog.after, Text), AuditLog.device_id)
     if f["table"] and f["row"]:
         here = (AuditLog.table_name == f["table"]) & (AuditLog.row_id == f["row"])
         if f["related"]:
@@ -146,14 +148,25 @@ def filtered(args):
     return q.order_by(AuditLog.id.desc()), f
 
 
+def who(user_id, device_id, names, devices):
+    """Who made a change: Olive, system, or through a device: Olive via bench-pi (system
+    via bench-pi when the device acts as no one)."""
+    person = names.get(user_id, f"user #{user_id}") if user_id is not None else "system"
+    if device_id is None:
+        return person
+    return f"{person} via {devices.get(device_id, f'device #{device_id}')}"
+
+
 def entries(rows):
     names = dict(db.session.execute(select(User.id, User.display_name).where(
         User.id.in_({r.user_id for r in rows if r.user_id is not None}))).all())
+    devices = dict(db.session.execute(select(Device.id, Device.name).where(
+        Device.id.in_({r.device_id for r in rows if r.device_id is not None}))).all())
     out = []
     for r in rows:
         before, after = load(r[6]) or {}, load(r[7]) or {}
-        out.append({"id": r.id, "at": r.at, "who": names.get(r.user_id, f"user #{r.user_id}")
-                    if r.user_id is not None else "system", "table": r.table_name,
+        out.append({"id": r.id, "at": r.at,
+                    "who": who(r.user_id, r.device_id, names, devices), "table": r.table_name,
                     "label": label(r.table_name), "row": r.row_id,
                     "url": record_url(r.table_name, r.row_id) if r.action != "D" else None,
                     "action": ACTIONS[r.action], "changes": changes(r.action, before, after)})

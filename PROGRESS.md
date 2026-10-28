@@ -406,6 +406,55 @@ push/PR → owner deploys (⏸).
         in front of the app with its four rules (§7: the owner thinks it isn't on), and
         the append-only off-site copy (§8) when the target is chosen
 
+## Phase 10: GATBOX integration, phase A fixes (branch `phase/10-gatbox-fixes`)
+
+Design note (owner's decisions, 2026-10-28: the deck acts as her, shown "via GATBOX"; a
+jobs switch per device; the drill checks photos):
+
+- **Models.** `device.acts_as_user_id` (nullable FK app_user): who the device's changes are
+  made as. `device.jobs` (boolean): whether it may read a machine's jobs and send orders and
+  session tags. `audit_log.device_id` (nullable FK device): which device made the change.
+- **Migration 0025_device_actor.** The three columns. `jobs` is added with `DEFAULT true`
+  (so the devices already there, the deck, keep working unchanged after deploy) and the
+  default is then set to false for new ones: no data UPDATE. `audit_row()` replaced
+  (CREATE OR REPLACE, still SECURITY DEFINER with 0024's search_path) to record
+  `current_setting('shop.device_id', true)` beside the user. Downgrade puts 0024's function
+  back exactly, then drops the columns (rows written since lose which device made them).
+- **Actor.** `app/actor.py` sets `shop.device_id` beside `shop.user_id` on every
+  transaction. `requires_device` sets both after the token checks: the acts-as user while
+  she's active, otherwise no one (as today); the device always. created_by and audit rows
+  then name her; a web request is unchanged (device empty).
+- **Routes.** `GET /api/v1/machines/<slug>/orders` from a device without jobs: the same 404
+  as an unknown slug. `order` and `session_tag` items from one: rejected per item, saying
+  why. rail_session ingest, roster and health unchanged. Settings → Devices (owner): an
+  Acts as list (active users) and a Jobs box per device, `POST /settings/devices/<id>/edit`.
+- **Templates.** Devices shows and edits both; Audit shows "<user> via <device>" (or
+  "system via <device>") in the page and its CSV.
+- **Restore drill.** Every photo attachment's file must be in the archive and hash to its
+  name; its thumbnail must be there and be a JPEG (it's named after the photo, so its own
+  hash can't be checked).
+- **Risks.** `audit_row()` runs on every audited table, so the replacement is tested for a
+  device ingest (user and device on each row), a web request (unchanged) and a device with
+  no acts-as; and the downgrade is checked to restore the function byte for byte.
+  `audit_log.device_id` has a foreign key where `user_id` has none: devices are never
+  deleted, and the check only takes a key-share lock, which device updates don't block.
+  Health has no token, so a device with jobs off still reads `"capabilities": ["jobs"]`
+  and its JOB card gets 404s (gatbox-sync counts them as orders errors).
+
+- [x] Design note (above)
+- [x] Migration 0025 + models; audit trigger records the device; round trip and exact
+      restore of `audit_row()` tested (`test_migrations.py`, `test_0025_…`)
+- [x] Device requests act as the chosen user, with the device on every audit row
+      (`tests/test_device_actor.py`)
+- [x] Jobs switch: orders 404, order/session_tag items rejected; contract tests unchanged
+      (their device has jobs on)
+- [x] Settings → Devices (acts as, jobs) and the audit page's "via"; RUNBOOK §10, wiki
+- [ ] Restore drill checks photos and thumbnails; backup/restore test extended
+- [ ] Full pytest, ruff, privacy check → owner reviews and pushes
+- [ ] ⏸ Owner deploys (migration 0025), then Settings → Devices: set the deck's Acts as to
+      herself (Jobs is already on for it); check a bench order's History reads "<her> via
+      <deck>"
+
 ## Decisions
 
 | Date | Decision | Why |
@@ -535,6 +584,8 @@ push/PR → owner deploys (⏸).
 | 2026-10-27 | waitress listens on 127.0.0.1 only; no LAN listener (plain HTTP that skips Cloudflare, and sign-in can't work over it). GATBOX already lists no LAN address | Owner took the recommendation |
 | 2026-10-27 | The restore drill connects as `shop_drill` (owns only `shop_restore_test`) and runs as `shop-hub`; the off-site restic repository is append-only for the LXC, pruned from the backup box | Owner (review question 3) |
 | 2026-10-27 | GATBOX rail_session uids are checked against contract v1's rule (`sha256(public_id\|rail_session\|file)[:32]`) and a stored session belongs to the device that sent it. Reading uids aren't checked (the rule hashes a formatted float) | Security review; v1's request shapes unchanged |
+| 2026-10-28 | A GATBOX device acts as the user an owner picks in Settings → Devices (while she's active; otherwise no one): its requests set `shop.user_id` to her and `shop.device_id` to itself, so created_by and audit rows name her and the audit log reads "<her> via <device>" | Owner: the deck acts as her, "via GATBOX" in history. Device writes had reached the log as "system" |
+| 2026-10-28 | A jobs switch per device: without it, a machine's jobs answer like an unknown machine (404) and order and session_tag items are rejected; traces, roster and health unchanged. On for devices from before 0025, off for new ones | Owner: any enabled device could read every asset's jobs |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
 
 ## Notes

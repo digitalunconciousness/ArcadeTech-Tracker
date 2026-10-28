@@ -387,7 +387,11 @@ with its own token; Access lets that path through (§7, rule 2).
 1. Settings → Devices → **Add a device**, named for the Pi. The token is shown once:
    copy it then. (From the console instead: `cd /opt/shop-hub && set -a &&
    . /etc/shop-hub/shop-hub.env && set +a && /opt/shop-hub-venv/bin/python
-   scripts/create_device.py`.)
+   scripts/create_device.py`.) Then, under the device, **Acts as and jobs**: *Acts as* is
+   the person its changes are made as (Settings → Audit shows "<her> via <device>"; no one:
+   the device alone); *Jobs* lets it read each machine's open jobs and send bench orders
+   and session tags. A new device starts without jobs: it can send traces, and its orders
+   are refused until Jobs is ticked. Devices from before migration 0025 kept jobs on.
 2. Smoke test from any machine (replace the hostname and token):
 
    ```

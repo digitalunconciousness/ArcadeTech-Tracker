@@ -46,6 +46,7 @@ def main(argv=None, ask=input, out=print):
         out(f"Device {name} added. Its token, shown this once (only a hash is kept):")
         out(token)
         out(f"On the Pi: HUB_URLS={app.config['SHOP_BASE_URL']} and HUB_TOKEN=<the token>.")
+        out("It starts without jobs and acts as no one: set both in Settings → Devices.")
     return 0
 
 

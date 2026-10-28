@@ -22,6 +22,7 @@ from wtforms.validators import (
 )
 
 from app.auth.forms import new_password_fields
+from app.customers.forms import opt_int
 from app.forms_common import (
     EMAIL_RE,
     WEB_URL,
@@ -139,3 +140,11 @@ class DeviceForm(FlaskForm):
     name = StringField("Name (the Pi it goes on)", filters=[blank_to_none],
                        validators=[DataRequired(), Length(max=60)])
     notes = TextAreaField("Notes", filters=[blank_to_none], validators=[Optional(), Length(max=2000)])
+
+
+class DeviceAccessForm(FlaskForm):
+    """Who a device acts as, and whether it may reach jobs. Choices: no one, or an active
+    user (the route fills them)."""
+    acts_as_user_id = SelectField("Acts as", coerce=opt_int)
+    jobs = BooleanField("Jobs: reads each machine's open jobs, sends bench orders and "
+                        "session tags")
