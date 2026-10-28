@@ -79,9 +79,9 @@ Port patterns by copying and adapting; never import from them.
   accent. The app UI uses GATBOX's synthwave tokens (below).
 - Customer links `/d/<token>`: 32 random bytes, read-only, revocable, expiring,
   `X-Robots-Tag: noindex`, rate-limited.
-- The GATBOX API is **contract v1**, vendored byte-identical from arcade-tracker with the same
-  checksum test. Additions (`capabilities: ["jobs"]`, roster `model_key`, `phase`) are
-  additive and optional. **Never change v1's request shapes.**
+- The GATBOX API is **contract v1**, vendored byte-identical from GATBOX (its owner since
+  2026-10-28) with the same checksum test. Additions (`capabilities: ["jobs"]`, roster
+  `model_key`, `phase`) are additive and optional. **Never change v1's request shapes.**
 
 ## Hard rules
 
@@ -130,7 +130,7 @@ app/                    Flask app: create_app() in __init__.py, config, extensio
   templates/            app UI (synthwave) and templates/docs/ (print-first documents)
   static/               css, js, fonts, vendor/
 migrations/             Flask-Migrate (Alembic); triggers and functions live here
-contract/v1/            vendored from arcade-tracker, byte-identical, checksum-tested
+contract/v1/            vendored from GATBOX, byte-identical, checksum-tested
 deploy/                 deploy.sh, RUNBOOK.md, listen.conf.example, shop-hub.service,
                         backup units, cloudflared ingress snippet
 scripts/                create_owner.py, backup.sh, restore_drill.sh, privacy_check.sh,

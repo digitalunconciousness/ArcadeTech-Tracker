@@ -1,5 +1,5 @@
 """The v1 machine API against contract/v1/ as the specification (vendored byte-identical
-from arcade-tracker). The examples are the normative description: these tests post
+from GATBOX, which owns it). The examples are the normative description: these tests post
 examples/ingest-request.json and compare the replies against ingest-response.json, then
 ingest-response-duplicate.json. That pair is Phase 7's exit test.
 
@@ -11,6 +11,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 import pathlib
 from datetime import UTC, datetime
 from decimal import Decimal as D
@@ -74,13 +75,50 @@ def count(app, table):
 # --- the contract files -----------------------------------------------------------------------
 
 def test_the_contract_matches_its_checksums():
-    """Two copies of anything drift; arcade-tracker and GATBOX check theirs the same way."""
+    """Copies of anything drift; GATBOX, which owns it, and the other hub check theirs too."""
     spec = importlib.util.spec_from_file_location("contract_checksums",
                                                   ROOT / "scripts" / "contract_checksums.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     problems = mod.compare(CONTRACT)
     assert not problems, "contract/v1 doesn't match CHECKSUMS:\n  " + "\n  ".join(problems)
+
+
+# Where sibling checkouts of the other repositories may be: beside this one (the owner's machine
+# and a cloud session) or the read-only reference clones of a cloud session.
+# CONTRACT_SIBLINGS, a space-separated list of repo directories, overrides it.
+SIBLINGS = ("gatbox", "Gatbox", "cabcrawl", "arcade-tracker")
+
+
+def sibling_contracts():
+    """(name, path) of every sibling checkout's copy of contract v1 that exists."""
+    env = os.environ.get("CONTRACT_SIBLINGS")
+    repos = ([pathlib.Path(p) for p in env.split()] if env is not None else
+             [ROOT.parent / n for n in SIBLINGS] + [pathlib.Path("/opt/refs") / n for n in SIBLINGS])
+    found = []
+    for repo in repos:
+        for sub in ("docs/contract/v1", "contract/v1"):
+            path = repo / sub
+            if (path / "CHECKSUMS").is_file() and path.resolve() != CONTRACT.resolve():
+                found.append((str(repo), path))
+                break
+    return found
+
+
+def tree(path):
+    return {p.relative_to(path).as_posix(): p.read_bytes()
+            for p in sorted(path.rglob("*")) if p.is_file()}
+
+
+def test_the_contract_is_the_same_as_in_sibling_checkouts():
+    """A copy that matches its own CHECKSUMS can still be an older edition than GATBOX's.
+    Every sibling checkout found must hold exactly the same files (pull it if it's behind)."""
+    found = sibling_contracts()
+    if not found:
+        pytest.skip("no sibling checkout found")
+    mine = tree(CONTRACT)
+    differ = [name for name, path in found if tree(path) != mine]
+    assert not differ, "contract/v1 differs from the copy in: " + ", ".join(differ)
 
 
 def test_the_example_uids_follow_the_documented_rule():
@@ -378,7 +416,9 @@ def test_the_roster_lists_active_machines_without_customer_names(client, bench, 
     assert tag_of(app, sold) not in machines
     want = example("roster-response.json")["machines"][0]
     for m in machines.values():
-        assert set(want) <= set(m) and all(isinstance(m[k], str) for k in want)
+        assert set(want) <= set(m)
+        assert all(isinstance(m[k], str) for k in want if k != "model_key")
+        assert m["model_key"] is None or isinstance(m["model_key"], str)   # null: not known
     assert machines[bench["other"]]["location"] == "On site"
     assert machines[bench["other"]]["status"] == "In service"
     assert "Starlite" not in resp.get_data(as_text=True)
