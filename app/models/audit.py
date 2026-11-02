@@ -1,6 +1,17 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, Integer, String, Text, text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Identity,
+    Index,
+    Integer,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,7 +24,8 @@ class AuditLog(db.Model):
 
     The one table without created_at/updated_at/created_by: `at` and `user_id` are those,
     and an append-only row is never updated. user_id has no foreign key, so the log never
-    blocks or cascades with app_user."""
+    blocks or cascades with app_user. device_id (0025: the GATBOX device a change came
+    through, from shop.device_id) has one: devices are switched off, never deleted."""
 
     __tablename__ = "audit_log"
     __table_args__ = (
@@ -27,6 +39,7 @@ class AuditLog(db.Model):
         DateTime(timezone=True), nullable=False, server_default=text("clock_timestamp()")
     )
     user_id: Mapped[int | None] = mapped_column(Integer)
+    device_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("device.id"))
     txid: Mapped[int] = mapped_column(
         BigInteger, nullable=False, server_default=text("txid_current()")
     )

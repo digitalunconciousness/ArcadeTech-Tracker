@@ -1,6 +1,8 @@
 """GATBOX, the bench Pi: the devices allowed to push here, and what they push (contract
 v1, contract/v1/). A device is not a user: no session, no role, nothing a person sees.
-It authenticates with a bearer token to /api/v1 and nothing else.
+It authenticates with a bearer token to /api/v1 and nothing else. What it changes is made
+as the user an owner picked for it (acts_as_user_id), and audit_log names the device too
+(owner, 2026-10-28: the deck acts as her, shown "via" the device).
 
 Traces are evidence: the app role may add them and read them, never change them. Measured
 values are NUMERIC, stored exactly as the Pi sent them (the request is parsed with
@@ -77,6 +79,12 @@ class Device(StandardColumns, db.Model):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_ip: Mapped[str | None] = mapped_column(String(45))
     notes: Mapped[str | None] = mapped_column(Text)
+    # Who its changes are made as (shop.user_id on its requests), while she's active; none:
+    # they name no one, as before 0025. Chosen by an owner in Settings → Devices.
+    acts_as_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("app_user.id"))
+    # May it read a machine's jobs (GET .../orders) and send orders and session tags?
+    # Off for a new device; 0025 switched it on for the devices already there.
+    jobs: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
 
     @staticmethod
     def new_public_id():

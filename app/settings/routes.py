@@ -23,6 +23,7 @@ from app.pricing import multiplier_margin
 from app.purchasing.forms import CarrierForm
 from app.settings.forms import (
     BusinessForm,
+    DeviceAccessForm,
     DeviceForm,
     LaborPolicyForm,
     MarkupTierForm,
@@ -475,8 +476,44 @@ def devices():
         return render_template("settings/device_token.html", device=device, token=token)
     _flash_errors(form)
     rows = db.session.scalars(select(Device).order_by(Device.name)).all()
+    users = {u.id: u for u in db.session.scalars(select(User).where(
+        User.id.in_({d.acts_as_user_id for d in rows if d.acts_as_user_id is not None})))}
+    choices = _acts_as_choices()
+    access = {d.id: _access_form(d, choices) for d in rows}
     return render_template("settings/devices.html", devices=rows, form=form,
-                           action=EmptyForm())
+                           action=EmptyForm(), access=access, users=users)
+
+
+def _acts_as_choices():
+    """No one, or an active user: a switched-off user can't be picked."""
+    people = db.session.scalars(select(User).where(User.active.is_(True))
+                                .order_by(User.display_name)).all()
+    return [(None, "No one (its changes name only the device)")] + \
+        [(u.id, u.display_name) for u in people]
+
+
+def _access_form(device, choices):
+    """For showing: from the row, never from a form posted to the page (Add a device)."""
+    form = DeviceAccessForm(formdata=None, obj=device, prefix=f"d{device.id}")
+    form.acts_as_user_id.choices = choices
+    return form
+
+
+@bp.route("/devices/<int:device_id>/edit", methods=["POST"])
+@requires_role("owner")
+def device_edit(device_id):
+    """Acts as and jobs (owner, 2026-10-28). The device's next request uses them."""
+    device = db.session.get(Device, device_id) or abort(404)
+    form = DeviceAccessForm(prefix=f"d{device.id}")
+    form.acts_as_user_id.choices = _acts_as_choices()
+    if form.validate_on_submit():
+        device.acts_as_user_id = form.acts_as_user_id.data
+        device.jobs = form.jobs.data
+        db.session.commit()
+        flash(f"Saved {device.name}.", "ok")
+    else:
+        _flash_errors(form)
+    return redirect(url_for("settings.devices"))
 
 
 @bp.route("/devices/<int:device_id>/<action>", methods=["POST"])

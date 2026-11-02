@@ -1,18 +1,31 @@
 {% extends "base.html" %}
-{% from "_forms.html" import field %}
+{% from "_forms.html" import field, check %}
 {% block title %}Devices{% endblock %}
 {% block content %}
 {% include "settings/_tabs.html" %}
 <section class="panel">
   <h1>Devices</h1>
   <p class="dim">GATBOX units allowed to send traces and bench orders here (<span class="mono">/api/v1</span>, contract v1). A device signs in with a token, not a user: it sees nothing a person sees. Switch one off rather than deleting it; its traces stay.</p>
+  <p class="dim">What a device changes is made as the person it <em>acts as</em> and shows in the audit log as "that person via the device". <em>Jobs</em> lets it read each machine's open jobs and send bench orders and session tags; without it, it can still send traces.</p>
   <ul class="list">
     {% for d in devices %}
     <li{% if not d.enabled %} class="inactive"{% endif %}>
       <strong>{{ d.name }}</strong> <span class="dim mono">gbx_{{ d.public_id }}</span>
       {% if not d.enabled %}<span class="badge danger">off</span>{% endif %}
       <div class="dim small">{% if d.last_seen_at %}last seen {{ d.last_seen_at | localdt }}{% if d.last_ip %} from {{ d.last_ip }}{% endif %}{% else %}never seen{% endif %}</div>
+      {% set acting = users.get(d.acts_as_user_id) %}
+      <div class="small">{% if acting and acting.active %}Acts as {{ acting.display_name }}{% elif acting %}<span class="badge warn">acts as no one</span> {{ acting.display_name }} is switched off{% else %}Acts as no one{% endif %} · jobs {{ 'on' if d.jobs else 'off' }}</div>
       {% if d.notes %}<div class="notes small">{{ d.notes }}</div>{% endif %}
+      {% set af = access[d.id] %}
+      <details class="form">
+        <summary>Acts as and jobs</summary>
+        <form method="post" action="{{ url_for('settings.device_edit', device_id=d.id) }}" novalidate>
+          {{ af.csrf_token }}
+          {{ field(af.acts_as_user_id) }}
+          {{ check(af.jobs) }}
+          <button class="btn primary small" type="submit">Save</button>
+        </form>
+      </details>
       <div class="actions">
         <form class="inline-form" method="post" action="{{ url_for('settings.device_action', device_id=d.id, action='switch') }}">{{ action.csrf_token }}<button class="btn small{{ '' if d.enabled else ' primary' }}" type="submit">{{ 'Switch off' if d.enabled else 'Switch on' }}</button></form>
         <form class="inline-form" method="post" action="{{ url_for('settings.device_action', device_id=d.id, action='rotate') }}">{{ action.csrf_token }}<button class="btn small danger" type="submit" data-confirm="Make a new token? The old one stops working at once.">New token</button></form>

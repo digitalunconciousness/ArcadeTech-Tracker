@@ -10,6 +10,10 @@ GitHub repo is `digitalunconciousness/ArcadeTech-Tracker` (**public**, the owner
 service, paths and database stay `shop-hub` / `shop`, so nothing collides with the barcade's
 `arcade-tracker` repo, unit or `/opt` path.
 
+**Read `docs/agents/RULES.md` first.** It is the one set of agent rules for GATBOX, the barcade's
+app and this one (GATBOX owns it; this copy is vendored, byte-identical), and it wins where this
+file disagrees, except on this repository's own facts and the hard rules below.
+
 **Resume from PROGRESS.md.** Every session: read this file, PROGRESS.md and docs/PLAN.md,
 `git pull`, then carry on from the first unchecked box.
 
@@ -20,22 +24,24 @@ The owner starts sessions with
 
 - The owner is a professional arcade tech, fluent in Arch, Proxmox, systemd, Postgres and git.
   Be direct, flag tradeoffs, skip preamble.
-- **One phase per session.** Before code: a short design note (models, migrations, routes,
-  templates, risks), then wait for the owner's OK.
-- **Before every push:** show the diff summary, the test results and the privacy-check output
-  (`scripts/privacy_check.sh`), even when clean. The owner says when to push.
+- **One change per PR.** Before code: a short design note (models, migrations, routes,
+  templates, risks), then the owner's OK, which covers the code and the push (the rules, §3).
+- **Every push** goes to the phase branch once the full `pytest` run and the privacy check
+  (`scripts/privacy_check.sh`) pass, and the PR shows the diff summary, the test results and
+  the privacy-check output, even when clean.
 - Unsure whether something is safe for real data or real money records? Stop and ask.
 - **You never touch a host.** Anything that runs in an LXC, on the Postgres host or on
   Cloudflare is written as exact commands, marked ⏸, and then you stop.
 - Where this file and docs/PLAN.md differ, this file wins. Where the reference repos disagree
   with either, say what you found.
-- Phase flow: design note → OK → code + tests → diff, tests, privacy output → OK → push/PR →
-  owner deploys (⏸). Tick PROGRESS.md as you go.
+- Phase flow: design note → OK → code + tests → push and PR (diff, tests, privacy output) →
+  the owner merges and deploys (⏸). Tick PROGRESS.md as you go.
 
-## Reference repos (READ-ONLY)
+## The other repositories
 
-`~/arcade-tracker` and `~/gatbox` are references. Never edit, commit, branch or push in them.
-Port patterns by copying and adapting; never import from them.
+`~/arcade-tracker` (the barcade's app, now called cabcrawl) and `~/gatbox`. A session may change
+them when the task needs it, each through its own branch and PR (the rules, §4); otherwise
+they're references. Port patterns by copying and adapting; never import from them.
 
 - arcade-tracker: `app/models/device.py` (gbx_ tokens), `app/routes/api_v1.py`,
   `app/utils/decorators.py` (requires_role, requires_device), `app/extensions.py` (limiter),
@@ -79,9 +85,9 @@ Port patterns by copying and adapting; never import from them.
   accent. The app UI uses GATBOX's synthwave tokens (below).
 - Customer links `/d/<token>`: 32 random bytes, read-only, revocable, expiring,
   `X-Robots-Tag: noindex`, rate-limited.
-- The GATBOX API is **contract v1**, vendored byte-identical from arcade-tracker with the same
-  checksum test. Additions (`capabilities: ["jobs"]`, roster `model_key`, `phase`) are
-  additive and optional. **Never change v1's request shapes.**
+- The GATBOX API is **contract v1**, vendored byte-identical from GATBOX (its owner since
+  2026-10-28) with the same checksum test. Additions (`capabilities: ["jobs"]`, roster
+  `model_key`, `phase`) are additive and optional. **Never change v1's request shapes.**
 
 ## Hard rules
 
@@ -103,8 +109,11 @@ Port patterns by copying and adapting; never import from them.
 6. Commit with `git c` (alias for `TZ=UTC git commit`), as `digitalunconciousness` with the
    GitHub noreply email (set in this repo's local git config, not global).
 7. Before every push, run `scripts/privacy_check.sh` and show the output. The same check runs
-   in `.githooks/pre-push` (`git config core.hooksPath .githooks`). Owner-specific patterns
-   live in the git-ignored `.githooks/patterns.local`; never copy its values anywhere.
+   in `.githooks/pre-push` (`git config core.hooksPath .githooks`). Both are the shared ones,
+   byte-identical in all three repos; this repo's own forbidden paths are in
+   `.githooks/privacy.conf`. Owner-specific patterns live in the git-ignored
+   `.githooks/patterns.local` or `~/.config/gatbox-family/patterns.local`; never copy their
+   values anywhere.
 8. The barcade's name and data never appear in this repo. Refer to it as "the barcade".
 9. Library versions are pinned in `requirements.in` and compiled with hashes into
    `requirements.txt` (`uv pip compile --generate-hashes`; header has the exact command);
@@ -130,7 +139,7 @@ app/                    Flask app: create_app() in __init__.py, config, extensio
   templates/            app UI (synthwave) and templates/docs/ (print-first documents)
   static/               css, js, fonts, vendor/
 migrations/             Flask-Migrate (Alembic); triggers and functions live here
-contract/v1/            vendored from arcade-tracker, byte-identical, checksum-tested
+contract/v1/            vendored from GATBOX, byte-identical, checksum-tested
 deploy/                 deploy.sh, RUNBOOK.md, listen.conf.example, shop-hub.service,
                         backup units, cloudflared ingress snippet
 scripts/                create_owner.py, backup.sh, restore_drill.sh, privacy_check.sh,
@@ -176,7 +185,8 @@ runs on this account; restore its `push`/`pull_request` triggers then. The backu
 
 A cloud session gets a fresh Ubuntu 24.04 VM with only this repo cloned. The environment's
 setup script is `docs/cloud-setup.sh` (pasted into the environment settings, with the
-`SHOP_PATTERNS` variable). Differences from the owner's machine:
+`PRIVACY_PATTERNS` variable; `SHOP_PATTERNS` is still read). Differences from the owner's
+machine:
 
 - Reference repos are at `/opt/refs/arcade-tracker` and `/opt/refs/gatbox` (read-only
   clones, not attached to the session). Same rules as `~/arcade-tracker` / `~/gatbox`.
@@ -187,8 +197,9 @@ setup script is `docs/cloud-setup.sh` (pasted into the environment settings, wit
   git config user.email 240414701+digitalunconciousness@users.noreply.github.com
   git config alias.c '!TZ=UTC git commit'
   ```
-- `scripts/privacy_check.sh` reads `~/.config/shop-hub/patterns.local` (written by the
-  setup script). If it reports the file MISSING, stop and tell the owner; never push without it.
+- `scripts/privacy_check.sh` reads `~/.config/gatbox-family/patterns.local` (written by the
+  setup script; the older `~/.config/shop-hub/patterns.local` still works). If it reports the
+  file MISSING, stop and tell the owner; never push without it.
 - Python 3.13 is `python3.13` (deadsnakes); make the venv with
   `python3.13 -m venv ~/.venvs/shop-hub`. Postgres 17 runs in docker via `scripts/devdb.sh`
   (start `dockerd` first if `docker info` fails); the VM's preinstalled PostgreSQL 16 is not

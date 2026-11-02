@@ -11,7 +11,12 @@ Different from the rest of the app, on purpose:
     purpose, so an unauthenticated flood would otherwise burn CPU.
   * Every error is {"error": ...} JSON (app/__init__.py's handlers, for /api/v1 paths).
   * The body is parsed with parse_float=Decimal: measurements are stored exactly as sent
-    and binary floating point never touches them."""
+    and binary floating point never touches them.
+  * Once its token checks out, a device's request runs as the user it acts as (if she's
+    active) and names the device (shop.user_id and shop.device_id, app/actor.py), so what
+    it writes is audited as "<her> via <device>".
+  * A device's jobs switch gates a machine's jobs (orders) and the order and session_tag
+    items; rail sessions, the roster and health don't need it."""
 
 import json
 import time
@@ -21,6 +26,7 @@ from functools import wraps
 from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import select
 
+from app.actor import set_actor
 from app.extensions import client_ip, csrf, db, limiter
 from app.gatbox import service
 from app.gatbox.service import ApiError
@@ -64,6 +70,8 @@ def requires_device(view):
         if not device.check_secret(secret):
             return refuse(f"wrong secret for device {device.name!r}")
         g.device = device
+        acting = service.acting_user(device)
+        set_actor(acting.id if acting is not None else None, device.id)
         return view(*args, **kwargs)
 
     # What the default-deny test (tests/test_roles.py) looks for: a device token, never a
@@ -135,7 +143,7 @@ def roster():
 @limiter.limit("60 per minute", key_func=device_rate_key)
 @requires_device
 def machine_orders(slug):
-    result = service.orders(slug, request.args.get("status", "open").lower())
+    result = service.orders(slug, request.args.get("status", "open").lower(), g.device)
     service.seen(g.device, client_ip())
     db.session.commit()
     return jsonify(result)

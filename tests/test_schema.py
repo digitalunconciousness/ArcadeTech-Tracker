@@ -196,8 +196,9 @@ def test_trigger_functions_not_public(app, fn):
 def test_audit_function_pins_search_path(app):
     """SECURITY DEFINER: the temporary schema comes last, so a temp table can't stand in
     for audit_log (0024)."""
-    rows = q(app, "SELECT proconfig FROM pg_proc WHERE proname = 'audit_row'")
+    rows = q(app, "SELECT proconfig, prosecdef FROM pg_proc WHERE proname = 'audit_row'")
     assert rows and "search_path=pg_catalog, public, pg_temp" in rows[0][0]
+    assert rows[0][1] is True                     # still SECURITY DEFINER after 0025
 
 
 def test_app_role_cant_make_temporary_tables(app):

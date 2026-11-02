@@ -9,7 +9,8 @@
 #
 # Checks: checksums; the dump restores in one transaction; every table's row count
 # equals what the dump holds; every trigger came back; the file store archive reads;
-# and (from Phase 4) every issued invoice and credit memo PDF re-hashes to its sha256.
+# and (from Phase 4) every issued invoice and credit memo PDF re-hashes to its sha256;
+# receipts (6a) and job photos (10) the same, each photo's thumbnail beside it.
 # Prints PASS or FAIL; exits non-zero on FAIL.
 set -euo pipefail
 
@@ -116,6 +117,41 @@ else
   done <<< "$receipts"
   [ -z "$bad" ] || fail "receipts don't match:"$'\n'"$bad"
   echo "  receipt re-hash ok ($n files)"
+fi
+
+# Photos on jobs (attachment, re-encoded on upload and named by the sha256 of the stored
+# JPEG), each with its thumbnail. The thumbnail is named after the photo, not after its
+# own bytes, so it can only be checked for being there and being a JPEG. The names go to
+# tar in a file (-T), not on its command line, so a large store can't overflow ARG_MAX.
+photos=$(psql_q "SELECT DISTINCT sha256 FROM attachment WHERE kind = 'photo'")
+if [ -z "$photos" ]; then
+  echo "  photo re-hash: no photos yet"
+else
+  pscratch=$(mktemp -d)
+  trap 'rm -rf "${scratch:-}" "${rscratch:-}" "$pscratch"' EXIT
+  while read -r sha; do
+    printf '*/%s.jpg\n*/%s-thumb.jpg\n' "$sha" "$sha"
+  done <<< "$photos" > "$pscratch/.names"
+  tar -C "$pscratch" -xf files.tar --wildcards -T "$pscratch/.names" 2> /dev/null || true
+  bad="" n=0
+  while read -r sha; do
+    file="$pscratch/${sha:0:2}/$sha.jpg"
+    thumb="$pscratch/${sha:0:2}/$sha-thumb.jpg"
+    if [ ! -f "$file" ]; then
+      bad+="    $sha.jpg: not in the archive"$'\n'
+    else
+      got=$(sha256sum "$file" | cut -d' ' -f1)
+      [ "$got" = "$sha" ] || bad+="    $sha.jpg: hashes to $got"$'\n'
+    fi
+    if [ ! -f "$thumb" ]; then
+      bad+="    $sha-thumb.jpg: not in the archive"$'\n'
+    elif [ "$(head -c 3 "$thumb" | od -An -tx1 | tr -d ' \n')" != "ffd8ff" ]; then
+      bad+="    $sha-thumb.jpg: not a JPEG"$'\n'
+    fi
+    n=$((n + 1))
+  done <<< "$photos"
+  [ -z "$bad" ] || fail "photos don't match:"$'\n'"$bad"
+  echo "  photo re-hash ok ($n photos, each with its thumbnail)"
 fi
 
 echo "restore drill: PASS"

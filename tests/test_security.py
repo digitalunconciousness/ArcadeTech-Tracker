@@ -182,7 +182,7 @@ def test_a_device_cant_claim_or_tag_another_devices_traces(app, client, bench): 
     assert post(client, bench, payload).get_json()["results"][0]["status"] == "created"
     session = payload["items"][0]
     with app.app_context():
-        other = Device(name="second-bench", public_id="0f0e0d0c0b0a")
+        other = Device(name="second-bench", public_id="0f0e0d0c0b0a", jobs=True)
         other_token = other.issue_token()
         db.session.add(other)
         db.session.commit()

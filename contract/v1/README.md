@@ -1,11 +1,14 @@
 # GATBOX → hub contract, v1
 
-The wire format between GATBOX (a Raspberry Pi running the bench diagnostics) and this
-application, the hub. **One direction only: GATBOX pushes, the hub never connects to GATBOX.**
+The wire format between GATBOX (a Raspberry Pi running the bench diagnostics) and a hub, an
+application it reports to. **One direction only: GATBOX pushes, the hub never connects to
+GATBOX.**
 
-This directory is owned by the hub and vendored into GATBOX at `docs/contract/v1/`. Both
-copies are checked against `CHECKSUMS` by a test in each repository, so they cannot drift
-apart without something going red.
+This directory is owned by GATBOX (since 2026-10-28; the first hub owned it before) at
+`docs/contract/v1/`, and vendored byte-identical into each hub at `contract/v1/`. Every copy is
+checked against `CHECKSUMS` by a test in its repository, which also compares it with any sibling
+checkout it finds, so the copies cannot drift apart without something going red. A change is
+made in GATBOX's copy and lands in every repository together.
 
 ## The examples are the schema
 
@@ -53,6 +56,42 @@ token is shown once, when `scripts/create_device.py` mints it.
 
 `GET /api/v1/health` takes no token on purpose: GATBOX uses it to decide whether the LAN
 address or the tunnel is reachable, which it needs to know before it commits to a request.
+
+## Additions (all optional)
+
+v1's request shapes never change. These are extras a hub may serve (added 2026-10-13); a side
+that doesn't know one ignores it.
+
+- **Health:** `app`, a short name for the hub's software, and `capabilities`, a list of strings
+  naming the optional parts it serves. A hub that leaves `capabilities` out has none. GATBOX
+  sends a hub only what its last health answer lists. Today there is one capability:
+  - `"jobs"`: the hub keeps customer jobs. Its orders also carry `work_order` (the hub's
+    document number, a string) and `nte` (a not-to-exceed amount as a decimal string, or
+    `null`), and it accepts `phase` (below).
+- **Roster:** each machine carries `model_key`, the game it is, as a slug shared with GATBOX's
+  game library, or `null` when the hub doesn't know. It is in the example, so a hub with no
+  model keys yet sends `null`.
+- **`phase`** on a `rail_session` and a `session_tag`: one of `as_found`, `during` and
+  `as_left`. GATBOX sends it only to a hub whose health lists `"jobs"`, and leaves it out rather
+  than sending `null`. A jobs hub rejects any other value.
+
+## Machines a device may use
+
+Added 2026-10-26; additive, so a device set up before then behaves as it always did.
+
+A device is allowed either **every machine** (the default, and what every device had before)
+or **a list of machines**, chosen on the hub's Admin, Devices page. A device limited to a list:
+
+- sees only those machines in `GET /api/v1/roster`;
+- gets `404` from `GET /api/v1/machines/<slug>/orders` for any other machine, the same answer
+  as for an unknown slug, so it can't learn what else is on the floor;
+- has a `rail_session` or `order` for any other machine `rejected` with
+  `"machine '<slug>' is not on this device's list"`;
+- has a `session_tag` `rejected` when the order isn't for one of its machines (an order with no
+  machine is not one of them).
+
+Changing a device's list takes effect on its next request. Refusals for a machine off the list
+never clear on retry: the fix is the list, or the Pi's machine setting.
 
 ## Identity and idempotency
 
@@ -109,8 +148,14 @@ Readings carry `up` (the Pi's monotonic uptime in seconds) alongside `epoch`. Wi
 | readings per session | 2000 |
 | readings per request | 20000 |
 | request body | 8 MB |
+| `order.issue` | 2000 characters |
+| `order.technician` | 50 characters |
+| `session_tag.note` | 2000 characters |
+| `rail_session.file` | 64 characters |
 
-Exceeding any of them is a `400` and writes nothing. GATBOX decides how to batch within them.
+Exceeding any of the first four is a `400` and writes nothing. GATBOX decides how to batch
+within them. The text lengths (added 2026-10-26) are per item: an item over one is `rejected`
+with the reason, and the rest of the request goes through.
 2000 points is what `GET /api/rail/samples/<name>?max=2000` on the Pi produces: its downsampler
 keeps the minimum and maximum of each bucket and never discards a `spike`, an `alarm` or an
 out-of-range sample, so the shape of the trace survives.
@@ -132,6 +177,11 @@ slug the hub knows — an unknown one is `rejected`, never created.
 A maintenance order raised at the bench. `rail_session` optionally links it to the session
 that prompted it, by that session's uid. The hub records it with `source: "gatbox"` and the
 `uid` as its `external_id`.
+
+`priority` is one of `Low`, `Medium`, `High`, `Critical` and `Urgent`, or left out (then
+`Medium`). Each hub maps the five onto its own scale: a hub with four levels stores `Urgent` as
+its top one. A hub may reject any other value, with the reason, and the rest of the request goes
+through; GATBOX never sends one. The orders read returns the hub's own value.
 
 **Send the session before an order that names it.** An order whose `rail_session` the hub has
 not seen is `rejected` rather than stored with the link quietly dropped — a link that silently
