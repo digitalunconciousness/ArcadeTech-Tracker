@@ -516,6 +516,7 @@ def job(job_id):
         job_form=job_form(job) if edit else None, forms=job_forms(job, wo) if edit else None,
         order_form=job_order_form() if edit and service.is_open(wo) else None,
         po_lines=job_po_lines(job), traces=gatbox.traces_for_job(job.id),
+        roms=gatbox.roms_for_job(job.id),
         cmp=compared, overlay=trace_charts.overlay_json(compared),
         reading_charts=trace_charts.readings_json(docs.reading_rows(readings)),
         loose_traces=gatbox.unattached(job.asset_id) if edit and job.asset_id else [])

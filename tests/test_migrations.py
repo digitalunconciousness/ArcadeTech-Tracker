@@ -109,6 +109,38 @@ def test_0025_keeps_devices_working_and_its_downgrade_restores_audit_row(app, td
         tdb.drop_database(name)
 
 
+def test_0026_adds_the_rom_tables_and_its_downgrade_drops_them(app, tdb, monkeypatch):
+    """0026 adds rom_file, rom_dump and rom_burn (GATBOX's ROM images, contract v1 capability
+    roms) and nothing else; the downgrade takes the three away and leaves the rest alone."""
+    name = f"{tdb.name}_rom{secrets.token_hex(2)}"
+    tdb.create_database(name)
+    url = tdb.url("owner", database=name)
+    monkeypatch.setenv("MIGRATE_DATABASE_URL", url)
+    engine = create_engine(url)
+    rom_tables = text("SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
+                      "AND tablename LIKE 'rom\\_%' ORDER BY 1")
+
+    def present():
+        with engine.connect() as c:
+            return [r[0] for r in c.execute(rom_tables)]
+
+    try:
+        with app.app_context():
+            upgrade(revision="0025_device_actor")
+            assert present() == []
+            upgrade()
+            assert present() == ["rom_burn", "rom_dump", "rom_file"]
+            downgrade(revision="0025_device_actor")
+            assert present() == []
+            with engine.connect() as c:                  # the devices table is still there
+                assert c.execute(text("SELECT count(*) FROM device")).scalar() == 0
+            upgrade()
+            assert present() == ["rom_burn", "rom_dump", "rom_file"]
+    finally:
+        engine.dispose()
+        tdb.drop_database(name)
+
+
 def test_models_match_migrations(app):
     with app.app_context(), db.engine.connect() as conn:
         diff = compare_metadata(MigrationContext.configure(conn), db.metadata)
@@ -148,8 +180,8 @@ def test_read_only_alembic_commands_work_from_a_fresh_cli(app):
 
     root = Path(__file__).resolve().parent.parent
     flask = str(Path(sys.executable).with_name("flask"))
-    for cmd, expect in (("heads", "0025_device_actor (head)"),
-                        ("current", "0025_device_actor (head)"),
+    for cmd, expect in (("heads", "0026_rom_files (head)"),
+                        ("current", "0026_rom_files (head)"),
                         ("history", "0001_foundation -> 0002_seed_settings")):
         run = subprocess.run([flask, "--app", "wsgi", "db", cmd], cwd=root, env=dict(os.environ),
                              capture_output=True, text=True, timeout=60)

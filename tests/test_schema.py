@@ -67,6 +67,9 @@ EXPECTED_GRANTS = {
     "device": {"SELECT", "INSERT", "UPDATE"},
     "rail_session": {"SELECT", "INSERT"},
     "reading": {"SELECT", "INSERT"},
+    "rom_file": {"SELECT", "INSERT"},
+    "rom_dump": {"SELECT", "INSERT"},
+    "rom_burn": {"SELECT", "INSERT"},
     "wo_job_session": {"SELECT", "INSERT", "UPDATE", "DELETE"},
     "saved_view": {"SELECT", "INSERT", "UPDATE", "DELETE"},
     "bank_account": {"SELECT", "INSERT", "UPDATE"},
@@ -172,8 +175,9 @@ def test_app_role_sequence_privileges(app):
                   "estimate_part_link", "carrier", "purchase_order", "po_line", "po_receipt",
                   "shipment", "expense_category", "expense", "mileage_rate", "trip",
                   "partner_entry", "sales_tax_filing", "device", "rail_session", "reading",
-                  "wo_job_session", "saved_view", "bank_account", "bank_reconciliation",
-                  "bank_import", "bank_line", "bank_match", "account_map")
+                  "rom_file", "rom_dump", "rom_burn", "wo_job_session", "saved_view",
+                  "bank_account", "bank_reconciliation", "bank_import", "bank_line", "bank_match",
+                  "account_map")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)

@@ -1,0 +1,21 @@
+{# ROM dumps and burns GATBOX sent for a machine or a job. roms = (dumps, burns), each [(row, file)]; jobs maps a job id to (job, work order) on the asset page. #}
+{% set dumps, burns = roms %}
+{% if dumps or burns %}
+<section class="panel" id="roms">
+  <h2>ROM dumps and burns</h2>
+  <ul class="list">
+    {% for d, f in dumps %}
+    <li><span class="badge">dump</span> <b class="mono">{{ d.label }}</b> {{ d.part }} · {{ '{:,}'.format(d.size_bytes) }} bytes · {{ d.taken_at | localdt }}
+      <div class="small mono dim">SHA-1 {{ d.sha1 }} · CRC32 {{ d.crc32 }} · read {{ d.reads }} times, identical{% if d.blank %} · blank{% endif %}</div>
+      <div class="small">{% if d.romident is none %}<span class="dim">MAME didn't run on the Pi.</span>{% elif d.romident.match %}<span class="badge ok">MAME match</span> {% for m in d.romident.matches[:3] %}<span class="mono">{{ m.set }}/{{ m.rom }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="badge warn">No MAME match</span>{% endif %}
+        {% if d.wo_job_id and jobs and d.wo_job_id in jobs %}· for <a href="{{ url_for('work.job', job_id=d.wo_job_id) }}">{{ jobs[d.wo_job_id][1].number }}</a>{% endif %}
+        · <a href="{{ url_for('traces.dump_image', dump_id=d.id) }}" download>Download the image</a></div></li>
+    {% endfor %}
+    {% for b, f in burns %}
+    <li><span class="badge {{ 'ok' if b.state == 'verified' else 'danger' }}">burn {{ b.state }}</span> {{ b.part }} · {{ '{:,}'.format(b.size_bytes) }} bytes · {{ b.burned_at | localdt }}
+      <div class="small mono dim">image SHA-1 {{ b.image_sha1 }}{% if b.vpp %} · VPP {{ b.vpp }}{% endif %}{% if b.blank_ok is not none %} · blank check {{ 'passed' if b.blank_ok else 'failed' }}{% endif %}</div>
+      <div class="small">{% if b.error %}{{ b.error }} · {% endif %}{% if b.wo_job_id and jobs and b.wo_job_id in jobs %}for <a href="{{ url_for('work.job', job_id=b.wo_job_id) }}">{{ jobs[b.wo_job_id][1].number }}</a> · {% endif %}<a href="{{ url_for('traces.burn_image', burn_id=b.id) }}" download>Download the image</a></div></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
