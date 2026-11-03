@@ -465,11 +465,28 @@ jobs switch per device; the drill checks photos):
       byte-identical in all three; this repo's paths in `.githooks/privacy.conf`;
       `tests/test_privacy_check.py`); patterns in `~/.config/gatbox-family/patterns.local`,
       written by `docs/cloud-setup.sh` from `PRIVACY_PATTERNS` (`SHOP_PATTERNS` still read)
-- [ ] Owner reviews and merges, together with GATBOX's and cabcrawl's PRs (the contract, the
-      rules and the check must land in all three at once)
-- [ ] ⏸ Owner deploys (migration 0025), then Settings → Devices: set the deck's Acts as to
+- [x] Owner reviews and merges, together with GATBOX's and cabcrawl's PRs (the contract, the
+      rules and the check must land in all three at once): merged 2026-11-02
+- [x] ⏸ Owner deploys (owner, 2026-11-03: "Merged and deployed") (migration 0025), then Settings → Devices: set the deck's Acts as to
       herself (Jobs is already on for it); check a bench order's History reads "<her> via
       <deck>"
+
+## Phase 11: antislop, the shared agent skills (branch `phase/11-antislop`)
+
+The owner's ask (2026-10-31): add anti-slop (rules for AI coding agents: UI, copy, accessibility,
+mobile layout, code comments) to the three repos. Decided: all three repos; Synthwave is deliberate,
+Ledger and Graphite are filtered like anything else. No app code changes.
+
+- [x] A pinned copy of the six skills in `.claude/skills/`, byte-identical in all three repos
+      (`docs/antislop/`: licence, PROVENANCE.md with the upstream commit and the two changes made,
+      CHECKSUMS)
+- [x] `DESIGN.md`: the owner's direction, from the approved notes (Ledger default; Synthwave
+      deliberate; customer documents print-first)
+- [x] RULES.md §4 (shared files) and §5 (the mode is during; DESIGN.md's deliberate choices
+      kept without asking); CLAUDE.md points at both
+- [x] `tests/test_antislop.py`: checksums, no skill grants itself tools, licence and provenance,
+      the direction, and the copy equals any sibling checkout's
+- [ ] Owner reviews DESIGN.md and merges, together with GATBOX's and cabcrawl's PRs
 
 ## Decisions
 
@@ -605,6 +622,7 @@ jobs switch per device; the drill checks photos):
 | 2026-10-28 | One set of agent rules for the three repos (`docs/agents/RULES.md`, owned by GATBOX) and one OK per change | Owner. Replaces "the reference repos are read-only" and "the owner says when to push" |
 | 2026-10-28 | Contract v1 is owned by GATBOX; one privacy check for all three; patterns in `~/.config/gatbox-family/` | Owner approved the integration plan; the patterns location decided |
 | 2026-10-08 | Photos re-encoded by Pillow (already a WeasyPrint dependency): EXIF incl. GPS dropped, rotation applied, ≤ 2560 px; stored by sha256 under `SHOP_FILES_DIR`, served only to signed-in users | A phone photo's GPS would give away a customer's house |
+| 2026-10-31 | antislop's skills vendored in all three repos: a pinned copy (MIT), no standing permissions, mode during; Synthwave is deliberate, Ledger and Graphite are filtered | Owner: "Synthwave is deliberate, the other two looks can be antisloped" |
 
 ## Notes
 

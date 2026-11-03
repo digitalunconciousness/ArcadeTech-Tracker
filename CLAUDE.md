@@ -128,6 +128,7 @@ border `#3d1e6b`, magenta (primary) `#ff2e9f`, cyan (secondary) `#7dfaff`, lime 
 `#5ef2b0`, red (danger) `#ff4d6d`, amber (warn) `#ffb74d`, text `#ece3ff`, dim `#9080b0`.
 Body `linear-gradient(180deg, bg2, bg)`. Fonts: Chakra Petch (display), Share Tech Mono
 (body), served locally from `app/static/fonts/`.
+UI, copy and code-comment work also follows the antislop skills in `.claude/skills/` (RULES.md §5), with `DESIGN.md` as the direction (Synthwave is deliberate; Ledger and Graphite are not exempt).
 
 ## Repo layout (target; built from Phase 0)
 
