@@ -61,6 +61,7 @@ from app.models.gatbox import (
     RomFile,
     WoJobSession,
 )
+from app.models.library import LibraryRecord, LibraryState
 from app.models.parts import MOVE_REASONS, Part, PartLink, StockLot, StockMove, Vendor
 from app.models.pricebook import (
     SERVICE_KINDS,
@@ -109,7 +110,7 @@ from app.models.work import (
 __all__ = [
     "DESK_THEMES", "SavedView",
     "BURN_STATES", "LINK_SOURCES", "TRACE_PHASES", "Device", "RailSession", "Reading", "RomBurn",
-    "RomDump", "RomFile", "WoJobSession",
+    "RomDump", "RomFile", "WoJobSession", "LibraryRecord", "LibraryState",
     "ASSET_KINDS", "ASSET_STATUSES", "COMM_KINDS", "DOC_KINDS", "MOVE_REASONS", "PAYMENT_TERMS",
     "ROLES", "SERVICE_KINDS", "SERVICE_UNITS",
     "Asset", "AssetEvent", "AuditLog", "CommLog", "Contact", "Customer", "DocCounter",

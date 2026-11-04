@@ -141,6 +141,38 @@ def test_0026_adds_the_rom_tables_and_its_downgrade_drops_them(app, tdb, monkeyp
         tdb.drop_database(name)
 
 
+def test_0027_adds_the_library_tables_and_its_downgrade_drops_them(app, tdb, monkeypatch):
+    """0027 adds library_record and library_state (the read-only copy of the GATBOX archive's
+    games) and nothing else; the downgrade takes the two away and leaves the rest alone."""
+    name = f"{tdb.name}_lib{secrets.token_hex(2)}"
+    tdb.create_database(name)
+    url = tdb.url("owner", database=name)
+    monkeypatch.setenv("MIGRATE_DATABASE_URL", url)
+    engine = create_engine(url)
+    library_tables = text("SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
+                          "AND tablename LIKE 'library\\_%' ORDER BY 1")
+
+    def present():
+        with engine.connect() as c:
+            return [r[0] for r in c.execute(library_tables)]
+
+    try:
+        with app.app_context():
+            upgrade(revision="0026_rom_files")
+            assert present() == []
+            upgrade()
+            assert present() == ["library_record", "library_state"]
+            downgrade(revision="0026_rom_files")
+            assert present() == []
+            with engine.connect() as c:                  # the ROM tables are still there
+                assert c.execute(text("SELECT count(*) FROM rom_file")).scalar() == 0
+            upgrade()
+            assert present() == ["library_record", "library_state"]
+    finally:
+        engine.dispose()
+        tdb.drop_database(name)
+
+
 def test_models_match_migrations(app):
     with app.app_context(), db.engine.connect() as conn:
         diff = compare_metadata(MigrationContext.configure(conn), db.metadata)
@@ -180,8 +212,8 @@ def test_read_only_alembic_commands_work_from_a_fresh_cli(app):
 
     root = Path(__file__).resolve().parent.parent
     flask = str(Path(sys.executable).with_name("flask"))
-    for cmd, expect in (("heads", "0026_rom_files (head)"),
-                        ("current", "0026_rom_files (head)"),
+    for cmd, expect in (("heads", "0027_library (head)"),
+                        ("current", "0027_library (head)"),
                         ("history", "0001_foundation -> 0002_seed_settings")):
         run = subprocess.run([flask, "--app", "wsgi", "db", cmd], cwd=root, env=dict(os.environ),
                              capture_output=True, text=True, timeout=60)

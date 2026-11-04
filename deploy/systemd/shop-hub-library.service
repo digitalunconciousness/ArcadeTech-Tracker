@@ -1,0 +1,40 @@
+# Read the game library from the GATBOX archive (scripts/pull_library.py): a read-only copy of
+# the games the assets name, and their manuals. Started by shop-hub-library.timer; installed by
+# deploy/RUNBOOK.md step 12. Needs LIBRARY_ARCHIVE_URL and LIBRARY_ARCHIVE_TOKEN in the env file;
+# without them the script says so and exits 0.
+[Unit]
+Description=shop-hub game library pull (GATBOX archive, read-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=shop-hub
+Group=shop-hub
+WorkingDirectory=/opt/shop-hub
+EnvironmentFile=/etc/shop-hub/shop-hub.env
+ExecStart=/opt/shop-hub-venv/bin/python scripts/pull_library.py
+TimeoutStartSec=15min
+# Exit 1 is the archive turning the token away: shown as a failed unit, so it is noticed.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/shop-hub
+InaccessiblePaths=-/var/lib/shop-hub/backups
+ProtectProc=invisible
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027

@@ -64,6 +64,7 @@ def create_app(overrides=None):
     from app.estimates.routes import bp as estimates_bp
     from app.gatbox.routes import bp as traces_bp
     from app.health.routes import bp as health_bp
+    from app.library.routes import bp as library_bp
     from app.lists.routes import bp as lists_bp
     from app.partlinks.routes import bp as partlinks_bp
     from app.parts.routes import bp as parts_bp
@@ -80,7 +81,7 @@ def create_app(overrides=None):
     for bp in (auth_bp, dashboard_bp, health_bp, settings_bp, customers_bp, assets_bp, search_bp,
                pricebook_bp, parts_bp, partlinks_bp, purchasing_bp, work_bp, estimates_bp,
                billing_bp, books_bp, reports_bp, public_bp, api_v1_bp, traces_bp, lists_bp,
-               bank_bp):
+               bank_bp, library_bp):
         app.register_blueprint(bp)
 
     _register_hooks(app)

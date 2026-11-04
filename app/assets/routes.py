@@ -7,6 +7,7 @@ from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.customers.routes import flash_errors, get_or_404
 from app.extensions import db
 from app.gatbox import service as gatbox
+from app.library import service as library
 from app.lists import desk_list
 from app.models import Asset, AssetEvent, Customer, Site, WoJob, WorkOrder
 
@@ -82,6 +83,7 @@ def show(asset_id):
                               .where(WoJob.asset_id == asset.id)
                               .order_by(WoJob.id.desc())).all()
     traces = gatbox.traces_for_asset(asset.id)
+    lib = library.for_asset(asset)
     jobs = {job.id: (job, wo) for job, wo in work}
     elsewhere = {j for _, ids in traces for j in ids} - set(jobs)   # a consult job, no asset
     if elsewhere:
@@ -91,7 +93,9 @@ def show(asset_id):
     return render_template("assets/show.html", asset=asset, customer=customer, site=site,
                            parent=parent, children=children, events=events,
                            status_form=status_form, note_form=NoteForm(), work=work,
-                           traces=traces, jobs=jobs, roms=gatbox.roms_for_asset(asset.id))
+                           traces=traces, jobs=jobs, roms=gatbox.roms_for_asset(asset.id),
+                           lib=lib, lib_state=library.state() if library.configured() else None,
+                           library_on=library.configured(), library_ago=library.ago)
 
 
 @bp.route("/assets/<int:asset_id>/edit", methods=["GET", "POST"])
