@@ -14,3 +14,17 @@ to the app.
 The rig and the app talk through a small versioned API (contract v1). Its spec is in the
 repository under
 [`contract/v1/`](https://github.com/digitalunconciousness/ArcadeTech-Tracker/tree/main/contract/v1).
+
+## The game library
+
+Once the archive is set up (the owner does this; see the RUNBOOK), an asset that names a game
+(its **Manuals key**, like `widget-wars`) shows **Manual and limits** on its page: the game's
+documents, which open in the browser behind your sign-in, the rail limits written down from the
+manual, and a few facts such as fuse values. It is a read-only copy, refreshed every ten minutes,
+and the page says when.
+
+- A limit marked **unconfirmed** was written down from a manual and nobody has checked it against
+  the page yet. Don't judge a board by it.
+- Owners and techs get **Edit it in the library**, which opens the game at the archive. Changes
+  are made there, never here.
+- Without the archive set up, the section isn't there.
