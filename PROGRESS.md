@@ -502,6 +502,9 @@ name, read from GATBOX's archive with a reader token. Stacked on `phase/12-roms`
       keys, replace, tombstones, a retired game followed, PDFs in 8 MiB parts that resume into the file store
       (`<aa>/<sha256>.pdf`), a restored archive re-read from 0 and the copy trimmed, out of reach keeps the copy, a refused
       token fails the unit. `--status`, `--clear KEY`
+- [x] `pull_library.py --status` also lists the game keys the assets name: held, not at the archive (read in full, no such
+      game), not read yet, and not game keys, each with the assets that name it. `tests/test_library.py` 3 tests, each failing
+      on main's script
 - [x] Settings from the environment (`LIBRARY_ARCHIVE_URL`, `_TOKEN`, `_WEB_URL`, the Access pair, `LIBRARY_MAX_FILE_MB`),
       checked at start-up; off when unset
 - [x] The asset page's "Manual and limits": documents (open behind the login), limits (unconfirmed ones say so), facts;
