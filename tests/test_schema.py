@@ -11,6 +11,8 @@ EXEMPT_STANDARD = {"alembic_version", "audit_log"}  # see AuditLog's docstring
 # purpose, with the least it needs.
 EXPECTED_GRANTS = {
     "alembic_version": {"SELECT"},
+    "library_record": {"SELECT", "INSERT", "UPDATE", "DELETE"},
+    "library_state": {"SELECT", "INSERT", "UPDATE"},
     "app_user": {"SELECT", "INSERT", "UPDATE"},
     "audit_log": {"SELECT"},
     "doc_counter": {"SELECT", "INSERT", "UPDATE"},
@@ -177,7 +179,7 @@ def test_app_role_sequence_privileges(app):
                   "partner_entry", "sales_tax_filing", "device", "rail_session", "reading",
                   "rom_file", "rom_dump", "rom_burn", "wo_job_session", "saved_view",
                   "bank_account", "bank_reconciliation", "bank_import", "bank_line", "bank_match",
-                  "account_map")
+                  "account_map", "library_record", "library_state")
     expected = {f"{t}_id_seq": (True, True, False) for t in insertable}
     expected["audit_log_id_seq"] = (True, False, False)
     expected["asset_tag_seq"] = (True, True, False)

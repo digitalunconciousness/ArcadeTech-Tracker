@@ -488,6 +488,31 @@ Ledger and Graphite are filtered like anything else. No app code changes.
       the direction, and the copy equals any sibling checkout's
 - [ ] Owner reviews DESIGN.md and merges, together with GATBOX's and cabcrawl's PRs
 
+## Phase 13: the game library from the GATBOX archive (branch `phase/13-library`)
+
+The integration plan's phase D (the archive; the owner approved the spec "as written", 2026-11-04: it covers the
+code and the push, merging and deploying stay hers). This repo is the read-only side: a copy of the games the assets
+name, read from GATBOX's archive with a reader token. Stacked on `phase/12-roms`.
+
+- [x] `contract/library-v1/`, vendored byte-identical from GATBOX (checksum test and a sibling-checkout drift test)
+- [x] Migration 0027: `library_record` (the archive's records as sent, one generic table) and `library_state` (one row,
+      held by a CHECK). `grant_app()` and `EXPECTED_GRANTS`: records SELECT/INSERT/UPDATE/DELETE, state SELECT/INSERT/UPDATE.
+      Not audited (the pull job writes them). Downgrade drops both
+- [x] `scripts/pull_library.py` + `shop-hub-library.service` / `.timer` (every ten minutes; NOT installed): `models=` its own
+      keys, replace, tombstones, a retired game followed, PDFs in 8 MiB parts that resume into the file store
+      (`<aa>/<sha256>.pdf`), a restored archive re-read from 0 and the copy trimmed, out of reach keeps the copy, a refused
+      token fails the unit. `--status`, `--clear KEY`
+- [x] Settings from the environment (`LIBRARY_ARCHIVE_URL`, `_TOKEN`, `_WEB_URL`, the Access pair, `LIBRARY_MAX_FILE_MB`),
+      checked at start-up; off when unset
+- [x] The asset page's "Manual and limits": documents (open behind the login), limits (unconfirmed ones say so), facts;
+      "Edit it in the library" for owners and techs, to the archive's own page. Who wrote a record is never shown
+- [x] Tests on real PostgreSQL: `tests/test_library.py` 55 (a stub archive that starts from the contract's examples; 37 guards
+      broken on purpose each fail a test), `test_library_contract.py` 2; whole suite 606 passed, 6 skipped, 1 failed
+      (`test_the_contract_is_the_same_as_in_sibling_checkouts`: the Gatbox checkout is on another branch)
+- [x] RUNBOOK §12, the wiki's GATBOX page
+- [ ] ⏸ Owner: merge, deploy (the migration adds two tables), then RUNBOOK §12: mint a reader token at the archive, set the
+      three variables, read and install the two units. Nothing is read until the settings are in
+
 ## Decisions
 
 | Date | Decision | Why |

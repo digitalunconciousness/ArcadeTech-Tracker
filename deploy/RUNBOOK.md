@@ -416,6 +416,48 @@ with its own token; Access lets that path through (§7, rule 2).
 4. A lost or leaked token: Settings → Devices → **New token** (the old one stops at
    once), or **Switch off**. Devices are never deleted: their traces point at them.
 
+## 12. The game library from the GATBOX archive ⏸
+
+The asset page shows the manual, the rail limits and the facts of the game an asset names
+(`Asset.model_key`), copied from GATBOX's archive (contract `contract/library-v1/`). It is a
+read-only copy: `scripts/pull_library.py` reads it every ten minutes with a **reader token** and
+never writes to the archive. Changes are made at the archive; the asset page links there
+("Edit it in the library", owners and techs). Without the settings below nothing changes: the
+timer's runs say so and exit 0, and the asset page has no game section.
+
+1. At the archive, mint a reader token for this app: `gatbox-archive token add shop-hub --role
+   reader` (its RUNBOOK, §Tokens). It is shown once.
+2. Add to `/etc/shop-hub/shop-hub.env` (mode 640, root:shop-hub), unquoted:
+
+   ```
+   LIBRARY_ARCHIVE_URL=<the archive's private address, like http://archive.example.test:8081, or its tunnel address>
+   LIBRARY_ARCHIVE_TOKEN=<the reader token>
+   LIBRARY_ARCHIVE_WEB_URL=<where people open the archive in a browser; optional, for the edit link>
+   ```
+
+   Through the tunnel, also `LIBRARY_ACCESS_CLIENT_ID` and `LIBRARY_ACCESS_CLIENT_SECRET` (a
+   Cloudflare Access service token whose policy lets this path through). One of the pair
+   alone, a URL that isn't just an address, or a token that isn't `gbx_<id>.<secret>` stops the
+   app at start-up with a message.
+3. Deploy the release (migration 0027 adds `library_record` and `library_state`), then install
+   the two units. Read them first; neither is installed until you run this:
+
+   ```
+   cp /opt/shop-hub/deploy/systemd/shop-hub-library.service /opt/shop-hub/deploy/systemd/shop-hub-library.timer /etc/systemd/system/
+   systemctl daemon-reload && systemctl enable --now shop-hub-library.timer
+   systemctl start shop-hub-library.service && journalctl -u shop-hub-library.service -n 5 --no-pager
+   ```
+
+   The log line is one set of counts, like `library: changed=7 files=1 ... ok=True`. Exit 1
+   (a failed unit) means the archive refused the token: mint a new one and update the env file.
+4. Check it by hand any time: `cd /opt/shop-hub && set -a && . /etc/shop-hub/shop-hub.env &&
+   set +a && /opt/shop-hub-venv/bin/python scripts/pull_library.py --status`.
+5. A game no asset names any more stays as it was last read. The owner clears one with
+   `scripts/pull_library.py --clear <key>` (it refuses while an asset still names it).
+
+The manuals are in the file store (`SHOP_FILES_DIR/<aa>/<sha256>.pdf`), so the nightly backup
+carries them; the pull fetches them again if a restore leaves some out.
+
 ## 11. Last-resort fixes ⏸
 
 - **Owner locked out of 2FA, no other owner available:**

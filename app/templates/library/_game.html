@@ -1,0 +1,74 @@
+{# The game section of an asset's page: what the GATBOX archive holds about the game this asset names
+   (contract/library-v1/), a read-only copy. `lib` is the game or none; `lib_state` says how the last pull went.
+   Who wrote or confirmed a record is never shown: it can be a person's address at the archive. #}
+{% if library_on and asset.model_key %}
+<section class="panel" id="library">
+  <div class="head">
+    <h2>Manual and limits</h2>
+    {% if lib and lib.edit_url and can_edit %}<a class="btn small" href="{{ lib.edit_url }}" rel="noopener">Edit it in the library</a>{% endif %}
+  </div>
+  {% if lib %}
+  <p><b>{{ lib.title }}</b>
+    <span class="dim small"> · from the archive, {% if lib.refreshed %}refreshed {{ library_ago(lib.refreshed) }}{% else %}not fully read yet{% endif %}. A copy: changes are made at the archive.</span></p>
+  {% if lib.documents %}
+  <ul class="list">
+    {% for d in lib.documents %}
+    <li>
+      {% if d.file %}<a href="{{ url_for('library.manual', sha=d.sha256) }}">{{ d.title }}</a>{% else %}{{ d.title }}{% endif %}
+      {% set size = ('%.1f MB' | format(d.bytes / 1048576)) if d.bytes and d.bytes >= 1048576 else (((d.bytes / 1024) | round(0, 'ceil') | int) ~ ' KB') if d.bytes else none %}
+      <span class="small dim"> · {{ [d.kind | capitalize, (d.pages ~ (' page' if d.pages == 1 else ' pages')) if d.pages, size, d.source] | select | join(' · ') }}</span>
+      {% if not d.file %}<span class="badge">{{ 'not downloaded yet' if d.sha256 else 'no file at the archive' }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if lib.limits %}
+  {% if lib.limits | rejectattr('confirmed') | list %}<p class="small dim">A limit marked unconfirmed was written down from a manual and nobody has checked it against the page yet. Do not judge a board by it.</p>{% endif %}
+  <div class="scroll">
+    <table class="grid">
+      <thead><tr><th>Rail</th><th class="num">Low</th><th class="num">High</th><th>Source</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for l in lib.limits %}
+        <tr>
+          <td>{{ l.rail }}</td>
+          <td class="num">{{ l.lo }} V</td>
+          <td class="num">{{ l.hi }} V</td>
+          <td>{% if l.source and l.source.doc %}{% if l.source.doc.file %}<a href="{{ url_for('library.manual', sha=l.source.doc.sha256) }}{% if l.source.page %}#page={{ l.source.page }}{% endif %}">{{ l.source.doc.title }}{% if l.source.page %}, page {{ l.source.page }}{% endif %}</a>{% else %}{{ l.source.doc.title }}{% if l.source.page %}, page {{ l.source.page }}{% endif %}{% endif %}{% else %}<span class="dim">no page cited</span>{% endif %}
+            {% if l.quote %}<div class="small dim">“{{ l.quote }}”</div>{% endif %}</td>
+          <td>{% if l.confirmed %}<span class="badge ok">confirmed</span>{% else %}<span class="badge warn">unconfirmed</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if lib.facts %}
+  <div class="scroll">
+    <table class="grid">
+      <thead><tr><th>Group</th><th>What</th><th>Value</th><th>Source</th></tr></thead>
+      <tbody>
+        {% for f in lib.facts %}
+        <tr>
+          <td>{{ {'fuse': 'Fuses', 'monitor': 'Monitor', 'psu': 'Power supply', 'power': 'Power', 'other': 'Other'}.get(f.group, f.group) }}</td>
+          <td>{{ f.what }}</td>
+          <td>{{ f.value or '—' }}</td>
+          <td>{% if f.source and f.source.doc %}{% if f.source.doc.file %}<a href="{{ url_for('library.manual', sha=f.source.doc.sha256) }}{% if f.source.page %}#page={{ f.source.page }}{% endif %}">{{ f.source.doc.title }}{% if f.source.page %}, page {{ f.source.page }}{% endif %}</a>{% else %}{{ f.source.doc.title }}{% if f.source.page %}, page {{ f.source.page }}{% endif %}{% endif %}{% else %}<span class="dim">no page cited</span>{% endif %}
+            {% if f.quote %}<div class="small dim">“{{ f.quote }}”</div>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if not (lib.documents or lib.limits or lib.facts) %}
+  <p class="dim">The archive holds no manuals, limits or facts for this game yet. They are added at the archive.</p>
+  {% endif %}
+  {% elif lib_state and lib_state.refused %}
+  <p>This asset names <span class="mono">{{ asset.model_key }}</span>, but the archive refused the reader token, so nothing has been read. The owner issues a new token at the archive.</p>
+  {% elif lib_state and lib_state.error %}
+  <p>This asset names <span class="mono">{{ asset.model_key }}</span>. The archive could not be reached (<span class="small">{{ lib_state.error }}</span>). It tries again every ten minutes.</p>
+  {% else %}
+  <p class="dim">This asset names <span class="mono">{{ asset.model_key }}</span>. The library sends that game on the next pull, which runs every ten minutes.</p>
+  {% endif %}
+</section>
+{% endif %}
