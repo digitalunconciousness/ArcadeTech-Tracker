@@ -457,7 +457,10 @@ timer's runs say so and exit 0, and the asset page has no game section.
    The log line is one set of counts, like `library: changed=7 files=1 ... ok=True`. Exit 1
    (a failed unit) means the archive refused the token: mint a new one and update the env file.
 4. Check it by hand any time: `cd /opt/shop-hub && set -a && . /etc/shop-hub/shop-hub.env &&
-   set +a && /opt/shop-hub-venv/bin/python scripts/pull_library.py --status`.
+   set +a && /opt/shop-hub-venv/bin/python scripts/pull_library.py --status`. Under its first line it
+   lists the game keys the assets name: how many the archive sent, and by name the ones it has no
+   game for (a typo in the key, or a game nobody has added at the archive yet), the ones not read
+   yet, and anything that is not a game key.
 5. A game no asset names any more stays as it was last read. The owner clears one with
    `scripts/pull_library.py --clear <key>` (it refuses while an asset still names it).
 

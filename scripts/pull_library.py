@@ -6,7 +6,8 @@ environment (/etc/shop-hub/shop-hub.env); in dev, from the checkout (it reads .e
 
     python scripts/pull_library.py
 
-    --status        print how the last run went and what is held, and read nothing
+    --status        print how the last run went and what is held, then the game keys the assets
+                    name (held, not at the archive, not read yet), and read nothing
     --clear KEY     remove a game no asset names any more (its records, and manuals only it held)
 
 Needs LIBRARY_ARCHIVE_URL and LIBRARY_ARCHIVE_TOKEN (a reader token); without them it says so and
@@ -26,7 +27,11 @@ sys.path.insert(0, str(ROOT))
 
 def main(app=None, argv=None, out=print):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--status", action="store_true", help="print the last run's outcome and what is held")
+    ap.add_argument(
+        "--status",
+        action="store_true",
+        help="print the last run's outcome, what is held and which game keys are missing",
+    )
     ap.add_argument("--clear", metavar="KEY", help="remove a game no asset names any more")
     args = ap.parse_args(argv)
     if app is None:
@@ -68,6 +73,8 @@ def main(app=None, argv=None, out=print):
                 f"last read {service.ago(st.last_ok) if st else 'never'}"
                 + (f"; {st.error}" if st and st.error else "")
             )
+            for line in service.key_report_lines(service.key_report()):
+                out(line)
             return 0
         result = pull.run()
         out(
