@@ -26,6 +26,7 @@ from decimal import ROUND_HALF_EVEN, Decimal
 from sqlalchemy import func, insert, select
 
 from app.extensions import db
+from app.gatbox import romfiles
 from app.models import (
     ASSET_STATUSES,
     JOB_STATUSES,
@@ -37,16 +38,19 @@ from app.models import (
     Customer,
     RailSession,
     Reading,
+    RomBurn,
+    RomDump,
+    RomFile,
     User,
     WoJob,
     WoJobSession,
     WorkOrder,
 )
-from app.models.gatbox import COUNTS, VERDICTS
+from app.models.gatbox import BURN_STATES, COUNTS, VERDICTS
 from app.timeutil import utcnow
 
 CONTRACT = "v1"
-CAPABILITIES = ["jobs"]
+CAPABILITIES = ["jobs", "roms"]
 
 # Contract limits: over any of them is a 400 that writes nothing.
 MAX_ITEMS = 100
@@ -313,7 +317,8 @@ def ingest(device, body, ip=None):
             continue
         kind = item.get("kind")
         handler = {"rail_session": _ingest_session, "order": _ingest_order,
-                   "session_tag": _ingest_tag}.get(kind)
+                   "session_tag": _ingest_tag, "rom_dump": _ingest_rom_dump,
+                   "burn": _ingest_burn}.get(kind)
         if handler is None:
             results.append({"uid": item.get("uid"), "kind": kind, "status": "rejected",
                             "reason": f"unknown kind {kind!r}"})
@@ -551,6 +556,218 @@ def _ingest_tag(device, item, assets):
     # rejection that never clears is a retry loop, not a diagnosis.
     attach(job, session, "tag", phase=phase, note=(note or "").strip() or None)
     return {**out, "status": "created"}
+
+
+# --- ROM images (capability roms) -------------------------------------------------------------
+
+ROM_CLOCKS = ("ntp", "rtc", "unverified", "unknown")
+NOT_STORED = "the image isn't on the hub: send the file first (POST /api/v1/files)"
+
+
+def _hex(value, field, length):
+    if not isinstance(value, str) or len(value) != length or \
+            any(c not in "0123456789abcdef" for c in value):
+        raise Rejected(f"{field} must be {length} lowercase hex characters")
+    return value
+
+
+def _required_text(value, field, limit):
+    text = _text(value, field, limit)
+    if not text:
+        raise Rejected(f"{field} is required")
+    return text
+
+
+def _romident(value):
+    """What `mame -romident` said, checked and kept as the Pi sent it."""
+    if value is None:
+        return None
+    if not isinstance(value, dict) or not isinstance(value.get("match"), bool):
+        raise Rejected("romident must be null or an object with a true or false match")
+    out = {"match": value["match"]}
+    if value["match"]:
+        found = value.get("matches")
+        if not isinstance(found, list) or len(found) > 20:
+            raise Rejected("romident.matches must be a list of at most 20")
+        out["matches"] = []
+        for m in found:
+            if not isinstance(m, dict):
+                raise Rejected("each romident match must be an object")
+            one = {"set": _required_text(m.get("set"), "romident set", 64),
+                   "rom": _required_text(m.get("rom"), "romident rom", 64)}
+            if m.get("description") is not None:
+                one["description"] = _text(m["description"], "romident description", 200)
+            out["matches"].append(one)
+    return out
+
+
+def _order_link(device, item, asset):
+    """The optional `order` of a dump or a burn: one of this machine's jobs, or a refusal.
+    Never dropped quietly: a link that disappears is worse than a retry."""
+    job_id = item.get("order")
+    if job_id is None:
+        return None
+    if not device.jobs:
+        raise Rejected(NO_JOBS)
+    if isinstance(job_id, bool) or not isinstance(job_id, int):
+        raise Rejected("order must be the hub's integer id for the record")
+    job = db.session.get(WoJob, job_id)
+    if job is None:
+        raise Rejected(f"no order with id {job_id}")
+    if job.asset_id != asset.id:
+        raise Rejected("that order is for a different machine")
+    return job.id
+
+
+def _image(sha256, size, sha1, crc32=None):
+    """The stored file a dump or a burn names, checked against what the Pi computed: the hub
+    stores the Pi's numbers and has looked at the bytes."""
+    image = romfiles.stored(sha256)
+    if image is None:
+        raise Rejected(NOT_STORED)
+    if size != image.size_bytes:
+        raise Rejected(f"size {size} isn't the stored file's ({image.size_bytes})")
+    try:
+        have_sha1, have_crc = romfiles.digests(sha256)
+    except OSError:
+        raise Rejected("the stored image can't be read: send the file again") from None
+    if have_sha1 != sha1:
+        raise Rejected("sha1 isn't the stored file's")
+    if crc32 is not None and have_crc != crc32:
+        raise Rejected("crc32 isn't the stored file's")
+    return image
+
+
+def _size(item):
+    size = _count(item.get("size"), "size", required=True)
+    if size < 1:
+        raise Rejected("size must be 1 or more")
+    return size
+
+
+def _ingest_rom_dump(device, item, assets):
+    uid = _uid(item.get("uid"))
+    out = {"uid": uid, "kind": "rom_dump"}
+    asset = _asset_for(item, assets)
+    label = _required_text(item.get("label"), "label", 40)
+    part = _required_text(item.get("part"), "part", 64)
+    sha1, crc32 = _hex(item.get("sha1"), "sha1", 40), _hex(item.get("crc32"), "crc32", 8)
+    sha256 = _hex(item.get("sha256"), "sha256", 64)
+    want = hashlib.sha256(f"{device.public_id}|rom_dump|{item['machine']}|{label}|{sha1}"
+                          .encode()).hexdigest()[:32]
+    if uid != want:
+        raise Rejected("uid doesn't follow the contract's rule for this device, machine, "
+                       "label and sha1")
+    size = _size(item)
+    reads = _count(item.get("reads"), "reads", required=True)
+    if reads < 2:
+        raise Rejected("reads must be 2 or more")
+    if item.get("identical") is not True:
+        raise Rejected("a dump is only sent when its reads were identical")
+    blank = item.get("blank", False)
+    if not isinstance(blank, bool):
+        raise Rejected("blank must be true or false")
+    taken = _when(item.get("created"), "created")
+    if taken is None:
+        raise Rejected("created is required")
+    source = _obj(item.get("clock"), "clock").get("source")
+    if source is not None and source not in ROM_CLOCKS:
+        raise Rejected(f"clock.source must be one of {', '.join(ROM_CLOCKS)}")
+    romident = _romident(item.get("romident"))
+
+    # The uid hashes this device's public id, so only this device can have made it.
+    if db.session.scalar(select(RomDump.id).where(RomDump.uid == uid)) is not None:
+        return {**out, "status": "duplicate"}
+    job_id = _order_link(device, item, asset)
+    image = _image(sha256, size, sha1, crc32)
+    db.session.add(RomDump(uid=uid, device_id=device.id, asset_id=asset.id, rom_file_id=image.id,
+                           wo_job_id=job_id, label=label, part=part, size_bytes=size,
+                           crc32=crc32, sha1=sha1, romident=romident, reads=reads,
+                           identical=True, blank=blank, taken_at=taken, clock=source))
+    db.session.flush()
+    return {**out, "status": "created"}
+
+
+def _ingest_burn(device, item, assets):
+    uid = _uid(item.get("uid"))
+    out = {"uid": uid, "kind": "burn"}
+    asset = _asset_for(item, assets)
+    sha256 = _hex(item.get("image"), "image", 64)
+    sha1 = _hex(item.get("image_sha1"), "image_sha1", 40)
+    part = _required_text(item.get("part"), "part", 64)
+    size = _size(item)
+    state = item.get("state")
+    if state not in BURN_STATES:
+        raise Rejected(f"state must be one of {', '.join(BURN_STATES)}")
+    vpp = _text(item.get("vpp"), "vpp", 20)
+    blank_ok = item.get("blank_ok")
+    if blank_ok is not None and not isinstance(blank_ok, bool):
+        raise Rejected("blank_ok must be true, false or null")
+    error = _text(item.get("error"), "error", TEXT_MAX)
+    burned = _when(item.get("created"), "created")
+    if burned is None:
+        raise Rejected("created is required")
+    want = hashlib.sha256(f"{device.public_id}|burn|{item['machine']}|{sha1}|"
+                          f"{_num(item.get('created'), 'created'):.3f}".encode()).hexdigest()[:32]
+    if uid != want:
+        raise Rejected("uid doesn't follow the contract's rule for this device, machine, "
+                       "image_sha1 and created")
+
+    if db.session.scalar(select(RomBurn.id).where(RomBurn.uid == uid)) is not None:
+        return {**out, "status": "duplicate"}
+    job_id = _order_link(device, item, asset)
+    image = _image(sha256, size, sha1)
+    db.session.add(RomBurn(uid=uid, device_id=device.id, asset_id=asset.id, rom_file_id=image.id,
+                           wo_job_id=job_id, image_sha1=sha1, part=part, size_bytes=size,
+                           state=state, vpp=vpp, blank_ok=blank_ok, error=error, burned_at=burned))
+    db.session.flush()
+    return {**out, "status": "created"}
+
+
+def _rom_rows(where_dump, where_burn):
+    """[(dump, file)] and [(burn, file)] newest first, for a page or the read-back."""
+    dumps = db.session.execute(
+        select(RomDump, RomFile).join(RomFile, RomFile.id == RomDump.rom_file_id)
+        .where(where_dump).order_by(RomDump.taken_at.desc(), RomDump.id.desc())).all()
+    burns = db.session.execute(
+        select(RomBurn, RomFile).join(RomFile, RomFile.id == RomBurn.rom_file_id)
+        .where(where_burn).order_by(RomBurn.burned_at.desc(), RomBurn.id.desc())).all()
+    return dumps, burns
+
+
+def roms_for_asset(asset_id):
+    return _rom_rows(RomDump.asset_id == asset_id, RomBurn.asset_id == asset_id)
+
+
+def roms_for_job(job_id):
+    return _rom_rows(RomDump.wo_job_id == job_id, RomBurn.wo_job_id == job_id)
+
+
+def machine_dumps(slug, device):
+    """GET /machines/<slug>/dumps: the items as the hub holds them, so a rebuilt GATBOX can
+    find its machine's dumps and burns again."""
+    asset = db.session.scalar(select(Asset).where(Asset.tag == slug))
+    if asset is None:
+        raise ApiError(f"no machine with slug {slug!r}", 404)
+    dumps, burns = roms_for_asset(asset.id)
+
+    def linked(item, row):
+        if row.wo_job_id is not None and device.jobs:
+            item["order"] = row.wo_job_id
+        return item
+
+    return {"machine": slug,
+            "dumps": [linked({"kind": "rom_dump", "uid": d.uid, "machine": slug, "label": d.label,
+                              "part": d.part, "size": d.size_bytes, "crc32": d.crc32,
+                              "sha1": d.sha1, "sha256": f.sha256, "romident": d.romident,
+                              "reads": d.reads, "identical": d.identical, "blank": d.blank,
+                              "created": epoch_of(d.taken_at),
+                              "clock": {"source": d.clock or "unknown"}}, d) for d, f in dumps],
+            "burns": [linked({"kind": "burn", "uid": b.uid, "machine": slug, "image": f.sha256,
+                              "image_sha1": b.image_sha1, "part": b.part, "size": b.size_bytes,
+                              "state": b.state, "vpp": b.vpp, "blank_ok": b.blank_ok,
+                              "error": b.error, "created": epoch_of(b.burned_at)}, b)
+                      for b, f in burns]}
 
 
 # --- roster and orders ------------------------------------------------------------------------

@@ -942,3 +942,10 @@ Ledger and Graphite are filtered like anything else. No app code changes.
   the app: until it is, the sign-in page is on the open internet, so RUNBOOK §7 now says
   how to check it and the 2FA switch is the stopgap. A worker restart lost the docker
   dev database again (synthetic only); `devdb.sh init` made it with the new drill role.
+- Phase 12 (2026-11-03, integration plan phase C, branch `phase/12-roms`): ROM images from GATBOX. Contract v1's
+  `roms` capability: `/api/v1/files` (resumable, 8 MiB parts, 32 MiB a file), `rom_dump` and `burn` items, and a
+  read-back. Migration 0026 adds `rom_file`, `rom_dump`, `rom_burn` (SELECT and INSERT only, not audited, like
+  `rail_session`); the images go in `SHOP_FILES_DIR` (`<aa>/<sha256>.rom`), so the existing backup carries them.
+  They show on the asset page and on the job they were made for; downloads need a login. 555 tests green on
+  PostgreSQL. ⏸ Owner: merge, then deploy as usual (the migration adds three tables); nothing else to make. The
+  deck sends nothing until it has the matching Gatbox change and this hub lists `roms`.

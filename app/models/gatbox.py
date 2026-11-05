@@ -30,6 +30,7 @@ from sqlalchemy import (
     false,
     true,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -50,6 +51,7 @@ LINK_SOURCES = {"auto": "Attached on arrival", "order": "Raised with an order",
                 "tag": "Tagged at the bench", "manual": "Attached here"}
 COUNTS = ("over_voltage", "excursions", "power_cycles", "gaps", "ol_events", "marks",
           "suspect")
+BURN_STATES = ("verified", "stopped")
 
 _UID = "^[0-9a-f]{32}$"
 
@@ -215,3 +217,91 @@ class WoJobSession(StandardColumns, db.Model):
     phase: Mapped[str | None] = mapped_column(String(10))
     source: Mapped[str] = mapped_column(String(10), nullable=False)
     note: Mapped[str | None] = mapped_column(String(300))
+
+
+class RomFile(StandardColumns, db.Model):
+    """A ROM image on the hub, named by the SHA-256 of its bytes (contract v1, "Files").
+    The bytes are in the file store (SHOP_FILES_DIR/<aa>/<sha256>.rom), never here. One
+    row per distinct image, whoever sent it; a dump or a burn points at it."""
+
+    __tablename__ = "rom_file"
+    __table_args__ = (
+        UniqueConstraint("sha256"),
+        CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="sha256_format"),
+        CheckConstraint("size_bytes > 0", name="size_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    device_id: Mapped[int] = mapped_column(Integer, ForeignKey("device.id"), nullable=False)
+
+
+class RomDump(StandardColumns, db.Model):
+    """One chip GATBOX read twice, identically, on its programmer (contract v1,
+    "rom_dump"). The hub stores what the Pi computed and has checked the image against it.
+    Evidence: added, never changed."""
+
+    __tablename__ = "rom_dump"
+    __table_args__ = (
+        UniqueConstraint("uid"),
+        CheckConstraint(f"uid ~ '{_UID}'", name="uid_format"),
+        CheckConstraint("sha1 ~ '^[0-9a-f]{40}$'", name="sha1_format"),
+        CheckConstraint("crc32 ~ '^[0-9a-f]{8}$'", name="crc32_format"),
+        CheckConstraint("size_bytes > 0", name="size_positive"),
+        CheckConstraint("reads >= 2 AND identical", name="read_twice_identical"),
+        Index("ix_rom_dump_asset_taken", "asset_id", "taken_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    uid: Mapped[str] = mapped_column(String(32), nullable=False)
+    device_id: Mapped[int] = mapped_column(Integer, ForeignKey("device.id"), nullable=False,
+                                           index=True)
+    asset_id: Mapped[int] = mapped_column(Integer, ForeignKey("asset.id"), nullable=False)
+    rom_file_id: Mapped[int] = mapped_column(Integer, ForeignKey("rom_file.id"), nullable=False,
+                                             index=True)
+    wo_job_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("wo_job.id"), index=True)
+    label: Mapped[str] = mapped_column(String(40), nullable=False)
+    part: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    crc32: Mapped[str] = mapped_column(String(8), nullable=False)
+    sha1: Mapped[str] = mapped_column(String(40), nullable=False)
+    romident: Mapped[dict | None] = mapped_column(JSONB)
+    reads: Mapped[int] = mapped_column(Integer, nullable=False)
+    identical: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    blank: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    taken_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    clock: Mapped[str | None] = mapped_column(String(12))
+
+
+class RomBurn(StandardColumns, db.Model):
+    """One attempt to write an image to a chip, verified or stopped (contract v1, "burn").
+    The image it wrote is a rom_file. A stopped burn is kept: it is the one that matters.
+    Evidence: added, never changed."""
+
+    __tablename__ = "rom_burn"
+    __table_args__ = (
+        UniqueConstraint("uid"),
+        CheckConstraint(f"uid ~ '{_UID}'", name="uid_format"),
+        CheckConstraint("image_sha1 ~ '^[0-9a-f]{40}$'", name="image_sha1_format"),
+        CheckConstraint(_in("state", BURN_STATES), name="state"),
+        CheckConstraint("size_bytes > 0", name="size_positive"),
+        Index("ix_rom_burn_asset_burned", "asset_id", "burned_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    uid: Mapped[str] = mapped_column(String(32), nullable=False)
+    device_id: Mapped[int] = mapped_column(Integer, ForeignKey("device.id"), nullable=False,
+                                           index=True)
+    asset_id: Mapped[int] = mapped_column(Integer, ForeignKey("asset.id"), nullable=False)
+    rom_file_id: Mapped[int] = mapped_column(Integer, ForeignKey("rom_file.id"), nullable=False,
+                                             index=True)
+    wo_job_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("wo_job.id"), index=True)
+    image_sha1: Mapped[str] = mapped_column(String(40), nullable=False)
+    part: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(8), nullable=False)
+    vpp: Mapped[str | None] = mapped_column(String(20))
+    blank_ok: Mapped[bool | None] = mapped_column(Boolean)
+    error: Mapped[str | None] = mapped_column(Text)
+    burned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -91,7 +91,7 @@ def show(asset_id):
     return render_template("assets/show.html", asset=asset, customer=customer, site=site,
                            parent=parent, children=children, events=events,
                            status_form=status_form, note_form=NoteForm(), work=work,
-                           traces=traces, jobs=jobs)
+                           traces=traces, jobs=jobs, roms=gatbox.roms_for_asset(asset.id))
 
 
 @bp.route("/assets/<int:asset_id>/edit", methods=["GET", "POST"])

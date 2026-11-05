@@ -23,12 +23,13 @@ import time
 from decimal import Decimal
 from functools import wraps
 
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request, send_file
 from sqlalchemy import select
 
 from app.actor import set_actor
 from app.extensions import client_ip, csrf, db, limiter
-from app.gatbox import service
+from app.gatbox import romfiles, service
+from app.gatbox.romfiles import FileProblem
 from app.gatbox.service import ApiError
 from app.models import Device
 
@@ -104,6 +105,14 @@ def api_error(error):
     return jsonify(error=str(error)), error.code
 
 
+@bp.errorhandler(FileProblem)
+def file_problem(error):
+    """A refused files call (capability roms). Nothing is half-written: the upload's own
+    state is on disk, and a finish that fails the check drops it."""
+    db.session.rollback()
+    return jsonify(error=str(error)), error.code
+
+
 @bp.route("/health", methods=["GET"])
 def health():
     """Reachability, with no token: GATBOX picks the LAN address or the tunnel with it
@@ -144,6 +153,68 @@ def roster():
 @requires_device
 def machine_orders(slug):
     result = service.orders(slug, request.args.get("status", "open").lower(), g.device)
+    service.seen(g.device, client_ip())
+    db.session.commit()
+    return jsonify(result)
+
+
+# --- ROM images (capability roms): the resumable upload, and reading back -------------------
+
+@bp.route("/files", methods=["POST"])
+@limiter.limit("120 per minute", key_func=device_rate_key)
+@requires_device
+def files_begin():
+    answer = romfiles.begin(json_body())
+    service.seen(g.device, client_ip())
+    db.session.commit()
+    return jsonify(answer)
+
+
+@bp.route("/files/<sha256>/parts/<int:n>", methods=["PUT"])
+@limiter.limit("240 per minute", key_func=device_rate_key)
+@requires_device
+def files_part(sha256, n):
+    if request.mimetype != "application/octet-stream":
+        raise ApiError("send application/octet-stream", 415)
+    if (request.content_length or 0) > romfiles.PART_SIZE:
+        raise ApiError(f"a part is at most {romfiles.PART_SIZE} bytes", 413)
+    data = request.get_data(cache=False)
+    if len(data) > romfiles.PART_SIZE:
+        raise ApiError(f"a part is at most {romfiles.PART_SIZE} bytes", 413)
+    return jsonify(romfiles.put_part(sha256, n, data))
+
+
+@bp.route("/files/<sha256>/finish", methods=["POST"])
+@limiter.limit("120 per minute", key_func=device_rate_key)
+@requires_device
+def files_finish(sha256):
+    answer = romfiles.finish(sha256, g.device)
+    db.session.commit()
+    return jsonify(answer)
+
+
+@bp.route("/files/<sha256>", methods=["GET"])
+@limiter.limit("120 per minute", key_func=device_rate_key)
+@requires_device
+def files_read(sha256):
+    """A device reads back only an image a dump or a burn here names (Range supported)."""
+    romfiles.check_hash(sha256)
+    if romfiles.named_by_a_record(sha256) is None:
+        raise ApiError("no such file", 404)
+    try:
+        response = send_file(romfiles.path_for(sha256), mimetype="application/octet-stream",
+                             conditional=True, etag=sha256, max_age=0)
+    except FileNotFoundError:
+        raise ApiError("no such file", 404) from None
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
+@bp.route("/machines/<slug>/dumps", methods=["GET"])
+@limiter.limit("60 per minute", key_func=device_rate_key)
+@requires_device
+def machine_dumps(slug):
+    result = service.machine_dumps(slug, g.device)
     service.seen(g.device, client_ip())
     db.session.commit()
     return jsonify(result)

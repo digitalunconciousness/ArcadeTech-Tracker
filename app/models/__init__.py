@@ -50,11 +50,15 @@ from app.models.estimate import (
     EstimatePartLink,
 )
 from app.models.gatbox import (
+    BURN_STATES,
     LINK_SOURCES,
     TRACE_PHASES,
     Device,
     RailSession,
     Reading,
+    RomBurn,
+    RomDump,
+    RomFile,
     WoJobSession,
 )
 from app.models.parts import MOVE_REASONS, Part, PartLink, StockLot, StockMove, Vendor
@@ -104,7 +108,8 @@ from app.models.work import (
 
 __all__ = [
     "DESK_THEMES", "SavedView",
-    "LINK_SOURCES", "TRACE_PHASES", "Device", "RailSession", "Reading", "WoJobSession",
+    "BURN_STATES", "LINK_SOURCES", "TRACE_PHASES", "Device", "RailSession", "Reading", "RomBurn",
+    "RomDump", "RomFile", "WoJobSession",
     "ASSET_KINDS", "ASSET_STATUSES", "COMM_KINDS", "DOC_KINDS", "MOVE_REASONS", "PAYMENT_TERMS",
     "ROLES", "SERVICE_KINDS", "SERVICE_UNITS",
     "Asset", "AssetEvent", "AuditLog", "CommLog", "Contact", "Customer", "DocCounter",

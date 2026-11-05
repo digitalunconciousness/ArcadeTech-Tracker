@@ -230,7 +230,7 @@ def test_without_jobs_orders_and_tags_are_rejected_and_traces_still_land(client,
     assert db_query(app, "SELECT count(*) FROM wo_job_session") == [(0,)]
     # roster and health don't need it
     assert client.get("/api/v1/roster", headers=auth(bench)).status_code == 200
-    assert client.get("/api/v1/health").get_json()["capabilities"] == ["jobs"]
+    assert client.get("/api/v1/health").get_json()["capabilities"] == ["jobs", "roms"]
     # switched on: the same order goes through
     set_access(bench, app, jobs=True)
     results = post(client, bench, request_for(bench["tag"])).get_json()["results"]

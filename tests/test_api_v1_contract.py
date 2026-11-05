@@ -146,7 +146,7 @@ def test_health_needs_no_token_and_says_what_it_speaks(client):
     body = resp.get_json()
     assert body["ok"] is True and body["contract"] == "v1"
     assert isinstance(body["time"], (int, float))
-    assert body["app"] == "shop-hub" and body["capabilities"] == ["jobs"]
+    assert body["app"] == "shop-hub" and body["capabilities"] == ["jobs", "roms"]
     assert "Set-Cookie" not in resp.headers
 
 

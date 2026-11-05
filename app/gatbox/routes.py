@@ -3,14 +3,23 @@ off, and its phase there. Everyone signed in can look; owners and techs can chan
 
 import json
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 from flask_login import current_user
 from sqlalchemy import func, select
 
 from app.auth.decorators import ALL_ROLES, EDIT_ROLES, requires_role
 from app.auth.forms import EmptyForm
 from app.extensions import db
-from app.gatbox import charts, service
+from app.gatbox import charts, romfiles, service
 from app.gatbox.service import TraceError
 from app.models import (
     LINK_SOURCES,
@@ -19,6 +28,9 @@ from app.models import (
     Device,
     RailSession,
     Reading,
+    RomBurn,
+    RomDump,
+    RomFile,
     WoJob,
     WoJobSession,
     WorkOrder,
@@ -121,3 +133,36 @@ def link_action(link_id, action):
         db.session.rollback()
         flash(str(e), "error")
     return back(session_id, job_id)
+
+
+# --- ROM images from GATBOX: the bytes behind the login, never a public address ----------------
+
+def _image(record, name):
+    """An image as a download. Everyone signed in may take one; the file store is outside
+    anything the web server serves, and a device's token can't reach this route."""
+    file = db.session.get(RomFile, record.rom_file_id) or abort(404)
+    try:
+        response = send_file(romfiles.path_for(file.sha256), mimetype="application/octet-stream",
+                             as_attachment=True, download_name=name, conditional=True,
+                             etag=file.sha256, max_age=0)
+    except FileNotFoundError:
+        abort(404)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@bp.route("/roms/dumps/<int:dump_id>/image")
+@requires_role(*ALL_ROLES)
+def dump_image(dump_id):
+    dump = db.session.get(RomDump, dump_id) or abort(404)
+    asset = db.session.get(Asset, dump.asset_id)
+    return _image(dump, f"{asset.tag}_{dump.label}_{dump.sha1[:8]}.bin")
+
+
+@bp.route("/roms/burns/<int:burn_id>/image")
+@requires_role(*ALL_ROLES)
+def burn_image(burn_id):
+    burn = db.session.get(RomBurn, burn_id) or abort(404)
+    asset = db.session.get(Asset, burn.asset_id)
+    return _image(burn, f"{asset.tag}_burned_{burn.image_sha1[:8]}.bin")
