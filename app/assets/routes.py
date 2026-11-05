@@ -95,6 +95,8 @@ def show(asset_id):
                            status_form=status_form, note_form=NoteForm(), work=work,
                            traces=traces, jobs=jobs, roms=gatbox.roms_for_asset(asset.id),
                            lib=lib, lib_state=library.state() if library.configured() else None,
+                           lib_unknown=lib is None and library.key_unknown(asset),
+                           lib_find_url=library.web_url(), lib_add_url=library.add_url(),
                            library_on=library.configured(), library_ago=library.ago)
 
 

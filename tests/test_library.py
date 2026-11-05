@@ -725,6 +725,60 @@ def test_an_asset_whose_game_isnt_read_yet_says_which_game_and_why_nothing_shows
     assert "could not be reached" in text(client.get(f"/assets/{shop['asset']}"))
 
 
+def sprocket_game():
+    """A game the stub archive does not hold at first: the contract's own example, renamed."""
+    rec = copy.deepcopy(example("changes-response-all.json")["records"][0])
+    rec["id"], rec["rev"] = "sprocket-blaster", 1
+    rec["data"]["title"] = "Sprocket Blaster"
+    return rec
+
+
+def test_a_key_the_archive_does_not_hold_says_so_until_the_game_is_added(shop, signed_in):
+    set_key(shop, shop["asset"], "sprocket-blaster")
+    tech = signed_in("tech")
+    # Not read yet: only the pull's own words, since nothing says the archive lacks it.
+    page = text(tech.get(f"/assets/{shop['asset']}"))
+    assert "The library sends that game on the next pull" in page and "has no game with that key" not in page
+    pull(shop)
+    page = text(tech.get(f"/assets/{shop['asset']}"))
+    assert "the archive has no game with that key" in page
+    assert "The library sends that game on the next pull" not in page
+    assert 'href="https://archive.example.test"' in page and 'href="https://archive.example.test/add"' in page
+    # Someone adds the game at the archive: the next pull brings it, and the message goes.
+    shop["archive"].put(sprocket_game())
+    pull(shop)
+    page = text(tech.get(f"/assets/{shop['asset']}"))
+    assert "Sprocket Blaster" in page and "has no game with that key" not in page
+
+
+def test_the_missing_key_links_are_for_owners_and_techs_and_need_the_archives_address(
+    shop, signed_in, monkeypatch
+):
+    set_key(shop, shop["asset"], "sprocket-blaster")
+    pull(shop)
+    viewer = text(signed_in("viewer").get(f"/assets/{shop['asset']}"))
+    assert "has no game with that key" in viewer and "Add it at the archive" not in viewer
+    monkeypatch.setitem(shop["app"].config, "LIBRARY_WEB_URL", "")
+    tech = text(signed_in("tech").get(f"/assets/{shop['asset']}"))
+    assert "has no game with that key" in tech and "Add it at the archive" not in tech
+
+
+def test_a_refused_token_or_an_unreachable_archive_is_said_before_a_missing_key(shop, signed_in):
+    set_key(shop, shop["asset"], "sprocket-blaster")
+    pull(shop)
+    client = signed_in("tech")
+    assert "has no game with that key" in text(client.get(f"/assets/{shop['asset']}"))
+    shop["archive"].token = "gbx_a1b2c3d4e5f6.someone-elses"
+    pull(shop)
+    page = text(client.get(f"/assets/{shop['asset']}"))
+    assert "refused the reader token" in page and "has no game with that key" not in page
+    shop["stub"].stop()
+    shop["archive"].token = None
+    pull(shop)
+    page = text(client.get(f"/assets/{shop['asset']}"))
+    assert "could not be reached" in page and "has no game with that key" not in page
+
+
 def test_an_asset_with_no_game_shows_no_section(shop, signed_in):
     pull(shop)
     assert "Manual and limits" not in text(signed_in("tech").get(f"/assets/{shop['other']}"))

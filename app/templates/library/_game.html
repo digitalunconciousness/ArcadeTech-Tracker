@@ -67,6 +67,12 @@
   <p>This asset names <span class="mono">{{ asset.model_key }}</span>, but the archive refused the reader token, so nothing has been read. The owner issues a new token at the archive.</p>
   {% elif lib_state and lib_state.error %}
   <p>This asset names <span class="mono">{{ asset.model_key }}</span>. The archive could not be reached (<span class="small">{{ lib_state.error }}</span>). It tries again every ten minutes.</p>
+  {% elif lib_unknown %}
+  <p>This asset names <span class="mono">{{ asset.model_key }}</span>, and the archive has no game with that key. Check the key for a typo, or add the game at the archive and use the key it shows there. A game added there is picked up by the next pull, which runs every ten minutes.</p>
+  {% if can_edit and lib_find_url %}
+  <p><a class="btn small" href="{{ lib_find_url }}" rel="noopener">Find it at the archive</a>
+    <a class="btn small" href="{{ lib_add_url }}" rel="noopener">Add it at the archive</a></p>
+  {% endif %}
   {% else %}
   <p class="dim">This asset names <span class="mono">{{ asset.model_key }}</span>. The library sends that game on the next pull, which runs every ten minutes.</p>
   {% endif %}

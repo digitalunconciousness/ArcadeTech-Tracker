@@ -67,6 +67,31 @@ def edit_url(key):
     return f"{base}/games/{key}" if base and valid_key(key) else None
 
 
+def web_url():
+    """The archive's games list in a browser, or None when no browser address is set."""
+    return current_app.config.get("LIBRARY_WEB_URL") or None
+
+
+def add_url():
+    """The archive's page for adding a game, or None when no browser address is set."""
+    base = web_url()
+    return f"{base}/add" if base else None
+
+
+def key_unknown(asset):
+    """True when the archive was asked for this asset's game from the start and holds no game with that
+    key: a typo, or a game nobody has added there yet. False before the key's first read, and while the
+    pull is refused or failing (the page has its own words for those). The pull keeps asking for the
+    key, so this clears by itself once the game exists."""
+    key = asset.model_key
+    if not configured() or not valid_key(key):
+        return False
+    st = state()
+    if st is None or st.refused or st.error or key not in (st.keys_synced or []):
+        return False
+    return game(key) is None
+
+
 def _held(key):
     out = {}
     for r in db.session.scalars(
