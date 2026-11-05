@@ -435,6 +435,12 @@ timer's runs say so and exit 0, and the asset page has no game section.
    LIBRARY_ARCHIVE_WEB_URL=<where people open the archive in a browser; optional, for the edit link>
    ```
 
+   Each setting is one `KEY=value` line: no space around the `=`, and no line break inside the token.
+   `deploy/deploy.sh` reads the file line by line, and a line that isn't an assignment (a token pasted on a
+   line of its own) makes the preflight say `can't reach the database with DATABASE_URL`, with
+   `export: ... not a valid identifier` just above it, and stop with `nothing changed`. The database is fine;
+   the env file is not.
+
    Through the tunnel, also `LIBRARY_ACCESS_CLIENT_ID` and `LIBRARY_ACCESS_CLIENT_SECRET` (a
    Cloudflare Access service token whose policy lets this path through). One of the pair
    alone, a URL that isn't just an address, or a token that isn't `gbx_<id>.<secret>` stops the
