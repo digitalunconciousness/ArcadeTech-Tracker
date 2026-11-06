@@ -27,4 +27,9 @@ and the page says when.
   the page yet. Don't judge a board by it.
 - Owners and techs get **Edit it in the library**, which opens the game at the archive. Changes
   are made there, never here.
+- **The archive has no game with that key** means the key was read from the archive and nothing there
+  has it: a typo, or a game nobody has added there yet (the deck sends the barcade's roster, so a
+  machine that isn't on it needs its game added at the archive first). Owners and techs get
+  **Find it at the archive** and **Add it at the archive**. Add the game there and use the key it
+  shows, or fix the key here. The next pull, within ten minutes, picks it up and the message goes.
 - Without the archive set up, the section isn't there.

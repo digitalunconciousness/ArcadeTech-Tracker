@@ -510,6 +510,10 @@ name, read from GATBOX's archive with a reader token. Stacked on `phase/12-roms`
       broken on purpose each fail a test), `test_library_contract.py` 2; whole suite 606 passed, 6 skipped, 1 failed
       (`test_the_contract_is_the_same_as_in_sibling_checkouts`: the Gatbox checkout is on another branch)
 - [x] RUNBOOK §12, the wiki's GATBOX page
+- [x] The asset page says when the archive has no game with the asset's key (the key was read in full and nothing holds
+      it), with Find / Add links for owners and techs when `LIBRARY_ARCHIVE_WEB_URL` is set. It gives way to the refused
+      token and unreachable messages, and clears by itself when the game appears. Found on the first real setup: it used
+      to read "sends that game on the next pull" for ever. `tests/test_library.py` 58
 - [ ] ⏸ Owner: merge, deploy (the migration adds two tables), then RUNBOOK §12: mint a reader token at the archive, set the
       three variables, read and install the two units. Nothing is read until the settings are in
 
