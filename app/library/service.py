@@ -14,7 +14,7 @@ from sqlalchemy import delete, select
 
 from app.extensions import db
 from app.library import files
-from app.models import LibraryRecord, LibraryState
+from app.models import Asset, LibraryRecord, LibraryState
 
 KEY = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 KEY_MAX = 60
@@ -222,6 +222,69 @@ def forget_unnamed(shas):
         }
         for sha in shas - still:
             files.forget(sha)
+
+
+def key_report():
+    """Every game key an asset names, sorted by what the archive says about it, for a person at the console.
+
+    held: the archive sent the game. missing: read from the start and the archive has no game with that
+    key (a typo, or a game nobody has added there). unread: not read yet; the next pull asks. invalid: not
+    a game key at all, so never asked for. Each is {key: [the assets that name it, as "name (tag)"]}.
+    """
+    st = state()
+    read = set(st.keys_synced or []) if st else set()
+    named = {}
+    keyed = select(Asset).where(Asset.model_key.isnot(None)).order_by(Asset.name, Asset.tag)
+    for a in db.session.scalars(keyed):
+        named.setdefault(a.model_key, []).append(f"{a.name} ({a.tag})")
+    out = {"held": {}, "missing": {}, "unread": {}, "invalid": {}}
+    for key, names in sorted(named.items()):
+        if not valid_key(key):
+            out["invalid"][key] = names
+        elif game(key) is not None:
+            out["held"][key] = names
+        elif key in read:
+            out["missing"][key] = names
+        else:
+            out["unread"][key] = names
+    return out
+
+
+def key_report_lines(report, limit=20):
+    """key_report() as the lines `pull_library.py --status` prints under its first line."""
+    total = sum(len(v) for v in report.values())
+    if not total:
+        return ["no asset names a game yet (set its game key on the asset's page)"]
+
+    def group(title, rows):
+        if not rows:
+            return []
+        lines = [f"  {title}"]
+        for key, names in list(rows.items())[:limit]:
+            more = f" and {len(names) - 4} more" if len(names) > 4 else ""
+            lines.append(f"    {key}  <-  {', '.join(names[:4])}{more}")
+        if len(rows) > limit:
+            lines.append(f"    ... and {len(rows) - limit} more")
+        return lines
+
+    head = (
+        f"keys: {total} named by assets: {len(report['held'])} held, "
+        f"{len(report['missing'])} not at the archive, {len(report['unread'])} not read yet"
+        + (f", {len(report['invalid'])} not game keys" if report["invalid"] else "")
+    )
+    return (
+        [head]
+        + group(
+            "NOT AT THE ARCHIVE (read in full, and it has no game with that key: fix the key here, "
+            "or add the game there)",
+            report["missing"],
+        )
+        + group("not read yet (the next pull asks for these)", report["unread"])
+        + group(
+            "not game keys (lowercase words joined by hyphens; these are never asked for)",
+            report["invalid"],
+        )
+    )
 
 
 def clear(key):

@@ -568,6 +568,60 @@ def test_the_command_clears_a_game_only_when_no_asset_names_it(shop):
     assert mod.main(shop["app"], ["--clear", "widget-wars"], out=lines.append) == 2
 
 
+def add_asset(shop, tag, name, key):
+    from app.extensions import db
+    from app.models import Asset, Customer
+
+    with shop["app"].app_context():
+        owner = db.session.scalar(select(Customer.id).where(Customer.is_shop))
+        db.session.add(
+            Asset(tag=tag, customer_id=owner, kind="machine", name=name, status="in_service", model_key=key)
+        )
+        db.session.commit()
+
+
+def test_status_names_the_keys_that_are_held_missing_unread_or_not_game_keys(shop):
+    mod, lines = load_script(), []
+    set_key(shop, shop["other"], "sprocket-blaster")  # the archive has no game with this key
+    add_asset(shop, "s-1003-odd-board", "Odd Board", "unassigned")  # a key no pull ever asks for
+    pull(shop)
+    add_asset(shop, "s-1004-late-board", "Late Board", "later-game")  # named after the pull
+    assert mod.main(shop["app"], ["--status"], out=lines.append) == 0
+    assert "7 records held" in lines[0]  # the first line is what it always was
+    text = "\n".join(lines[1:])
+    assert "keys: 4 named by assets: 1 held, 1 not at the archive, 1 not read yet, 1 not game keys" in text
+    assert "NOT AT THE ARCHIVE" in text and "sprocket-blaster  <-  Sprocket (s-1002-sprocket)" in text
+    assert "not read yet (the next pull asks for these)" in text
+    assert "later-game  <-  Late Board (s-1004-late-board)" in text
+    assert "not game keys" in text and "unassigned  <-  Odd Board (s-1003-odd-board)" in text
+    assert "widget-wars" not in text  # a held key is counted, not listed
+
+
+def test_status_stops_naming_a_key_once_the_game_is_added_at_the_archive(shop):
+    mod, lines = load_script(), []
+    set_key(shop, shop["other"], "sprocket-blaster")
+    pull(shop)
+    assert mod.main(shop["app"], ["--status"], out=lines.append) == 0
+    assert "sprocket-blaster  <-  Sprocket (s-1002-sprocket)" in "\n".join(lines)
+    game = copy.deepcopy(example("changes-response-all.json")["records"][0])
+    assert game["kind"] == "game"
+    game["id"], game["data"]["title"] = "sprocket-blaster", "Sprocket Blaster"
+    shop["archive"].put(game)
+    pull(shop)
+    lines.clear()
+    assert mod.main(shop["app"], ["--status"], out=lines.append) == 0
+    text = "\n".join(lines)
+    assert "keys: 2 named by assets: 2 held, 0 not at the archive, 0 not read yet" in text
+    assert "NOT AT THE ARCHIVE" not in text and "sprocket-blaster" not in text
+
+
+def test_status_with_no_asset_naming_a_game_says_so(shop):
+    mod, lines = load_script(), []
+    set_key(shop, shop["asset"], None)
+    assert mod.main(shop["app"], ["--status"], out=lines.append) == 0
+    assert "no asset names a game yet" in lines[-1]
+
+
 # --- the settings -----------------------------------------------------------------------------------------
 
 
