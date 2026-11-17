@@ -37,4 +37,9 @@ LockPersonality=yes
 SystemCallArchitectures=native
 CapabilityBoundingSet=
 AmbientCapabilities=
+# 2026-11-17's security pass: the network families it uses (Postgres over TCP or its socket, the app and the archive over
+# TCP) and the ordinary service system calls. MemoryDenyWriteExecute stays off: WeasyPrint reaches pango through cffi.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
 UMask=0027

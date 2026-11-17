@@ -16,4 +16,15 @@ ReadWritePaths=/var/lib/shop-hub/backups
 ProtectProc=invisible
 ProtectHome=yes
 PrivateTmp=yes
+# 2026-11-17's security pass: the kernel out of reach and no capabilities. Devices, address families and system calls are
+# left open because the job runs the owner's own offsite hook (SHOP_BACKUP_HOOK), and what that needs isn't known here.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
 UMask=0077
