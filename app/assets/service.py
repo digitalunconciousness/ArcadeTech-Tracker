@@ -42,7 +42,23 @@ def log(asset_id, kind, from_value=None, to_value=None, note=None):
                               to_value=to_value, note=note))
 
 
+def key_from_name(name):
+    """A game key from a machine's model or name, by GATBOX's library rule (lower-case words joined by hyphens, apostrophes
+    dropped, "&" read as "and", accents folded to ASCII), a cabinet number on the end ("#2") left off. None when nothing usable
+    is left. GATBOX makes the game from the key if its library hasn't got it, and asks the owner first when it reads like a game
+    it has (the owner, 2026-11-17: new games should reach the archive without her going to it)."""
+    base = re.sub(r"\s*#\s*\d+\s*$", "", name or "")
+    s = unicodedata.normalize("NFKD", base).encode("ascii", "ignore").decode().lower()
+    s = re.sub(r"['’`]", "", s.replace("&", " and "))
+    key = "-".join(re.findall(r"[a-z0-9]+", s))[:60].rstrip("-")
+    return key if key and key != "unassigned" else None
+
+
 def create(customer, **fields):
+    # A machine with no library key gets one from its model (or its name), so its game reaches GATBOX's library and the archive.
+    # Boards, monitors and the rest don't: their manuals are the machine's. Editable on the asset's page like any field.
+    if fields.get("kind") == "machine" and not fields.get("model_key"):
+        fields["model_key"] = key_from_name(fields.get("model") or fields.get("name"))
     asset = Asset(tag=new_tag(fields["name"]), customer_id=customer.id, **fields)
     if asset.status == "in_shop":
         asset.in_shop_since = utcnow()

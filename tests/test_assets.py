@@ -185,3 +185,27 @@ def test_viewer_cannot_change_assets(app, signed_in):
     for path in (f"/assets/{aid}/status", f"/assets/{aid}/note",
                  f"/assets/{aid}/transfer", f"/assets/{aid}/edit"):
         assert viewer.post(path, data={}).status_code == 403, path
+
+
+@pytest.mark.parametrize(("name", "key"), [
+    ("Ms. Pac-Man", "ms-pac-man"),
+    ("Widget Wars #2", "widget-wars"),
+    ("Gizmo & Sprocket's Revenge", "gizmo-and-sprockets-revenge"),
+    ("Café Racer II", "cafe-racer-ii"),
+    ("#3", None),
+])
+def test_key_from_name(name, key):
+    from app.assets.service import key_from_name
+    assert key_from_name(name) == key
+
+
+def test_a_new_machine_gets_a_library_key_from_its_model_or_name(app, signed_in):
+    """The owner, 2026-11-17: a new game should reach GATBOX's library and the archive without her going to it. Invented names."""
+    client = signed_in("tech")
+    cid = customer(client)
+    a = asset(client, cid, name="Back bar cabinet", model="Gizmo Blaster")
+    b = asset(client, cid, name="Widget Wars #2")
+    c = asset(client, cid, name="Widget Wars #3", model_key="widget-wars-deluxe")
+    d = asset(client, cid, name="CPU board", kind="board")
+    keys = dict(db_query(app, "SELECT id, model_key FROM asset WHERE id IN (:a, :b, :c, :d)", a=a, b=b, c=c, d=d))
+    assert keys == {a: "gizmo-blaster", b: "widget-wars", c: "widget-wars-deluxe", d: None}
