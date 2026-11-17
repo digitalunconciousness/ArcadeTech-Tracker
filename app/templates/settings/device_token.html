@@ -10,6 +10,6 @@
     <button class="btn primary" type="button" data-copy="{{ token }}">Copy</button>
     <a class="btn" href="{{ url_for('settings.devices') }}">Done</a>
   </div>
-  <p class="dim small">On the Pi it goes in the hub's config as <span class="mono">HUB_TOKEN=</span>, with <span class="mono">HUB_URLS=</span> this site's address. Until GATBOX can talk to more than one hub (its Phase 8), pointing it here stops it syncing to its other hub.</p>
+  <p class="dim small">On the Pi it goes in this hub's own file, <span class="mono">/etc/gatbox/hubs.d/&lt;name&gt;.conf</span>, as <span class="mono">HUB_TOKEN=</span>, with <span class="mono">HUB_URLS=</span> this site's address and an optional <span class="mono">HUB_LABEL=</span> for the 7&Prime;. Each hub has its own file, so adding this one leaves the others syncing.</p>
 </section>
 {% endblock %}

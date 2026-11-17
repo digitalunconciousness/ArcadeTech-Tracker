@@ -17,6 +17,9 @@ def test_owners_mint_devices_and_see_the_token_once(app, signed_in, client):
     resp = owner.post("/settings/devices", data={"name": "bench-pi", "notes": "the bench box"})
     page = text(resp)
     assert resp.status_code == 200 and "only time the token is shown" in page
+    # GATBOX syncs to several hubs since its phase 8 (2026-10-26): the page says where this one's token goes, and no longer
+    # warns that pointing the Pi here stops it syncing to another hub.
+    assert "/etc/gatbox/hubs.d/" in page and "Phase 8" not in page and "stops it syncing" not in page
     token = re.search(r"gbx_[0-9a-f]{12}\.[A-Za-z0-9_-]{43}", page).group(0)
     name, public_id, stored, enabled = db_query(
         app, "SELECT name, public_id, token_hash, enabled FROM device")[0]
