@@ -29,7 +29,7 @@
   /* The synthwave token names stay (magenta = primary, cyan = links and headings). */
   html[data-desk="ledger"], html[data-desk="system"] {
     --bg: #f6f7f9; --bg2: #f6f7f9; --panel: #ffffff; --field: #ffffff; --border: #dfe3e8;
-    --magenta: #0f6e6e; --cyan: #0b5f8a; --lime: #1a7f37; --red: #b42318; --amber: #9a6700;
+    --magenta: #0f6e6e; --cyan: #0b5f8a; --lime: #17752f; --red: #b42318; --amber: #875b00;
     --text: #1f2328; --dim: #5f6b7a; --hover: #eef1f4; --on-primary: #ffffff;
   }
   html[data-desk="graphite"] {
