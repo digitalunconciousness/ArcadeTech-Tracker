@@ -363,7 +363,7 @@ After a PR is merged to `main`:
 
 ```
 /opt/shop-hub/deploy/deploy.sh --check     # read-only; fix anything marked FAIL
-/opt/shop-hub/deploy/deploy.sh
+/opt/shop-hub/deploy/deploy.sh             # main's tip; or a release, below
 ```
 
 It dumps the database to `/var/backups/shop-hub-predeploy/` (root's, 700) as
@@ -373,6 +373,41 @@ commands (reset to the previous commit, reinstall, and `flask db downgrade` or
 `pg_restore` of the pre-deploy dump). Database passwords never go on a command line: the
 scripts pass them to libpq in `PGPASSWORD` (`scripts/libpq.sh`). Dumps from before
 2026-10-27 are in `/var/lib/shop-hub/backups/predeploy/`.
+
+### Releases
+
+A release is a tag on `main` that CI passed: when a `v*` tag is pushed,
+`.github/workflows/release.yml` runs the whole of `ci.yml` on that commit and, only if it passes,
+makes the GitHub release, its notes the PRs merged since the last one. Versions are dates. From
+your own clone, on the commit you're about to deploy (normally `main`'s tip):
+
+```
+git tag -a v2026.11.21 -m "deployed 2026-11-21"
+git push origin v2026.11.21
+```
+
+Then on the LXC, deploy that release rather than the tip:
+
+```
+/opt/shop-hub/deploy/deploy.sh --check v2026.11.21
+/opt/shop-hub/deploy/deploy.sh v2026.11.21
+```
+
+The same command goes back to an earlier release: `main` itself moves there, so a later plain
+`deploy.sh` still fast-forwards. The preflight refuses a release that isn't on `main`'s history,
+and refuses going back past a migration the database may already have (the older code can't
+upgrade from a revision it doesn't know). For that, step the database down first, while the newer
+code is still in place, to the newest migration the release has (`git show
+v2026.11.21:migrations/versions/` lists them), then deploy it:
+
+```
+(cd /opt/shop-hub && set -a && . /etc/shop-hub/shop-hub.env && . /etc/shop-hub/migrate.env && set +a \
+  && /opt/shop-hub-venv/bin/flask --app wsgi db downgrade <revision>)
+/opt/shop-hub/deploy/deploy.sh v2026.11.21
+```
+
+A downgrade drops what the newer migrations added (the docstring of each says what), so take it
+only when the release really must go back; the pre-deploy dump is the other way.
 
 When a release changes a unit in `deploy/systemd/` (its PR says so), copy them in again:
 
