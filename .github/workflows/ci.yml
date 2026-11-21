@@ -1,13 +1,17 @@
 name: ci
 
-# Manual-only (owner, 2026-10-08): GitHub Actions refuses to start jobs on this account
-# (no runner assigned, no logs), so automatic runs only left a red X on every PR. Merging
-# doesn't wait on CI; the local pytest + privacy check before each push is the gate.
-# To turn it back on, restore:
-#   push:
-#     branches: [main]
-#   pull_request:
+# On every push to main and every PR (Actions starts jobs on this account again,
+# 2026-11-21; it was manual-only from 2026-10-08), weekly, and by hand. The local pytest
+# run and the privacy check are still shown before every push: this run's privacy check
+# has only the generic checks, not the owner's patterns.
 on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly, so a change on GitHub's side (a new runner image, a new postgres:17) shows up
+  # here rather than in the middle of somebody's PR.
+  schedule:
+    - cron: '7 11 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -30,11 +34,31 @@ jobs:
       PGPASSWORD: postgres
       SHOP_TEST_ADMIN_URL: postgresql+psycopg://postgres@127.0.0.1:5432/postgres
       SHOP_PG_BIN: ${{ github.workspace }}/.ci-pgbin
+    # The repository is checked out as shop-hub/, with Gatbox/ and cabcrawl/ beside it, so
+    # the sibling tests (test_api_v1_contract, test_library_contract, test_agent_rules,
+    # test_antislop, test_privacy_check) compare every vendored copy with the other two
+    # repositories' default branches. GATBOX owns them: when this copy differs, Gatbox's is
+    # the one to copy.
+    defaults:
+      run:
+        working-directory: shop-hub
     steps:
-      # TODO(owner): pin both actions to the release commit SHA (git ls-remote --tags).
+      # TODO(owner): pin the actions to their release commit SHAs (git ls-remote --tags);
+      # Dependabot keeps them current either way.
       - uses: actions/checkout@v7
         with:
+          path: shop-hub
           fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: digitalunconciousness/Gatbox
+          path: Gatbox
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: digitalunconciousness/cabcrawl
+          path: cabcrawl
           persist-credentials: false
 
       - uses: actions/setup-python@v7
@@ -58,6 +82,9 @@ jobs:
 
       - name: Install (hash-checked)
         run: pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+
+      - name: The siblings under comparison
+        run: for r in Gatbox cabcrawl; do echo "$r at $(git -C ../$r log -1 --format='%h %s')"; done
 
       - name: ruff
         run: ruff check .

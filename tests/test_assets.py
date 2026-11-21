@@ -200,12 +200,14 @@ def test_key_from_name(name, key):
 
 
 def test_a_new_machine_gets_a_library_key_from_its_model_or_name(app, signed_in):
-    """The owner, 2026-11-17: a new game should reach GATBOX's library and the archive without her going to it. Invented names."""
+    """The owner, 2026-11-17: a new game should reach GATBOX's library and the archive without her
+    going to it. Invented names."""
     client = signed_in("tech")
     cid = customer(client)
     a = asset(client, cid, name="Back bar cabinet", model="Gizmo Blaster")
     b = asset(client, cid, name="Widget Wars #2")
     c = asset(client, cid, name="Widget Wars #3", model_key="widget-wars-deluxe")
     d = asset(client, cid, name="CPU board", kind="board")
-    keys = dict(db_query(app, "SELECT id, model_key FROM asset WHERE id IN (:a, :b, :c, :d)", a=a, b=b, c=c, d=d))
+    keys = dict(db_query(app, "SELECT id, model_key FROM asset WHERE id IN (:a, :b, :c, :d)",
+                         a=a, b=b, c=c, d=d))
     assert keys == {a: "gizmo-blaster", b: "widget-wars", c: "widget-wars-deluxe", d: None}

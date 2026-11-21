@@ -1,0 +1,15 @@
+# Dependabot opens a PR when an action these workflows use has a new release (checkout,
+# setup-python, codeql-action). Python packages stay with the owner: they are pinned with
+# hashes through uv (hard rule 9), which Dependabot does not regenerate.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "CI"
