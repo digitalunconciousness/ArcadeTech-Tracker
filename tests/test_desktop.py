@@ -30,8 +30,8 @@ def desk(html):
 
 def test_desktop_theme_is_per_user(app, signed_in, client):
     owner = signed_in("owner")
-    assert 'data-desk="ledger"' in text(owner.get("/"))
-    assert 'data-desk="ledger"' in text(client.get("/login"))       # before signing in
+    assert 'data-desk="synthwave"' in text(owner.get("/"))          # the default (owner, 2026-11-21)
+    assert 'data-desk="synthwave"' in text(client.get("/login"))    # before signing in
     resp = owner.post("/account/theme", data={"desk_theme": "graphite"}, follow_redirects=True)
     assert "Desktop look saved." in text(resp)
     assert 'data-desk="graphite"' in text(owner.get("/"))
@@ -39,7 +39,7 @@ def test_desktop_theme_is_per_user(app, signed_in, client):
     assert db_query(app, "SELECT desk_theme FROM app_user WHERE id = :i",
                     i=owner.user["id"]) == [("graphite",)]
     tech = signed_in("tech")
-    assert 'data-desk="ledger"' in text(tech.get("/"))              # someone else's is theirs
+    assert 'data-desk="synthwave"' in text(tech.get("/"))           # someone else's is theirs
     page = text(owner.get("/account"))
     assert 'selected value="graphite"' in page or 'value="graphite" selected' in page
 
@@ -215,3 +215,25 @@ def test_phone_markup_is_untouched(app, signed_in):
     page = text(owner.get("/assets"))
     phone = page[page.find('<div class="phone-only">'):page.find('<div class="desk-only">')]
     assert "Galaga" in phone and "power-table" not in phone
+
+
+def _luminance(hexcolour):
+    chans = [int(hexcolour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in chans]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def _contrast(a, b):
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_the_desktop_themes_text_colours_pass_aa_on_every_surface():
+    """Ledger's green and amber were darkened on 2026-11-21 (4.48 and 4.29 on the hover tint)."""
+    css = open("app/static/css/desk.css", encoding="utf-8").read()
+    for selector in ('html[data-desk="ledger"], html[data-desk="system"] {', 'html[data-desk="graphite"] {'):
+        block = css.split(selector, 1)[1].split("}", 1)[0]
+        tok = dict(re.findall(r"(--[\w-]+):\s*(#[0-9a-fA-F]{6})", block))
+        for fg in ("--text", "--dim", "--magenta", "--cyan", "--lime", "--red", "--amber"):
+            for bg in ("--bg", "--panel", "--hover"):
+                assert _contrast(tok[fg], tok[bg]) >= 4.5, (selector, fg, bg)

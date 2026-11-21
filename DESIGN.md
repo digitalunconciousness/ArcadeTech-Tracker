@@ -19,9 +19,10 @@ invoices, payments, parts, purchasing, expenses and mileage.
 
 ## Themes
 
-Four, chosen per user, at every width (decided 2026-10-28, being built): **Ledger** (light,
-professional, the default), **Graphite** (dark, professional), **Follow system** (Ledger or Graphite,
-as the device says) and **Synthwave**. Components use roles, never a raw colour.
+Four, chosen per user on Account → Desktop look, on screens 1024 px and wider (decided 2026-10-28;
+built desktop only, as cabcrawl's): **Synthwave** (the default, since 2026-11-21), **Ledger** (light,
+professional), **Graphite** (dark, professional) and **Follow system** (Ledger or Graphite, as the device
+says). Phones are always Synthwave. cabcrawl has the same four with the same colours. Components use roles, never a raw colour.
 
 - **Synthwave is deliberate.** The deep violet gradient, the neon palette (magenta `#ff2e9f`, cyan
   `#7dfaff`, lime `#5ef2b0`, amber `#ffb74d`, red `#ff4d6d` on bg `#150a28`), scanlines and glow on

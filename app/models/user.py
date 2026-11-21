@@ -29,9 +29,8 @@ ROLE_LABELS = {
     "tech": "Tech: work orders, time, parts; no costs, margins or money, no voids",
     "viewer": "Viewer: read-only, money, costs and exports (the accountant)",
 }
-DESK_THEMES = {"ledger": "Ledger (light)", "graphite": "Graphite (dark)",
-               "system": "Follow the system (Ledger or Graphite)",
-               "synthwave": "Synthwave, like the phone"}
+DESK_THEMES = {"synthwave": "Synthwave, like the phone", "ledger": "Ledger (light)",
+               "graphite": "Graphite (dark)", "system": "Follow the system (Ledger or Graphite)"}
 PASSWORD_MIN = 12
 PASSWORD_MAX = 256
 USERNAME_RE = r"^[a-z0-9][a-z0-9._-]{1,63}$"
@@ -72,7 +71,7 @@ class User(StandardColumns, UserMixin, db.Model):
     )
     # The look on a wide screen (1024 px and up); phones are always synthwave.
     desk_theme: Mapped[str] = mapped_column(String(10), nullable=False,
-                                            server_default=text("'ledger'"))
+                                            server_default=text("'synthwave'"))
 
     def get_id(self):
         return f"{self.id}:{self.session_version}"
