@@ -102,10 +102,11 @@ they're references. Port patterns by copying and adapting; never import from the
    after. **Never SQLite**: locking, triggers and NUMERIC behave differently.
 4. Run as the owner's normal user. Ask before installing anything (pacman, podman, uv
    packages, pip into a new env) and before any sudo.
-5. One branch per phase (`phase/N-name`), PR into `main`. Green CI is **not** a merge
-   requirement (owner, 2026-10-08: GitHub Actions won't start jobs on this account); the
-   gate is the full local `pytest` run and the privacy check, both shown before every push.
-   Never force-push `main`.
+5. One branch per phase (`phase/N-name`), PR into `main`. Actions runs again (2026-11-21):
+   `ci.yml` runs on every push to `main` and every PR, and green CI is a merge requirement
+   once the owner turns on `main`'s branch protection. The full local `pytest` run and the
+   privacy check are still shown before every push: CI's privacy check has no owner
+   patterns. Never force-push `main`.
 6. Commit with `git c` (alias for `TZ=UTC git commit`), as `digitalunconciousness` with the
    GitHub noreply email (set in this repo's local git config, not global).
 7. Before every push, run `scripts/privacy_check.sh` and show the output. The same check runs
@@ -178,8 +179,8 @@ The test session connects with `SHOP_TEST_ADMIN_URL` (default: the dev server's 
 database), creates `shop_test_<random>`, runs the real migrations into it (so triggers are
 tested), and drops it at the end. It refuses to run if `DATABASE_URL` names anything that
 is not a `shop_test_` database. `.github/workflows/ci.yml` does the same against a
-`postgres:17` service container, but it's manual-only (`workflow_dispatch`) until Actions
-runs on this account; restore its `push`/`pull_request` triggers then. The backup/restore test needs pg 17+ client tools (PATH or
+`postgres:17` service container on every push to `main`, every PR and weekly, with
+cabcrawl and Gatbox checked out beside it so the sibling tests compare the vendored copies. The backup/restore test needs pg 17+ client tools (PATH or
 `SHOP_PG_BIN`) and skips, saying why, without them.
 
 ## Cloud sessions (claude.ai/code)

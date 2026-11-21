@@ -1,3 +1,4 @@
+# shellcheck shell=bash disable=SC2034  # sourced, not run: PG_NOPW and PG_PW are read by its callers
 # Sourced by deploy.sh, backup.sh and restore_drill.sh: connect libpq tools without the
 # password on their command line, where anyone on the box can read it (ps, /proc/*/cmdline).
 #
