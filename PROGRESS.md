@@ -547,6 +547,7 @@ name, read from GATBOX's archive with a reader token. Stacked on `phase/12-roms`
 | 2026-10-08 | SQLAlchemy 2.0.54, not 2.1.x | 2.1.0 went GA 2026-09-24 with four patches since; Flask-SQLAlchemy 3.1.1 predates 2.1 |
 | 2026-10-08 | Users table named `app_user` | `user` is reserved; `SELECT * FROM user` returns the current role in psql |
 | 2026-10-08 | `audit_log` exempt from created_at/updated_at/created_by (`at`, `user_id` instead) | Append-only; never updated |
+| 2026-11-21 | Releases: a `v*` tag (a date) that CI passes becomes a GitHub release (`release.yml`); `deploy.sh vTAG` deploys one, forward or back, and refuses going back past a migration (`deploy/release.sh`). No nightlies: nothing consumes a build | Owner ("do it with both follow-ups") |
 | 2026-11-21 | `ci.yml` runs on push, PR and weekly again; CodeQL and Dependabot (actions only) added | Owner ("do 1 through 7"). Actions starts jobs on this account again; the 2026-10-08 row below no longer holds |
 | 2026-10-08 | Green CI is not a merge requirement; `ci.yml` is manual-only (`workflow_dispatch`) | Owner. Actions won't start jobs on this account (runner never assigned); the local pytest + privacy check before each push is the gate |
 | 2026-10-08 | Tunnel is locally managed (`cloudflared tunnel create`, `/etc/cloudflared/config.yml`), cloudflared in the shop LXC | Owner's setup; loopback peer keeps per-client rate limits. RUNBOOK step 7 matches |

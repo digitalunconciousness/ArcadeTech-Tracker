@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Deploy the latest main on the shop LXC. Run as root.
 #
-#   deploy.sh --check    read-only preflight; changes nothing
+#   deploy.sh --check [vTAG]   read-only preflight; changes nothing
+#   deploy.sh vTAG             the same deploy, of that release (forward or back) instead of
+#                              main's tip: main itself moves to it, so a later plain deploy
+#                              still fast-forwards. deploy/release.sh decides whether it may:
+#                              on main's history, and not before a migration the database
+#                              may already have (RUNBOOK: Releases).
 #   deploy.sh            preflight, then:
 #                          pg_dump (as shop_owner) → git pull --ff-only →
 #                          pip install --require-hashes → flask db upgrade →
@@ -29,11 +34,15 @@ SERVICE=shop-hub
 BRANCH=main
 
 CHECK_ONLY=0
-case "${1:-}" in
-  --check) CHECK_ONLY=1 ;;
-  "") ;;
-  *) echo "usage: deploy.sh [--check]" >&2; exit 2 ;;
-esac
+TAG=""
+TARGET=""
+for arg in "$@"; do
+  case "$arg" in
+    --check) CHECK_ONLY=1 ;;
+    v*) [ -z "$TAG" ] || { echo "deploy.sh: one release at a time" >&2; exit 2; }; TAG=$arg ;;
+    *) echo "usage: deploy.sh [--check] [vTAG]" >&2; exit 2 ;;
+  esac
+done
 
 failures=0
 ok()   { printf '  ok    %s\n' "$*"; }
@@ -111,6 +120,19 @@ preflight() {
     fi
   else
     bad "git fetch origin $BRANCH failed"
+  fi
+  if [ -n "$TAG" ]; then
+    local why
+    why=$(mktemp)   # root's own, 0600: not a name in /tmp anyone could plant first
+    if ! git -C "$APP" fetch -q --tags origin 2>/dev/null; then
+      bad "git fetch --tags failed"
+    elif TARGET=$(cd "$APP" && . deploy/release.sh && release_target "$TAG" "$BRANCH" migrations/versions/ 2>"$why"); then
+      ok "release $TAG: ${TARGET:0:12}"
+    else
+      bad "release $TAG refused:"
+      sed 's/^/          /' "$why"
+    fi
+    rm -f "$why"
   fi
 
   (load_env "$ENV_FILE" && pg_split "$DATABASE_URL" \
@@ -209,8 +231,13 @@ install -d -m 700 -o root -g root "$PREDEPLOY"
   && PGPASSWORD=$PG_PW pg_dump -Fc --no-password "$PG_NOPW" > "$dump")
 ok "dump: $dump ($(du -h "$dump" | cut -f1))"
 
-step="git pull"
-git -C "$APP" pull -q --ff-only origin "$BRANCH"
+if [ -n "$TAG" ]; then
+  step="move to $TAG"
+  git -C "$APP" reset -q --hard "$TARGET"
+else
+  step="git pull"
+  git -C "$APP" pull -q --ff-only origin "$BRANCH"
+fi
 ok "code: ${old_sha:0:12} → $(git -C "$APP" rev-parse --short=12 HEAD)"
 
 step="pip install"
